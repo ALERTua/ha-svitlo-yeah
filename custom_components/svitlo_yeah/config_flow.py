@@ -110,14 +110,15 @@ def build_group_schema(
     )
 
 
-class YasnoOutagesConfigFlow(ConfigFlow, domain=DOMAIN):
+class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
 
     VERSION = 1
 
     def __init__(self) -> None:
         """Initialize config flow."""
-        self.api = YasnoApi()
+        self.api_yasno = YasnoApi()
+        self.api_dtek = DtekAPI()
         self.data: dict[str, Any] = {}
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
@@ -135,12 +136,14 @@ class YasnoOutagesConfigFlow(ConfigFlow, domain=DOMAIN):
             # noinspection PyTypeChecker
             return await self.async_step_provider()
 
-        await self.api.fetch_yasno_regions()
+        await self.api_yasno.fetch_yasno_regions()
 
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="user",
-            data_schema=build_region_schema(api_yasno=self.api, config_entry=None),
+            data_schema=build_region_schema(
+                api_yasno=self.api_yasno, config_entry=None
+            ),
         )
 
     async def async_step_provider(
@@ -155,7 +158,7 @@ class YasnoOutagesConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_group()
 
         region = self.data[CONF_REGION]
-        providers = self.api.get_yasno_providers_for_region(region)
+        providers = self.api_yasno.get_yasno_providers_for_region(region)
 
         # If only one provider available, auto-select it and proceed
         if len(providers) == 1:
@@ -169,7 +172,7 @@ class YasnoOutagesConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="provider",
             data_schema=build_yasno_provider_schema(
-                api_yasno=self.api,
+                api_yasno=self.api_yasno,
                 config_entry=None,
                 data=self.data,
             ),
@@ -190,8 +193,10 @@ class YasnoOutagesConfigFlow(ConfigFlow, domain=DOMAIN):
         yasno_region = self.data[CONF_REGION]
         provider = self.data[CONF_PROVIDER]
 
-        region_data = self.api.get_region_by_name(yasno_region)
-        provider_data = self.api.get_yasno_provider_by_name(yasno_region, provider)
+        region_data = self.api_yasno.get_region_by_name(yasno_region)
+        provider_data = self.api_yasno.get_yasno_provider_by_name(
+            yasno_region, provider
+        )
         groups = []
         if region_data and provider_data:
             temp_api = YasnoApi(
@@ -218,9 +223,12 @@ class YasnoOutagesConfigFlow(ConfigFlow, domain=DOMAIN):
             # noinspection PyTypeChecker
             return self.async_create_entry(title=NAME, data=self.data)
 
-        dtek_api = DtekAPI()
-        await dtek_api.fetch_data()
-        groups = dtek_api.get_dtek_region_groups()
+        await self.api_dtek.fetch_data()
+        groups = self.api_dtek.get_dtek_region_groups()
+
+        if not groups:
+            # noinspection PyTypeChecker
+            return self.async_abort(reason="dtek_scraping_fail")
 
         # noinspection PyTypeChecker
         return self.async_show_form(

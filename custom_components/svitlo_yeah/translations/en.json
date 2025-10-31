@@ -1,6 +1,9 @@
 {
   "title": "Svitlo Yeah!",
   "config": {
+    "abort": {
+      "dtek_scraping_fail": "Error accessing the DTEK website\nIf you are certain the site is operational, the issue is due to the website's anti-data scraping protection (Incapsula Imperva anti-bot system).\n\nCollecting data on DTEK outages is a complex process because of this anti-bot system.\nI can try to bypass the anti-bot system only through third-party specialized services.\nSuch a service costs ~2.5 EUR per 1,000 requests (e.g., https://hypersolutions.co/pricing).\n\nIf the page on my cache server updates every 30 minutes, the maximum cost would be around 2.5 EUR for ~20 days.\nOne obtained cookie might be reusable, so the actual cost could be lower (or significantly lower).\n\nIf someone is interested in this, I could implement it myself—I would only need an API key for the relevant service.\nTelegram: @ALERTua"
+    },
     "step": {
       "user": {
         "title": "Settings",
@@ -81,31 +84,29 @@
       "calendar": {
         "name": "Planned Outages Calendar"
       }
-    },
-    "sensor": {
-      "electricity": {
-        "name": "Electricity",
-        "state": {
-          "normal": "Connected",
-          "planned_outage": "Planned Outage",
-          "emergency": "Emergency Outage"
-        }
-      },
-      "schedule_updated_on": {
-        "name": "Schedule Updated On"
-      },
-      "next_planned_outage": {
-        "name": "Next Planned Outage"
-      },
-      "next_connectivity": {
-        "name": "Next Connectivity"
+    }
+  },
+  "sensor": {
+    "electricity": {
+      "name": "Electricity",
+      "state": {
+        "normal": "Connected",
+        "planned_outage": "Planned Outage",
+        "emergency": "Emergency Outage"
       }
+    },
+    "schedule_updated_on": {
+      "name": "Schedule Updated On"
+    },
+    "next_planned_outage": {
+      "name": "Next Planned Outage"
+    },
+    "next_connectivity": {
+      "name": "Next Connectivity"
     }
   },
   "common": {
     "event_name_planned_outage": "Planned Outage",
     "event_name_emergency_outage": "Emergency Outage"
-  },
-  "issues": {
   }
 }
