@@ -84,25 +84,25 @@
       "calendar": {
         "name": "Графік планових відключень"
       }
-    }
-  },
-  "sensor": {
-    "electricity": {
-      "name": "Електрика",
-      "state": {
-        "normal": "Заживлено",
-        "planned_outage": "Планове відключення",
-        "emergency": "Екстрене відключення"
+    },
+    "sensor": {
+      "electricity": {
+        "name": "Електрика",
+        "state": {
+          "normal": "Заживлено",
+          "planned_outage": "Планове відключення",
+          "emergency": "Екстрене відключення"
+        }
+      },
+      "schedule_updated_on": {
+        "name": "Графік оновлено"
+      },
+      "next_planned_outage": {
+        "name": "Наступне планове відключення"
+      },
+      "next_connectivity": {
+        "name": "Наступне відновлення"
       }
-    },
-    "schedule_updated_on": {
-      "name": "Графік оновлено"
-    },
-    "next_planned_outage": {
-      "name": "Наступне планове відключення"
-    },
-    "next_connectivity": {
-      "name": "Наступне відновлення"
     }
   },
   "common": {
