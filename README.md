@@ -59,6 +59,14 @@ Examples:
 - [Automation](/examples/automation.yaml)
 - [Dashboard](/examples/dashboard.yaml)
 
+Caveats:
+- Scraping DTEK Regions outage website is tricky, as it uses an anti-bot system.
+  I can only able to bypass the anti-bot system by using third-party scraping services.
+  Such services cost ~2.5 EUR per 1000 requests.
+  If the page on my hosted cache-server is updated every 30 minutes, the maximum price for this is 2.5 EUR for 20 days.
+  One obtained cookie might be used more than once, so the real price can be lower than that (or much lower).
+  If someone is interested in this, I could implement all this on my own, I just need an API key of said service.
+  E.g. https://hypersolutions.co/pricing
 
 <!-- Badges -->
 
