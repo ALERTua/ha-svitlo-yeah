@@ -84,25 +84,25 @@
       "calendar": {
         "name": "Planned Outages Calendar"
       }
-    }
-  },
-  "sensor": {
-    "electricity": {
-      "name": "Electricity",
-      "state": {
-        "normal": "Connected",
-        "planned_outage": "Planned Outage",
-        "emergency": "Emergency Outage"
+    },
+    "sensor": {
+      "electricity": {
+        "name": "Electricity",
+        "state": {
+          "normal": "Connected",
+          "planned_outage": "Planned Outage",
+          "emergency": "Emergency Outage"
+        }
+      },
+      "schedule_updated_on": {
+        "name": "Schedule Updated On"
+      },
+      "next_planned_outage": {
+        "name": "Next Planned Outage"
+      },
+      "next_connectivity": {
+        "name": "Next Connectivity"
       }
-    },
-    "schedule_updated_on": {
-      "name": "Schedule Updated On"
-    },
-    "next_planned_outage": {
-      "name": "Next Planned Outage"
-    },
-    "next_connectivity": {
-      "name": "Next Connectivity"
     }
   },
   "common": {
