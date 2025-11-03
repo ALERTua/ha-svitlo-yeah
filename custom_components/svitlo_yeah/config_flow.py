@@ -8,8 +8,13 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    OptionsFlow,
 )
+from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
 )
@@ -21,7 +26,11 @@ from .const import (
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    MAX_UPDATE_INTERVAL,
+    MIN_UPDATE_INTERVAL,
     NAME,
     PROVIDER_TYPE_DTEK,
     PROVIDER_TYPE_YASNO,
@@ -113,13 +122,17 @@ def build_group_schema(
 class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
 
-    VERSION = 1
-
     def __init__(self) -> None:
         """Initialize config flow."""
         self.api_yasno = YasnoApi()
         self.api_dtek = DtekAPI()
         self.data: dict[str, Any] = {}
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> "IntegrationOptionsFlow":
+        """Create the options flow."""
+        return IntegrationOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
@@ -186,6 +199,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             LOGGER.debug("User input: %s", user_input)
             self.data.update(user_input)
+            # Add default update interval if not present
+            if CONF_UPDATE_INTERVAL not in self.data:
+                self.data[CONF_UPDATE_INTERVAL] = DEFAULT_UPDATE_INTERVAL
             # noinspection PyTypeChecker
             return self.async_create_entry(title=NAME, data=self.data)
 
@@ -220,6 +236,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             LOGGER.debug("DTEK group selected: %s", user_input)
             self.data.update(user_input)
+            # Add default update interval if not present
+            if CONF_UPDATE_INTERVAL not in self.data:
+                self.data[CONF_UPDATE_INTERVAL] = DEFAULT_UPDATE_INTERVAL
             # noinspection PyTypeChecker
             return self.async_create_entry(title=NAME, data=self.data)
 
@@ -234,4 +253,43 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="dtek_group",
             data_schema=build_group_schema(groups, None),
+        )
+
+
+class IntegrationOptionsFlow(OptionsFlow):
+    """Handle options flow for Svitlo Yeah."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_UPDATE_INTERVAL,
+                        default=get_config_value(
+                            self.config_entry,
+                            CONF_UPDATE_INTERVAL,
+                            DEFAULT_UPDATE_INTERVAL,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            mode=NumberSelectorMode.SLIDER,
+                            min=MIN_UPDATE_INTERVAL,
+                            max=MAX_UPDATE_INTERVAL,
+                            step=1,
+                        )
+                    ),
+                }
+            ),
         )

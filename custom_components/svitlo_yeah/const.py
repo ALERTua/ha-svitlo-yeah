@@ -13,6 +13,7 @@ CONF_REGION: Final = "region"
 CONF_PROVIDER: Final = "provider"
 CONF_GROUP: Final = "group"
 CONF_PROVIDER_TYPE: Final = "provider_type"
+CONF_UPDATE_INTERVAL: Final = "update_interval"
 
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"
@@ -27,6 +28,9 @@ PROVIDER_DTEK_SHORT: Final = "ДТЕК"
 
 # Consts
 UPDATE_INTERVAL: Final = 15
+DEFAULT_UPDATE_INTERVAL: Final = 15
+MIN_UPDATE_INTERVAL: Final = 5
+MAX_UPDATE_INTERVAL: Final = 30
 
 # API Endpoints
 REGIONS_ENDPOINT: Final = (

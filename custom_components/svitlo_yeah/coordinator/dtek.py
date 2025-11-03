@@ -13,7 +13,9 @@ from homeassistant.util import dt as dt_utils
 from ..api.dtek import DtekAPI
 from ..const import (
     CONF_GROUP,
+    CONF_UPDATE_INTERVAL,
     DEBUG,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     REGION_SELECTION_DTEK_KEY,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
@@ -37,15 +39,22 @@ class DtekCoordinator(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
+        # Get update interval from config entry options or data
+        update_interval_minutes = config_entry.options.get(
+            CONF_UPDATE_INTERVAL,
+            config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        )
+        
         super().__init__(
             hass,
             LOGGER,
             name=DOMAIN,
-            update_interval=datetime.timedelta(minutes=UPDATE_INTERVAL),
+            update_interval=datetime.timedelta(minutes=update_interval_minutes),
         )
         self.hass = hass
         self.config_entry = config_entry
         self.translations = {}
+        self.update_interval_minutes = update_interval_minutes
 
         self.group = config_entry.options.get(
             CONF_GROUP,
@@ -71,7 +80,7 @@ class DtekCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> None:
         """Fetch data from DTEK API."""
         await self.async_fetch_translations()
-        await self.api.fetch_data(cache_minutes=UPDATE_INTERVAL)
+        await self.api.fetch_data(cache_minutes=self.update_interval_minutes)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""

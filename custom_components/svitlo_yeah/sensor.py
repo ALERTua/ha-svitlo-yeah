@@ -38,6 +38,24 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
         val_func=lambda coordinator: coordinator.current_state,
     ),
     IntegrationSensorDescription(
+        key="current_day_status",
+        translation_key="current_day_status",
+        icon="mdi:calendar-today",
+        device_class=SensorDeviceClass.ENUM,
+        options=["ScheduleApplies", "EmergencyShutdowns"],
+        val_func=lambda coordinator: coordinator.current_day_status,
+    ),
+    IntegrationSensorDescription(
+        key="next_outage_type",
+        translation_key="next_outage_type",
+        icon="mdi:alert-circle",
+        device_class=SensorDeviceClass.ENUM,
+        options=["Definite", "Emergency", "NotPlanned"],
+        val_func=lambda coordinator: coordinator.next_outage_type,
+    ),
+    
+    # Schedule and timing sensors  
+    IntegrationSensorDescription(
         key="schedule_updated_on",
         translation_key="schedule_updated_on",
         icon="mdi:update",
@@ -57,6 +75,48 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
         icon="mdi:calendar-check",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_connectivity,
+    ),
+    IntegrationSensorDescription(
+        key="next_planned_reconnection",
+        translation_key="next_planned_reconnection",
+        icon="mdi:calendar-check",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        val_func=lambda coordinator: coordinator.next_planned_reconnection,
+    ),
+    
+    # Time detail sensors
+    IntegrationSensorDescription(
+        key="next_planned_outage_start_time",
+        translation_key="next_planned_outage_start_time",
+        icon="mdi:clock-start",
+        val_func=lambda coordinator: coordinator.next_planned_outage_start_time,
+    ),
+    IntegrationSensorDescription(
+        key="next_planned_outage_end_time",
+        translation_key="next_planned_outage_end_time",
+        icon="mdi:clock-end",
+        val_func=lambda coordinator: coordinator.next_planned_outage_end_time,
+    ),
+    
+    # Duration and countdown sensors
+    IntegrationSensorDescription(
+        key="next_planned_outage_duration",
+        translation_key="next_planned_outage_duration",
+        icon="mdi:timer",
+        native_unit_of_measurement="min",
+        val_func=lambda coordinator: coordinator.next_planned_outage_duration,
+    ),
+    IntegrationSensorDescription(
+        key="time_until_connectivity",
+        translation_key="time_until_connectivity",
+        icon="mdi:clock-outline",
+        val_func=lambda coordinator: coordinator.time_until_connectivity,
+    ),
+    IntegrationSensorDescription(
+        key="time_until_outage",
+        translation_key="time_until_outage",
+        icon="mdi:clock-alert-outline",
+        val_func=lambda coordinator: coordinator.time_until_outage,
     ),
 )
 
@@ -97,6 +157,21 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
         return self.entity_description.val_func(self.coordinator)
+
+    @property
+    def icon(self) -> str | None:
+        """Return the icon of the sensor."""
+        # Dynamic icons for electricity sensor
+        if self.entity_description.key == "electricity":
+            state = self.native_value
+            if state == ConnectivityState.STATE_NORMAL.value:
+                return "mdi:transmission-tower"
+            elif state == ConnectivityState.STATE_PLANNED_OUTAGE.value:
+                return "mdi:transmission-tower-off"
+            elif state == ConnectivityState.STATE_EMERGENCY.value:
+                return "mdi:alert-octagon"
+        
+        return self.entity_description.icon
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:

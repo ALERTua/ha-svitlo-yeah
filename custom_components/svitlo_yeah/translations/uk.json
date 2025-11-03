@@ -44,22 +44,10 @@
       "init": {
         "title": "Налаштування",
         "data": {
-          "region": "Оберіть свій регіон:"
-        }
-      },
-      "provider": {
-        "title": "Налаштування",
-        "data": {
-          "provider": "Оберіть свою систему розподілу:"
-        }
-      },
-      "group": {
-        "title": "Налаштування",
-        "data": {
-          "group": "Оберіть свою групу:"
+          "update_interval": "Інтервал оновлення (хвилини)"
         },
         "data_description": {
-          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages"
+          "update_interval": "Як часто перевіряти нові дані про відключення. Менші значення означають частіші оновлення, але більше навантаження на ресурси."
         }
       }
     }
@@ -84,25 +72,58 @@
       "calendar": {
         "name": "Графік планових відключень"
       }
-    }
-  },
-  "sensor": {
-    "electricity": {
-      "name": "Електрика",
-      "state": {
-        "normal": "Заживлено",
-        "planned_outage": "Планове відключення",
-        "emergency": "Екстрене відключення"
+    },
+    "sensor": {
+      "electricity": {
+        "name": "Електрика",
+        "state": {
+          "normal": "Заживлено",
+          "planned_outage": "Планове відключення",
+          "emergency": "Екстрене відключення"
+        }
+      },
+      "schedule_updated_on": {
+        "name": "Графік оновлено"
+      },
+      "next_planned_outage": {
+        "name": "Наступне планове відключення"
+      },
+      "next_connectivity": {
+        "name": "Наступне відновлення"
+      },
+      "next_planned_reconnection": {
+        "name": "Наступне планове включення"
+      },
+      "next_planned_outage_duration": {
+        "name": "Тривалість планового відключення"
+      },
+      "current_day_status": {
+        "name": "Статус графіка на сьогодні",
+        "state": {
+          "ScheduleApplies": "Плановий графік діє",
+          "EmergencyShutdowns": "Екстрені відключення"
+        }
+      },
+      "next_outage_type": {
+        "name": "Тип наступного відключення",
+        "state": {
+          "Definite": "Планове",
+          "Emergency": "Екстрене",
+          "NotPlanned": "Немає"
+        }
+      },
+      "time_until_connectivity": {
+        "name": "Час до відновлення"
+      },
+      "time_until_outage": {
+        "name": "Час до відключення"
+      },
+      "next_planned_outage_start_time": {
+        "name": "Час початку наступного відключення"
+      },
+      "next_planned_outage_end_time": {
+        "name": "Час закінчення відключення"
       }
-    },
-    "schedule_updated_on": {
-      "name": "Графік оновлено"
-    },
-    "next_planned_outage": {
-      "name": "Наступне планове відключення"
-    },
-    "next_connectivity": {
-      "name": "Наступне відновлення"
     }
   },
   "common": {

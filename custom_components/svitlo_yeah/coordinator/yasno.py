@@ -15,13 +15,14 @@ from ..const import (
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_REGION,
+    CONF_UPDATE_INTERVAL,
     DEBUG,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     PROVIDER_DTEK_FULL,
     PROVIDER_DTEK_SHORT,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
-    UPDATE_INTERVAL,
 )
 from ..models import (
     ConnectivityState,
@@ -41,11 +42,17 @@ class YasnoCoordinator(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
+        # Get update interval from config, with fallback to default
+        update_interval_minutes = config_entry.options.get(
+            CONF_UPDATE_INTERVAL,
+            config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        )
+        
         super().__init__(
             hass,
             LOGGER,
             name=DOMAIN,
-            update_interval=datetime.timedelta(minutes=UPDATE_INTERVAL),
+            update_interval=datetime.timedelta(minutes=update_interval_minutes),
         )
         self.hass = hass
         self.config_entry = config_entry
@@ -183,13 +190,255 @@ class YasnoCoordinator(DataUpdateCoordinator):
     @property
     def next_planned_outage(self) -> datetime.date | datetime.datetime | None:
         """Get the next planned outage time."""
+        if not self._has_outages_planned():
+            return None
+        
         event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
         LOGGER.debug("Next planned outage: %s", event)
         return event.start if event else None
 
     @property
+    def next_planned_outage_duration(self) -> int | None:
+        """Get the next planned outage duration in minutes."""
+        if not self._has_outages_planned():
+            return 0
+        
+        event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        if event and event.start and event.end:
+            duration = event.end - event.start
+            duration_minutes = int(duration.total_seconds() / 60)
+            return duration_minutes
+        return None
+
+    @property
+    def current_day_status(self) -> str | None:
+        """Get the status of the current day."""
+        group_data = self.api._get_group_data()
+        if not group_data:
+            return None
+        
+        now = dt_utils.now()
+        current_date = now.date()
+        
+        # Check all available days in group data
+        for key, day_data in group_data.items():
+            if key == "updatedOn" or not isinstance(day_data, dict):
+                continue
+                
+            if "date" not in day_data:
+                continue
+                
+            day_dt = dt_utils.parse_datetime(day_data["date"])
+            if day_dt:
+                if day_dt.date() == current_date:
+                    status = day_data.get("status")
+                    return status
+        
+        # If no matching date found, check if we're currently in an outage
+        current_event = self.get_current_event()
+        if current_event and self._event_to_state(current_event) != ConnectivityState.STATE_NORMAL:
+            # If there's a current outage but no status found, it might be emergency
+            return "EmergencyShutdowns"
+        
+        return None
+
+    @property
+    def next_outage_type(self) -> str | None:
+        """Get the type of the next planned outage."""
+        # Check if we have data
+        group_data = self.api._get_group_data()
+        if not group_data:
+            return None  # No data available - show "Невідомо"
+        
+        # We have data, check for next outage
+        event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        if event:
+            return event.uid  # This contains the PlannedOutageEventType value
+        
+        # Data available but no outages planned
+        return "NotPlanned"
+
+    def _has_outages_planned(self) -> bool:
+        """Check if there are any outages planned."""
+        group_data = self.api._get_group_data()
+        if not group_data:
+            return False
+        
+        event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        return event is not None
+
+    @property
+    def time_until_connectivity(self) -> str | None:
+        """Get time until power restoration in human readable format.
+        
+        Shows countdown in format: XдXчXм (days, hours, minutes)
+        Logic:
+        - If currently in outage: time until current outage ends
+        - If power is on: time until next outage ends
+        Returns None if no outage is planned.
+        """
+        if not self._has_outages_planned():
+            return None
+        
+        current_event = self.get_current_event()
+        current_state = self._event_to_state(current_event)
+        
+        connectivity_time = None
+        
+        if current_state == ConnectivityState.STATE_PLANNED_OUTAGE:
+            # Currently in outage - when does current outage end?
+            if current_event and current_event.end:
+                connectivity_time = current_event.end
+        else:
+            # Not in outage - when does next outage end?
+            next_outage = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+            if next_outage and next_outage.end:
+                connectivity_time = next_outage.end
+        
+        if not connectivity_time:
+            return None
+        
+        now = dt_utils.now()
+        delta = connectivity_time - now
+        
+        if delta.total_seconds() <= 0:
+            return None
+        
+        # Calculate components
+        total_seconds = int(delta.total_seconds())
+        days = total_seconds // (24 * 3600)
+        remaining_seconds = total_seconds % (24 * 3600)
+        hours = remaining_seconds // 3600
+        remaining_seconds %= 3600
+        minutes = remaining_seconds // 60
+        
+        # Format result
+        parts = []
+        if days > 0:
+            parts.append(f"{days}д")
+            # Always show hours when we have days
+            parts.append(f"{hours}ч")
+        elif hours > 0:
+            # Show hours when we don't have days but have hours
+            parts.append(f"{hours}ч")
+        
+        # Always show minutes
+        if minutes > 0 or (days == 0 and hours == 0):
+            parts.append(f"{minutes}м")
+        
+        return " ".join(parts) if parts else "менше хвилини"
+
+    @property
+    def time_until_outage(self) -> str | None:
+        """Get time until next power outage in human readable format.
+        
+        Shows countdown in format: XдXчXм (days, hours, minutes)
+        Logic:
+        - If currently in outage: None (already in outage)
+        - If power is on: time until next outage starts
+        Returns None if no outage is planned or already in outage.
+        """
+        if not self._has_outages_planned():
+            return None
+        
+        current_event = self.get_current_event()
+        current_state = self._event_to_state(current_event)
+        
+        # If already in outage, don't show time until next outage
+        if current_state == ConnectivityState.STATE_PLANNED_OUTAGE:
+            return None
+        
+        # Find next outage start time
+        next_outage = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        if not next_outage or not next_outage.start:
+            return None
+        
+        now = dt_utils.now()
+        delta = next_outage.start - now
+        
+        if delta.total_seconds() <= 0:
+            return None
+        
+        # Calculate components
+        total_seconds = int(delta.total_seconds())
+        days = total_seconds // (24 * 3600)
+        remaining_seconds = total_seconds % (24 * 3600)
+        hours = remaining_seconds // 3600
+        remaining_seconds %= 3600
+        minutes = remaining_seconds // 60
+        
+        # Format result (same logic as time_until_connectivity)
+        parts = []
+        if days > 0:
+            parts.append(f"{days}д")
+            # Always show hours when we have days
+            parts.append(f"{hours}ч")
+        elif hours > 0:
+            # Show hours when we don't have days but have hours
+            parts.append(f"{hours}ч")
+        
+        # Always show minutes
+        if minutes > 0 or (days == 0 and hours == 0):
+            parts.append(f"{minutes}м")
+        
+        return " ".join(parts) if parts else "менше хвилини"
+
+    @property
+    def next_planned_outage_start_time(self) -> str | None:
+        """Get the next planned outage start time in HH:MM format."""
+        if not self._has_outages_planned():
+            return None
+        
+        event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        if event and event.start:
+            if isinstance(event.start, datetime.datetime):
+                return event.start.strftime("%H:%M")
+            elif isinstance(event.start, datetime.date):
+                return "00:00"  # All day event starts at midnight
+        return None
+
+    @property
+    def next_planned_outage_end_time(self) -> str | None:
+        """Get the next planned outage end time in HH:MM format.
+        
+        Smart sensor that shows:
+        - If power is OFF now: when current outage ends  
+        - If power is ON now: when next outage ends
+        """
+        if not self._has_outages_planned():
+            return None
+        
+        # Check if we're currently in an outage
+        current_event = self.get_current_event()
+        current_state = self._event_to_state(current_event)
+        
+        event_to_use = None
+        
+        # If currently in outage state, use current outage
+        if current_state == ConnectivityState.STATE_PLANNED_OUTAGE:
+            event_to_use = current_event
+        else:
+            # Otherwise, use the next outage
+            event_to_use = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        
+        if event_to_use and event_to_use.end:
+            if isinstance(event_to_use.end, datetime.datetime):
+                return event_to_use.end.strftime("%H:%M")
+            elif isinstance(event_to_use.end, datetime.date):
+                return "23:59"  # All day event ends at end of day
+        return None
+
+    @property
     def next_connectivity(self) -> datetime.date | datetime.datetime | None:
-        """Get next connectivity time."""
+        """Get next connectivity time.
+        
+        Smart sensor that shows:
+        - If power is OFF now: when current outage ends
+        - If power is ON now: when next outage ends
+        """
+        if not self._has_outages_planned():
+            return None
+        
         current_event = self.get_current_event()
         current_state = self._event_to_state(current_event)
 

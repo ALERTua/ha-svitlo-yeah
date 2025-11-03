@@ -6,6 +6,7 @@ import datetime
 import logging
 
 import aiohttp
+from aiohttp.client_exceptions import ClientConnectorDNSError
 from homeassistant.util import dt as dt_utils
 
 from ..const import (
@@ -147,6 +148,9 @@ class YasnoApi:
                 response.raise_for_status()
                 return await response.json()
 
+        except ClientConnectorDNSError:
+            LOGGER.warning("DNS timeout or resolution failed for %s", url)
+            return None
         except aiohttp.ClientError:
             LOGGER.exception("Error fetching data from %s", url)
             return None
@@ -374,6 +378,10 @@ class YasnoApi:
                         event_type=PlannedOutageEventType.EMERGENCY,
                     )
                 )
+            else:
+                # Handle WaitingForSchedule and other status values
+                # WaitingForSchedule still contains schedule data, parse it
+                events.extend(_parse_day_schedule(day_data, day_dt))
 
         events.sort(
             key=lambda e: (

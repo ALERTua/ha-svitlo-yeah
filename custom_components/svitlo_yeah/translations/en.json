@@ -34,7 +34,7 @@
           "group": "Please select your group:"
         },
         "data_description": {
-          "group": "Знайдіть свою групу на: https://www.dtek-krem.com.ua/ua/shutdowns"
+          "group": "Find your group at: https://www.dtek-krem.com.ua/ua/shutdowns"
         }
       }
     }
@@ -44,22 +44,10 @@
       "init": {
         "title": "Settings",
         "data": {
-          "region": "Please select your region:"
-        }
-      },
-      "provider": {
-        "title": "Settings",
-        "data": {
-          "provider": "Please select your provider:"
-        }
-      },
-      "group": {
-        "title": "Settings",
-        "data": {
-          "group": "Please select your group:"
+          "update_interval": "Update interval (minutes)"
         },
         "data_description": {
-          "group": "You can find your group at: https://static.yasno.ua/kyiv/outages"
+          "update_interval": "How often to check for new outage data. Lower values mean more frequent updates but higher resource usage."
         }
       }
     }
@@ -84,25 +72,58 @@
       "calendar": {
         "name": "Planned Outages Calendar"
       }
-    }
-  },
-  "sensor": {
-    "electricity": {
-      "name": "Electricity",
-      "state": {
-        "normal": "Connected",
-        "planned_outage": "Planned Outage",
-        "emergency": "Emergency Outage"
+    },
+    "sensor": {
+      "electricity": {
+        "name": "Electricity",
+        "state": {
+          "normal": "Connected",
+          "planned_outage": "Planned Outage",
+          "emergency": "Emergency Outage"
+        }
+      },
+      "schedule_updated_on": {
+        "name": "Schedule Updated On"
+      },
+      "next_planned_outage": {
+        "name": "Next Planned Outage"
+      },
+      "next_connectivity": {
+        "name": "Next Connectivity"
+      },
+      "next_planned_reconnection": {
+        "name": "Next Planned Reconnection"
+      },
+      "next_planned_outage_duration": {
+        "name": "Next Planned Outage Duration"
+      },
+      "current_day_status": {
+        "name": "Today's Schedule Status",
+        "state": {
+          "ScheduleApplies": "Planned Schedule Active",
+          "EmergencyShutdowns": "Emergency Shutdowns"
+        }
+      },
+      "next_outage_type": {
+        "name": "Next Outage Type",
+        "state": {
+          "Definite": "Planned",
+          "Emergency": "Emergency",
+          "NotPlanned": "None"
+        }
+      },
+      "time_until_connectivity": {
+        "name": "Time Until Power Restored"
+      },
+      "time_until_outage": {
+        "name": "Time Until Outage"
+      },
+      "next_planned_outage_start_time": {
+        "name": "Next Outage Start Time"
+      },
+      "next_planned_outage_end_time": {
+        "name": "Outage End Time"
       }
-    },
-    "schedule_updated_on": {
-      "name": "Schedule Updated On"
-    },
-    "next_planned_outage": {
-      "name": "Next Planned Outage"
-    },
-    "next_connectivity": {
-      "name": "Next Connectivity"
     }
   },
   "common": {

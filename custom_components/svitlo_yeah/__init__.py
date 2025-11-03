@@ -20,6 +20,11 @@ LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a new entry."""
     LOGGER.info("Setup entry: %s", entry)
