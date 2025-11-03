@@ -452,6 +452,22 @@ class YasnoCoordinator(DataUpdateCoordinator):
         return event.end if event else None
 
     @property
+    def next_planned_reconnection(self) -> datetime.date | datetime.datetime | None:
+        """Get next planned power reconnection time.
+        
+        Shows the start time of the next normal period (when power comes back on).
+        This is different from next_connectivity which shows smart logic based on current state.
+        """
+        if not self._has_outages_planned():
+            return None
+        
+        # Find the next outage
+        next_outage = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        if next_outage and next_outage.end:
+            return next_outage.end
+        return None
+
+    @property
     def current_state(self) -> str:
         """Get the current state."""
         event = self.get_current_event()
