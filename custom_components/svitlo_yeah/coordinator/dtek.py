@@ -19,7 +19,6 @@ from ..const import (
     DOMAIN,
     REGION_SELECTION_DTEK_KEY,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
-    UPDATE_INTERVAL,
 )
 from ..models import (
     ConnectivityState,
@@ -42,9 +41,9 @@ class DtekCoordinator(DataUpdateCoordinator):
         # Get update interval from config entry options or data
         update_interval_minutes = config_entry.options.get(
             CONF_UPDATE_INTERVAL,
-            config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+            config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
         )
-        
+
         super().__init__(
             hass,
             LOGGER,

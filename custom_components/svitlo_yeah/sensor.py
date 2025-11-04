@@ -53,8 +53,7 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
         options=["Definite", "Emergency", "NotPlanned"],
         val_func=lambda coordinator: coordinator.next_outage_type,
     ),
-    
-    # Schedule and timing sensors  
+    # Schedule and timing sensors
     IntegrationSensorDescription(
         key="schedule_updated_on",
         translation_key="schedule_updated_on",
@@ -83,7 +82,6 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_planned_reconnection,
     ),
-    
     # Time detail sensors
     IntegrationSensorDescription(
         key="next_planned_outage_start_time",
@@ -97,7 +95,6 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
         icon="mdi:clock-end",
         val_func=lambda coordinator: coordinator.next_planned_outage_end_time,
     ),
-    
     # Duration and countdown sensors
     IntegrationSensorDescription(
         key="next_planned_outage_duration",
@@ -166,11 +163,11 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
             state = self.native_value
             if state == ConnectivityState.STATE_NORMAL.value:
                 return "mdi:transmission-tower"
-            elif state == ConnectivityState.STATE_PLANNED_OUTAGE.value:
+            if state == ConnectivityState.STATE_PLANNED_OUTAGE.value:
                 return "mdi:transmission-tower-off"
-            elif state == ConnectivityState.STATE_EMERGENCY.value:
+            if state == ConnectivityState.STATE_EMERGENCY.value:
                 return "mdi:alert-octagon"
-        
+
         return self.entity_description.icon
 
     @property
