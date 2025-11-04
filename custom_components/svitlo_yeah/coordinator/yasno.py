@@ -23,6 +23,7 @@ from ..const import (
     PROVIDER_DTEK_SHORT,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    TRANSLATION_KEY_TIME_LESS_THAN_MINUTE,
 )
 from ..models import (
     ConnectivityState,
@@ -207,7 +208,19 @@ class YasnoCoordinator(DataUpdateCoordinator):
 
     @property
     def next_planned_outage_duration(self) -> int | None:
-        """Get the next planned outage duration in minutes."""
+        """Get the next planned outage duration in minutes.
+        
+        Returns:
+            int: Duration in minutes when outage is planned
+            0: No outages planned (data available)
+            None: No data available or error
+        """
+        # First check if we have any data at all
+        group_data = self._get_group_data_or_none()
+        if not group_data:
+            return None  # No data available - unknown
+        
+        # We have data, check for outages
         if not self._has_outages_planned():
             return 0
         
@@ -297,6 +310,17 @@ class YasnoCoordinator(DataUpdateCoordinator):
         
         return self._cached_group_data
 
+    def _get_localized_less_than_minute(self) -> str:
+        """Get localized text for 'less than a minute'."""
+        return self.translations.get(
+            TRANSLATION_KEY_TIME_LESS_THAN_MINUTE, 
+            "less than a minute"  # fallback to English
+        )
+
+    def _is_time_delta_positive(self, delta: datetime.timedelta) -> bool:
+        """Check if time delta is positive (future time)."""
+        return delta.total_seconds() > 0
+
     def _invalidate_group_data_cache(self):
         """Invalidate the group data cache.
         
@@ -313,10 +337,10 @@ class YasnoCoordinator(DataUpdateCoordinator):
             delta: Time delta to format
             
         Returns:
-            Formatted string or "менше хвилини" if less than a minute
+            Formatted string or localized "less than a minute" if less than a minute
         """
         if delta.total_seconds() <= 0:
-            return "менше хвилини"
+            return self._get_localized_less_than_minute()
         
         # Calculate components
         total_seconds = int(delta.total_seconds())
@@ -340,7 +364,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
         if minutes > 0 or (days == 0 and hours == 0):
             parts.append(f"{minutes}м")
         
-        return " ".join(parts) if parts else "менше хвилини"
+        return " ".join(parts) if parts else self._get_localized_less_than_minute()
 
     def _format_event_time(self, event_time, default_time_for_date: str = "00:00") -> str | None:
         """Format event time to HH:MM format.
@@ -395,7 +419,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
         now = dt_utils.now()
         delta = connectivity_time - now
         
-        if delta.total_seconds() <= 0:
+        if not self._is_time_delta_positive(delta):
             return None
         
         return self._format_time_delta(delta)
@@ -428,7 +452,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
         now = dt_utils.now()
         delta = next_outage.start - now
         
-        if delta.total_seconds() <= 0:
+        if not self._is_time_delta_positive(delta):
             return None
         
         return self._format_time_delta(delta)

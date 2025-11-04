@@ -122,6 +122,8 @@ def build_group_schema(
 class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
 
+    VERSION = 1  # Config entry version for migration handling
+
     def __init__(self) -> None:
         """Initialize config flow."""
         self.api_yasno = YasnoApi()

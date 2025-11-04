@@ -48,6 +48,9 @@ TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )
+TRANSLATION_KEY_TIME_LESS_THAN_MINUTE: Final = (
+    "component.svitlo_yeah.common.time_less_than_minute"
+)
 
 # Device
 DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"

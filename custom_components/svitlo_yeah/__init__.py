@@ -22,6 +22,15 @@ PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Migrate old entry."""
+    LOGGER.info("Migrating config entry from version %s", config_entry.version)
+    
+    if config_entry.version == 1:
+        # No migration needed for version 1
+        return True
+    
+    # If we get here, it means the config entry is from a newer version
+    # than we know how to handle, which shouldn't happen in normal operation
+    LOGGER.warning("Unknown config entry version %s", config_entry.version)
     return True
 
 

@@ -128,6 +128,7 @@
   },
   "common": {
     "event_name_planned_outage": "Planned Outage",
-    "event_name_emergency_outage": "Emergency Outage"
+    "event_name_emergency_outage": "Emergency Outage",
+    "time_less_than_minute": "less than a minute"
   }
 }
