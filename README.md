@@ -47,12 +47,12 @@ Here's how the devices look
 
 ![Devices page](/media/4_devices.png)
 
-![Sensors](/media/5_sensors.png)
+![Sensors](/media/5_sensors.png) ![Sensors 2](/media/5_1_sensors.png)
 
 Then you can add the integration to your dashboard and see the information about the next planned outages.
 Integration also provides a calendar view of planned outages. You can add it to your dashboard as well via [Calendar card][calendar-card].
 
-![Calendars view](/media/6_calendars.png)
+![Calendars view](/media/6_calendar.png)
 
 Examples:
 
