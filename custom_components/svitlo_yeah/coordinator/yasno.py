@@ -103,6 +103,10 @@ class YasnoCoordinator(DataUpdateCoordinator):
         self.region_id = None
         self.provider_id = None
         self._provider_name = ""  # Cache the provider name
+        
+        # Cache for group data to avoid repeated API calls
+        self._cached_group_data = None
+        self._group_data_cache_time = None
 
         # Initialize API and resolve IDs
         self.api = YasnoApi()
@@ -155,6 +159,10 @@ class YasnoCoordinator(DataUpdateCoordinator):
 
         # Fetch outages data (now async with aiohttp, not blocking)
         await self.api.fetch_data()
+        
+        # Invalidate cache when we fetch new data
+        self._cached_group_data = None
+        self._group_data_cache_time = None
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
@@ -213,7 +221,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
     @property
     def current_day_status(self) -> str | None:
         """Get the status of the current day."""
-        group_data = self.api._get_group_data()
+        group_data = self._get_group_data_or_none()
         if not group_data:
             return None
         
@@ -246,7 +254,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
     def next_outage_type(self) -> str | None:
         """Get the type of the next planned outage."""
         # Check if we have data
-        group_data = self.api._get_group_data()
+        group_data = self._get_group_data_or_none()
         if not group_data:
             return None  # No data available - show "Невідомо"
         
@@ -260,12 +268,98 @@ class YasnoCoordinator(DataUpdateCoordinator):
 
     def _has_outages_planned(self) -> bool:
         """Check if there are any outages planned."""
-        group_data = self.api._get_group_data()
+        group_data = self._get_group_data_or_none()
         if not group_data:
             return False
         
         event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
         return event is not None
+
+    def _get_group_data_or_none(self):
+        """Get group data with caching to reduce API calls.
+        
+        Helper method to reduce code duplication for data availability checks.
+        Caches the result until the next data update to avoid repeated API calls
+        during the same update cycle.
+        """
+        now = dt_utils.now()
+        
+        # Use cache if it's fresh (within the current update interval)
+        cache_duration = min(60, self.update_interval.total_seconds() / 2)  # Half of update interval, max 1 minute
+        if (self._cached_group_data is not None and 
+            self._group_data_cache_time is not None and
+            (now - self._group_data_cache_time).total_seconds() < cache_duration):
+            return self._cached_group_data
+        
+        # Fetch fresh data and cache it
+        self._cached_group_data = self.api._get_group_data()
+        self._group_data_cache_time = now
+        
+        return self._cached_group_data
+
+    def _invalidate_group_data_cache(self):
+        """Invalidate the group data cache.
+        
+        Forces fresh data fetch on next access. Useful for testing or 
+        when we know the data has changed.
+        """
+        self._cached_group_data = None
+        self._group_data_cache_time = None
+
+    def _format_time_delta(self, delta: datetime.timedelta) -> str:
+        """Format time delta to human readable format: XдXчXм (days, hours, minutes).
+        
+        Args:
+            delta: Time delta to format
+            
+        Returns:
+            Formatted string or "менше хвилини" if less than a minute
+        """
+        if delta.total_seconds() <= 0:
+            return "менше хвилини"
+        
+        # Calculate components
+        total_seconds = int(delta.total_seconds())
+        days = total_seconds // (24 * 3600)
+        remaining_seconds = total_seconds % (24 * 3600)
+        hours = remaining_seconds // 3600
+        remaining_seconds %= 3600
+        minutes = remaining_seconds // 60
+        
+        # Format result
+        parts = []
+        if days > 0:
+            parts.append(f"{days}д")
+            # Always show hours when we have days
+            parts.append(f"{hours}ч")
+        elif hours > 0:
+            # Show hours when we don't have days but have hours
+            parts.append(f"{hours}ч")
+        
+        # Always show minutes
+        if minutes > 0 or (days == 0 and hours == 0):
+            parts.append(f"{minutes}м")
+        
+        return " ".join(parts) if parts else "менше хвилини"
+
+    def _format_event_time(self, event_time, default_time_for_date: str = "00:00") -> str | None:
+        """Format event time to HH:MM format.
+        
+        Args:
+            event_time: datetime.datetime or datetime.date object
+            default_time_for_date: Default time to use for date objects (e.g., "00:00" for start, "23:59" for end)
+            
+        Returns:
+            Formatted time string or None if event_time is None
+        """
+        if not event_time:
+            return None
+            
+        if isinstance(event_time, datetime.datetime):
+            return event_time.strftime("%H:%M")
+        elif isinstance(event_time, datetime.date):
+            return default_time_for_date
+        return None
 
     @property
     def time_until_connectivity(self) -> str | None:
@@ -304,29 +398,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
         if delta.total_seconds() <= 0:
             return None
         
-        # Calculate components
-        total_seconds = int(delta.total_seconds())
-        days = total_seconds // (24 * 3600)
-        remaining_seconds = total_seconds % (24 * 3600)
-        hours = remaining_seconds // 3600
-        remaining_seconds %= 3600
-        minutes = remaining_seconds // 60
-        
-        # Format result
-        parts = []
-        if days > 0:
-            parts.append(f"{days}д")
-            # Always show hours when we have days
-            parts.append(f"{hours}ч")
-        elif hours > 0:
-            # Show hours when we don't have days but have hours
-            parts.append(f"{hours}ч")
-        
-        # Always show minutes
-        if minutes > 0 or (days == 0 and hours == 0):
-            parts.append(f"{minutes}м")
-        
-        return " ".join(parts) if parts else "менше хвилини"
+        return self._format_time_delta(delta)
 
     @property
     def time_until_outage(self) -> str | None:
@@ -359,29 +431,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
         if delta.total_seconds() <= 0:
             return None
         
-        # Calculate components
-        total_seconds = int(delta.total_seconds())
-        days = total_seconds // (24 * 3600)
-        remaining_seconds = total_seconds % (24 * 3600)
-        hours = remaining_seconds // 3600
-        remaining_seconds %= 3600
-        minutes = remaining_seconds // 60
-        
-        # Format result (same logic as time_until_connectivity)
-        parts = []
-        if days > 0:
-            parts.append(f"{days}д")
-            # Always show hours when we have days
-            parts.append(f"{hours}ч")
-        elif hours > 0:
-            # Show hours when we don't have days but have hours
-            parts.append(f"{hours}ч")
-        
-        # Always show minutes
-        if minutes > 0 or (days == 0 and hours == 0):
-            parts.append(f"{minutes}м")
-        
-        return " ".join(parts) if parts else "менше хвилини"
+        return self._format_time_delta(delta)
 
     @property
     def next_planned_outage_start_time(self) -> str | None:
@@ -391,10 +441,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
         
         event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
         if event and event.start:
-            if isinstance(event.start, datetime.datetime):
-                return event.start.strftime("%H:%M")
-            elif isinstance(event.start, datetime.date):
-                return "00:00"  # All day event starts at midnight
+            return self._format_event_time(event.start)
         return None
 
     @property
@@ -422,10 +469,7 @@ class YasnoCoordinator(DataUpdateCoordinator):
             event_to_use = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
         
         if event_to_use and event_to_use.end:
-            if isinstance(event_to_use.end, datetime.datetime):
-                return event_to_use.end.strftime("%H:%M")
-            elif isinstance(event_to_use.end, datetime.date):
-                return "23:59"  # All day event ends at end of day
+            return self._format_event_time(event_to_use.end, "23:59")
         return None
 
     @property
