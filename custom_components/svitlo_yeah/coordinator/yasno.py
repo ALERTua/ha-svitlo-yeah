@@ -531,9 +531,6 @@ class YasnoCoordinator(DataUpdateCoordinator):
         - If power is OFF now: when current outage ends
         - If power is ON now: when next outage ends
         """
-        if not self._has_outages_planned():
-            return None
-
         current_event = self.get_current_event()
         current_state = self._event_to_state(current_event)
 
