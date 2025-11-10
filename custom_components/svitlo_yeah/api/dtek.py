@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_utils
 
 from ..const import DTEK_HEADERS
 from ..models import PlannedOutageEvent, PlannedOutageEventType
+from .common_tools import _merge_adjacent_events
 
 LOGGER = logging.getLogger(__name__)
 
@@ -185,6 +186,7 @@ class DtekAPI:
                 )
 
         events.sort(key=lambda e: e.start)
+        events = _merge_adjacent_events(events)
         return [e for e in events if not (e.end <= start_date or e.start >= end_date)]
 
     def get_updated_on(self) -> datetime.datetime | None:

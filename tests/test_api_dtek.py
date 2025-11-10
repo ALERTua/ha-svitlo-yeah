@@ -278,3 +278,178 @@ class TestDtekRegionAPIGetCurrentEvent:
         """Test getting current event without data."""
         current_time = dt_utils.now()
         assert api.get_current_event(current_time) is None
+
+
+class TestDtekRegionAPIEventMerging:
+    """Test event merging functionality in DTEK API."""
+
+    def test_merge_adjacent_events_in_get_events(self, api):
+        """Test that adjacent events are merged in get_events method."""
+        # Create test data with two adjacent outage periods
+        # This simulates: 10:00-11:00 and 11:00-12:00 outages
+        test_timestamp = str(int(dt_utils.now().timestamp()))
+        api.data = {
+            "data": {
+                test_timestamp: {
+                    "GPV1.1": {
+                        # All "yes" except hours 11 and 12 (10:00-12:00 outage)
+                        **{str(i): "yes" for i in range(1, 25)},
+                        "11": "no",  # 10:00-11:00
+                        "12": "no",  # 11:00-12:00
+                    },
+                },
+            },
+            "update": "29.10.2025 13:51",
+        }
+
+        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
+        day_dt = dt_utils.as_local(day_dt)
+
+        start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_events(start_date, end_date)
+
+        # Should be merged into one continuous event
+        assert len(events) == 1
+        assert events[0].start.hour == 10
+        assert events[0].start.minute == 0
+        assert events[0].end.hour == 12
+        assert events[0].end.minute == 0
+        assert events[0].event_type.value == "Definite"
+
+    def test_merge_multiple_adjacent_events(self, api):
+        """Test merging multiple adjacent events."""
+        # Create test data with three adjacent outage periods
+        # This simulates: 14:00-15:00, 15:00-16:00, and 16:00-17:00
+        test_timestamp = str(int(dt_utils.now().timestamp()))
+        api.data = {
+            "data": {
+                test_timestamp: {
+                    "GPV1.1": {
+                        # All "yes" except hours 15, 16, 17 (14:00-17:00 outage)
+                        **{str(i): "yes" for i in range(1, 25)},
+                        "15": "no",  # 14:00-15:00
+                        "16": "no",  # 15:00-16:00
+                        "17": "no",  # 16:00-17:00
+                    },
+                },
+            },
+            "update": "29.10.2025 13:51",
+        }
+
+        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
+        day_dt = dt_utils.as_local(day_dt)
+
+        start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_events(start_date, end_date)
+
+        # Should be merged into one continuous event
+        assert len(events) == 1
+        assert events[0].start.hour == 14
+        assert events[0].start.minute == 0
+        assert events[0].end.hour == 17
+        assert events[0].end.minute == 0
+
+    def test_no_merge_non_adjacent_events(self, api):
+        """Test that non-adjacent events are not merged."""
+        # Create test data with two separate outage periods
+        # This simulates: 10:00-11:00 and 13:00-14:00 (with gap at 12:00)
+        test_timestamp = str(int(dt_utils.now().timestamp()))
+        api.data = {
+            "data": {
+                test_timestamp: {
+                    "GPV1.1": {
+                        # All "yes" except hours 11 and 14
+                        **{str(i): "yes" for i in range(1, 25)},
+                        "11": "no",  # 10:00-11:00
+                        "14": "no",  # 13:00-14:00
+                    },
+                },
+            },
+            "update": "29.10.2025 13:51",
+        }
+
+        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
+        day_dt = dt_utils.as_local(day_dt)
+
+        start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_events(start_date, end_date)
+
+        # Should remain as two separate events
+        assert len(events) == 2
+        assert events[0].start.hour == 10
+        assert events[0].end.hour == 11
+        assert events[1].start.hour == 13
+        assert events[1].end.hour == 14
+
+    def test_merge_adjacent_with_half_hour_precision(self, api):
+        """Test merging events with half-hour precision (second/first)."""
+        # Create test data with adjacent half-hour periods
+        # This simulates: 12:30-13:00 and 13:00-13:30
+        test_timestamp = str(int(dt_utils.now().timestamp()))
+        api.data = {
+            "data": {
+                test_timestamp: {
+                    "GPV1.1": {
+                        # All "yes" except specific half-hours
+                        **{str(i): "yes" for i in range(1, 25)},
+                        "13": "second",  # 12:30-13:00
+                        "14": "first",  # 13:00-13:30
+                    },
+                },
+            },
+            "update": "29.10.2025 13:51",
+        }
+
+        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
+        day_dt = dt_utils.as_local(day_dt)
+
+        start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_events(start_date, end_date)
+
+        # Should be merged into one continuous event
+        assert len(events) == 1
+        assert events[0].start.hour == 12
+        assert events[0].start.minute == 30
+        assert events[0].end.hour == 13
+        assert events[0].end.minute == 30
+
+    def test_merge_across_midnight_not_supported(self, api):
+        """Test that events across midnight are not merged (DTEK doesn't span days)."""
+        # DTEK API processes one day at a time, so midnight spanning isn't relevant
+        # This test just ensures the basic functionality works
+        test_timestamp = str(int(dt_utils.now().timestamp()))
+        api.data = {
+            "data": {
+                test_timestamp: {
+                    "GPV1.1": {
+                        # Simple case: 23:00-24:00 outage
+                        **{str(i): "yes" for i in range(1, 25)},
+                        "24": "no",
+                    },
+                },
+            },
+            "update": "29.10.2025 13:51",
+        }
+
+        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
+        day_dt = dt_utils.as_local(day_dt)
+
+        start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_events(start_date, end_date)
+
+        assert len(events) == 1
+        assert events[0].start.hour == 23
+        assert events[0].start.minute == 0
+        assert events[0].end.hour == 23
+        assert events[0].end.minute == 59
+        assert events[0].end.second == 59
