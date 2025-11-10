@@ -34,6 +34,54 @@ def _minutes_to_time(minutes: int, dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=hours, minute=mins, second=0, microsecond=0)
 
 
+def _merge_adjacent_events(
+    events: list[PlannedOutageEvent],
+) -> list[PlannedOutageEvent]:
+    """Merge adjacent events of the same type."""
+    if not events:
+        return events
+
+    merged = []
+    current = events[0]
+
+    for next_event in events[1:]:
+        # Check if events can be merged
+        if (
+            current.event_type == next_event.event_type
+            and current.all_day == next_event.all_day
+        ):
+            if current.all_day and next_event.all_day:
+                # Extend current event to cover the next day
+                current = PlannedOutageEvent(
+                    start=current.start,
+                    end=next_event.end,
+                    all_day=True,
+                    event_type=current.event_type,
+                )
+                continue
+
+            # For datetime events, merge if they are adjacent
+            # This handles the case where 24:00 becomes 23:59:59.999999
+            # and next day starts at 00:00:00
+            if current.end + datetime.timedelta(microseconds=1) >= next_event.start:
+                # Extend current event to the end of the next event
+                current = PlannedOutageEvent(
+                    start=current.start,
+                    end=next_event.end,
+                    all_day=False,
+                    event_type=current.event_type,
+                )
+                continue
+
+        # Cannot merge, add current event to merged list
+        merged.append(current)
+        current = next_event
+
+    # Add the last event
+    merged.append(current)
+    return merged
+
+
 def _parse_day_schedule(
     day_data: dict, dt: datetime.datetime
 ) -> list[PlannedOutageEvent]:
@@ -179,19 +227,50 @@ class YasnoApi:
 
         # DEBUG. DO NOT COMMIT UNCOMMENTED!
         """
+        # emergency shutdowns
+        today_midnight = dt_utils.now().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         self.planned_outage_data = {
             "3.1": {
                 "today": {
                     "slots": [],
-                    "date": "2025-10-27T00:00:00+02:00",
+                    "date": today_midnight.isoformat(timespec='seconds'),
                     "status": "EmergencyShutdowns"
                 },
                 "tomorrow": {
                     "slots": [],
-                    "date": "2025-10-28T00:00:00+02:00",
+                    "date": (today_midnight + datetime.timedelta(days=1)).isoformat(
+                        timespec='seconds'),
                     "status": "EmergencyShutdowns"
                 },
-                "updatedOn": "2025-10-27T07:04:31+00:00"
+                "updatedOn": dt_utils.now().isoformat(timespec='seconds')
+            }
+        }
+        """
+        """
+        # over midnight events
+        self.planned_outage_data = {
+            "3.1": {
+                'today': {
+                    'slots': [
+                        {"start": 0, "end": 960, "type": "NotPlanned"},
+                        {"start": 960, "end": 1200, "type": "Definite"},
+                        {"start": 1200, "end": 1350, "type": "NotPlanned"},
+                        {'start': 1350, 'end': 1440, 'type': 'Definite'}
+                    ],
+                    'date': dt_utils.now().isoformat(timespec='seconds'),
+                    'status': 'ScheduleApplies'
+                },
+                'tomorrow': {
+                    'slots': [
+                        {'start': 0, 'end': 270, 'type': 'Definite'},
+                    ],
+                    'date': (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
+                        timespec='seconds'),
+                    'status': 'ScheduleApplies'
+                },
+                'updatedOn': dt_utils.now().isoformat(timespec='seconds')
             }
         }
         """
@@ -329,7 +408,13 @@ class YasnoApi:
         if not group_data:
             return []
 
-        LOGGER.debug("Group data for %s: %s", self.group, group_data)
+        LOGGER.debug(
+            "get_events for %s from %s to %s:\n%s",
+            self.group,
+            start_date,
+            end_date,
+            group_data,
+        )
 
         events = []
         for key, day_data in group_data.items():
@@ -369,7 +454,7 @@ class YasnoApi:
                 events.append(
                     PlannedOutageEvent(
                         start=day_dt.date(),
-                        end=day_dt.date(),
+                        end=day_dt.date() + datetime.timedelta(days=1),
                         all_day=True,
                         event_type=PlannedOutageEventType.EMERGENCY,
                     )
@@ -382,6 +467,9 @@ class YasnoApi:
                 else e.start
             )
         )
+
+        # Merge adjacent events of the same type
+        events = _merge_adjacent_events(events)
 
         return [
             e

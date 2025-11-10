@@ -9,10 +9,14 @@ from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api import YasnoApi
 from custom_components.svitlo_yeah.api.yasno import (
+    _merge_adjacent_events,
     _minutes_to_time,
     _parse_day_schedule,
 )
-from custom_components.svitlo_yeah.models import PlannedOutageEventType
+from custom_components.svitlo_yeah.models import (
+    PlannedOutageEvent,
+    PlannedOutageEventType,
+)
 
 TEST_REGION_ID = 25
 TEST_PROVIDER_ID = 902
@@ -273,6 +277,168 @@ class TestYasnoApiScheduleParsing:
         assert events[0].start == datetime.date(2025, 1, 27)
 
 
+class TestYasnoApiEventMerging:
+    """Test event merging functionality."""
+
+    def test_merge_adjacent_datetime_events(self):
+        """Test merging adjacent datetime events of same type."""
+        dt1 = dt_utils.parse_datetime("2025-10-27T22:00:00+02:00")
+        dt2 = dt_utils.parse_datetime("2025-10-28T00:00:00+02:00")
+        dt3 = dt_utils.parse_datetime("2025-10-28T02:00:00+02:00")
+
+        events = [
+            PlannedOutageEvent(
+                start=dt1,
+                end=dt_utils.parse_datetime("2025-10-27T23:59:59.999999+02:00"),
+                event_type=PlannedOutageEventType.DEFINITE,
+            ),
+            PlannedOutageEvent(
+                start=dt2,
+                end=dt3,
+                event_type=PlannedOutageEventType.DEFINITE,
+            ),
+        ]
+
+        merged = _merge_adjacent_events(events)
+        assert len(merged) == 1
+        assert merged[0].start == dt1
+        assert merged[0].end == dt3
+        assert merged[0].event_type == PlannedOutageEventType.DEFINITE
+
+    def test_merge_adjacent_all_day_events(self):
+        """Test merging adjacent all-day events of same type."""
+        date1 = datetime.date(2025, 10, 27)
+        date2 = datetime.date(2025, 10, 28)
+        date3 = datetime.date(2025, 10, 29)
+
+        events = [
+            PlannedOutageEvent(
+                start=date1,
+                end=date2,
+                all_day=True,
+                event_type=PlannedOutageEventType.EMERGENCY,
+            ),
+            PlannedOutageEvent(
+                start=date2,
+                end=date3,
+                all_day=True,
+                event_type=PlannedOutageEventType.EMERGENCY,
+            ),
+        ]
+
+        merged = _merge_adjacent_events(events)
+        assert len(merged) == 1
+        assert merged[0].start == date1
+        assert merged[0].end == date3
+        assert merged[0].event_type == PlannedOutageEventType.EMERGENCY
+        assert merged[0].all_day is True
+
+    def test_no_merge_different_types(self):
+        """Test that events of different types are not merged."""
+        dt1 = dt_utils.parse_datetime("2025-10-27T22:00:00+02:00")
+        dt2 = dt_utils.parse_datetime("2025-10-28T00:00:00+02:00")
+
+        events = [
+            PlannedOutageEvent(
+                start=dt1,
+                end=dt_utils.parse_datetime("2025-10-27T23:59:59.999999+02:00"),
+                event_type=PlannedOutageEventType.DEFINITE,
+            ),
+            PlannedOutageEvent(
+                start=dt2,
+                end=dt_utils.parse_datetime("2025-10-28T02:00:00+02:00"),
+                event_type=PlannedOutageEventType.EMERGENCY,
+            ),
+        ]
+
+        merged = _merge_adjacent_events(events)
+        assert len(merged) == 2
+        assert merged[0].event_type == PlannedOutageEventType.DEFINITE
+        assert merged[1].event_type == PlannedOutageEventType.EMERGENCY
+
+    def test_no_merge_non_adjacent(self):
+        """Test that non-adjacent events are not merged."""
+        dt1 = dt_utils.parse_datetime("2025-10-27T20:00:00+02:00")
+        dt2 = dt_utils.parse_datetime("2025-10-27T22:00:00+02:00")
+
+        events = [
+            PlannedOutageEvent(
+                start=dt1,
+                end=dt_utils.parse_datetime("2025-10-27T21:00:00+02:00"),
+                event_type=PlannedOutageEventType.DEFINITE,
+            ),
+            PlannedOutageEvent(
+                start=dt2,
+                end=dt_utils.parse_datetime("2025-10-28T00:00:00+02:00"),
+                event_type=PlannedOutageEventType.DEFINITE,
+            ),
+        ]
+
+        merged = _merge_adjacent_events(events)
+        assert len(merged) == 2
+
+    def test_merge_empty_list(self):
+        """Test merging empty event list."""
+        merged = _merge_adjacent_events([])
+        assert merged == []
+
+    def test_merge_single_event(self):
+        """Test merging single event."""
+        dt1 = dt_utils.parse_datetime("2025-10-27T22:00:00+02:00")
+        events = [
+            PlannedOutageEvent(
+                start=dt1,
+                end=dt_utils.parse_datetime("2025-10-28T00:00:00+02:00"),
+                event_type=PlannedOutageEventType.DEFINITE,
+            ),
+        ]
+
+        merged = _merge_adjacent_events(events)
+        assert len(merged) == 1
+        assert merged[0] == events[0]
+
+    def test_midnight_spanning_events_integration(self, api):
+        """Test midnight-spanning events are merged in get_events."""
+        # Simulate data with midnight-spanning outage
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [
+                        {"start": 0, "end": 1320, "type": "NotPlanned"},  # 00:00-22:00
+                        {"start": 1320, "end": 1440, "type": "Definite"},  # 22:00-24:00
+                    ],
+                    "date": "2025-10-27T00:00:00+02:00",
+                    "status": "ScheduleApplies",
+                },
+                "tomorrow": {
+                    "slots": [
+                        {"start": 0, "end": 120, "type": "Definite"},  # 00:00-02:00
+                        {
+                            "start": 120,
+                            "end": 1440,
+                            "type": "NotPlanned",
+                        },  # 02:00-24:00
+                    ],
+                    "date": "2025-10-28T00:00:00+02:00",
+                    "status": "ScheduleApplies",
+                },
+                "updatedOn": "2025-10-27T13:42:41+00:00",
+            }
+        }
+
+        start = dt_utils.parse_datetime("2025-10-27T00:00:00+02:00")
+        end = dt_utils.parse_datetime("2025-10-29T00:00:00+02:00")
+        events = api.get_events(start, end)
+
+        # Should have merged into one continuous event from 22:00 to 02:00
+        assert len(events) == 1
+        assert events[0].start.hour == 22
+        assert events[0].start.minute == 0
+        assert events[0].end.hour == 2
+        assert events[0].end.minute == 0
+        assert events[0].event_type == PlannedOutageEventType.DEFINITE
+
+
 class TestYasnoApiEvents:
     """Test event retrieval methods."""
 
@@ -301,8 +467,11 @@ class TestYasnoApiEvents:
         start = dt_utils.parse_datetime("2025-10-27T00:00:00+02:00")
         end = dt_utils.parse_datetime("2025-10-28T23:59:59+02:00")
         events = api.get_events(start, end)
-        assert len(events) == 2
-        assert all(e.event_type == PlannedOutageEventType.EMERGENCY for e in events)
+        assert len(events) == 1  # Merged into single continuous event
+        assert events[0].event_type == PlannedOutageEventType.EMERGENCY
+        assert events[0].all_day is True
+        assert events[0].start == datetime.date(2025, 10, 27)
+        assert events[0].end == datetime.date(2025, 10, 29)
 
     def test_get_current_event(self, api, planned_outage_data):
         """Test getting current event."""
