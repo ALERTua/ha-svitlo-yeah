@@ -12,6 +12,7 @@ from ..const import (
     BLOCK_KEY_STATUS,
     PLANNED_OUTAGES_ENDPOINT,
     REGIONS_ENDPOINT,
+    UPDATE_INTERVAL,
 )
 from ..models import (
     PlannedOutageEvent,
@@ -119,6 +120,8 @@ class YasnoApi:
     """Class to interact with Yasno API."""
 
     _cached_regions_data: list[dict] | None = None
+    _planned_outage_last_fetch: datetime.datetime | None = None
+    _cached_planned_outage_data: dict | None = None
 
     def __init__(
         self,
@@ -163,8 +166,22 @@ class YasnoApi:
                 YasnoApi._cached_regions_data
             ) = await self._get_route_data(session, REGIONS_ENDPOINT)
 
-    async def fetch_planned_outage_data(self) -> None:
+    async def fetch_planned_outage_data(
+        self, cache_minutes: int = UPDATE_INTERVAL
+    ) -> None:
         """Fetch outage data for the configured region and provider."""
+        now = datetime.datetime.now(datetime.UTC)
+        # Only use cache if we have the required region/provider IDs
+        if (
+            self.region_id
+            and self.provider_id
+            and YasnoApi._planned_outage_last_fetch
+            and (now - YasnoApi._planned_outage_last_fetch).total_seconds()
+            < cache_minutes * 60
+        ):
+            self.planned_outage_data = YasnoApi._cached_planned_outage_data
+            return
+
         if not self.region_id or not self.provider_id:
             LOGGER.warning(
                 "Region ID and Provider ID must be set before fetching outages",
@@ -229,7 +246,7 @@ class YasnoApi:
         """
         """
         # manual outage data
-        minutes = 12 * 60 + 47
+        minutes = 16 * 60 + 52
         self.planned_outage_data = {
             "3.1": {
                 'today': {
@@ -251,6 +268,9 @@ class YasnoApi:
         }
         """
         # DEBUG. DO NOT COMMIT UNCOMMENTED!
+
+        YasnoApi._cached_planned_outage_data = self.planned_outage_data
+        YasnoApi._planned_outage_last_fetch = now
 
     def get_yasno_regions(self) -> list[dict]:
         """Get a list of available regions."""
