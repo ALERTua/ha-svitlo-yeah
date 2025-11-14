@@ -227,6 +227,29 @@ class YasnoApi:
             }
         }
         """
+        """
+        # manual outage data
+        minutes = 12 * 60 + 47
+        self.planned_outage_data = {
+            "3.1": {
+                'today': {
+                    'slots': [
+                        {"start": 0, "end": minutes, "type": "NotPlanned"},
+                        {'start': minutes, 'end': minutes + 1, 'type': 'Definite'}
+                    ],
+                    'date': dt_utils.now().isoformat(timespec='seconds'),
+                    'status': 'ScheduleApplies'
+                },
+                'tomorrow': {
+                    'slots': [],
+                    'date': (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
+                        timespec='seconds'),
+                    'status': 'WaitingForSchedule'
+                },
+                'updatedOn': dt_utils.now().isoformat(timespec='seconds')
+            }
+        }
+        """
         # DEBUG. DO NOT COMMIT UNCOMMENTED!
 
     def get_yasno_regions(self) -> list[dict]:

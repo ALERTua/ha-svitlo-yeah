@@ -112,6 +112,7 @@ class DtekCoordinator(DataUpdateCoordinator):
             return current_event.end if current_event else None
 
         event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
+        LOGGER.debug("Next connectivity: %s", event)
         return event.end if event else None
 
     @property
