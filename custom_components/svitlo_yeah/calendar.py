@@ -34,8 +34,9 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         self,
         coordinator: YasnoCoordinator | DtekCoordinator,
     ) -> None:
-        """Initialize the Planned Outages Calendar entity."""
+        """Initialize the calendar entity."""
         super().__init__(coordinator)
+
         self.entity_id = (
             f"calendar.planned_outages"
             f"_{coordinator.region_name}"
@@ -55,7 +56,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
 
     @property
     def event(self) -> CalendarEvent | None:
-        """Return the current or next upcoming event or None."""
+        """Return current or next event."""
         return self.coordinator.get_current_event()
 
     async def async_get_events(
@@ -65,5 +66,4 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         end_date: datetime.datetime,
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
-        LOGGER.debug("Get events between %s and %s", start_date, end_date)
         return self.coordinator.get_events_between(start_date, end_date)

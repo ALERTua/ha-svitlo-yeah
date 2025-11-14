@@ -10,7 +10,7 @@ import re
 import aiohttp
 from homeassistant.util import dt as dt_utils
 
-from ..const import DTEK_HEADERS
+from ..const import DTEK_HEADERS, UPDATE_INTERVAL
 from ..models import PlannedOutageEvent, PlannedOutageEventType
 from .common_tools import _merge_adjacent_events
 
@@ -96,7 +96,7 @@ class DtekAPI:
         self.group = group
         self.data = None
 
-    async def fetch_data(self, cache_minutes: int = 15) -> None:
+    async def fetch_data(self, cache_minutes: int = UPDATE_INTERVAL) -> None:
         """Fetch outage data from DTEK website."""
         now = datetime.datetime.now(datetime.UTC)
         if (
