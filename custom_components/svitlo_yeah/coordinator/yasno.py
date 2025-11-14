@@ -46,9 +46,8 @@ class YasnoCoordinator(DataUpdateCoordinator):
             LOGGER,
             name=DOMAIN,
             update_interval=datetime.timedelta(minutes=UPDATE_INTERVAL),
+            config_entry=config_entry,
         )
-        self.hass = hass
-        self.config_entry = config_entry
         self.translations = {}
 
         # Get configuration values
