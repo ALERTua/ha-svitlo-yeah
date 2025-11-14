@@ -157,9 +157,21 @@ class TestYasnoApiFetchData:
 
     async def test_fetch_planned_outage_no_config(self, api):
         """Test planned outage fetch without region/provider."""
+        # Save original values
+        original_region_id = api.region_id
+        original_provider_id = api.provider_id
+
         api.region_id = None
+        api.provider_id = None
+        YasnoApi._planned_outage_last_fetch = None  # Reset cache
+        YasnoApi._cached_planned_outage_data = None
+
         await api.fetch_planned_outage_data()
         assert api.planned_outage_data is None
+
+        # Restore original values
+        api.region_id = original_region_id
+        api.provider_id = original_provider_id
 
 
 class TestYasnoApiRegions:
