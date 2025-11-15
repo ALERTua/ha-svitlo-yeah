@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.helpers.translation import async_get_translations
+from homeassistant.util import dt as dt_utils
 
 from ..api.dtek import DtekAPI
 from ..const import (
@@ -64,6 +66,11 @@ class DtekCoordinator(IntegrationCoordinator):
         """Fetch data from DTEK API."""
         await self.async_fetch_translations()
         await self.api.fetch_data(cache_minutes=UPDATE_INTERVAL)
+
+        # Check if outage data has changed (used for last_data_change attribute)
+        now = dt_utils.now()
+        current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
+        self.check_outage_data_changed(current_events)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""

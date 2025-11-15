@@ -59,6 +59,50 @@ Examples:
 - [Automation](/examples/automation.yaml)
 - [Dashboard](/examples/dashboard.yaml)
 
+## Integration Entities
+
+The integration creates the following entities in Home Assistant:
+
+### Sensors
+
+| Entity | Type | Purpose                                                          | Description                                                                                                                                                                                                                                                     |
+|--------|------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Electricity** | Enum Sensor | Shows current power connectivity state according to the calendar | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
+| **Schedule Updated On** | Timestamp Sensor | Shows when outage schedule was last updated by the provider | Displays the timestamp when the energy provider last updated the outage schedule on their servers. Reflects server-side data changes, not client fetch times.                                                                                                   |
+| **Schedule Data Changed On** | Timestamp Sensor | Shows when actual outage schedule data changed                   | Tracks the timestamp when the actual data was modified. Useful for notifications when schedules are updated. See examples.                                                                                                                                      |
+| **Next Planned Outage** | Timestamp Sensor | Shows the start time of the next scheduled blackout              | Displays the timestamp when the next planned power outage is scheduled to begin. Null when no outages are scheduled.                                                                                                                                            |
+| **Next Connectivity** | Timestamp Sensor | Shows when power is expected to return                           | Displays the timestamp when power connectivity is expected to be restored after an outage. Null when no outages are active.                                                                                                                                     |
+
+### Calendar
+
+| Entity | Type | Purpose | Description |
+|--------|------|---------|-------------|
+| **Planned Outages Calendar** | Calendar Entity | Provides full calendar integration for blackout schedules | Shows all planned power outages as calendar events. Can be used with Home Assistant's calendar cards, automations, and triggers. Events include "Definite" planned outages and "Emergency" unscheduled blackouts. |
+
+### Events
+
+| Event | Description |
+|-------|-------------|
+| **svitlo_yeah_data_changed** | Fired when outage data actually changes |
+
+### Entity Usage Examples
+
+- Use the **Electricity** sensor in dashboards to display current power status from the calendar perspective
+- Set up notifications when **Schedule Data Changed On** updates to alert about schedule changes
+- Or use the event to trigger on:
+```yaml
+event_type: svitlo_yeah_data_changed
+data:
+  region: Київ
+  provider: ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»
+  group: "3.1"
+  last_data_change: "2025-11-15T14:20:24.627353+02:00"
+  config_entry_id: 01K9Q7AZX5KF5F6352RX98JY9T
+time_fired: "2025-11-15T12:20:24.627416+00:00"
+```
+- Use the **Planned Outages Calendar** with calendar triggers for advance warnings before outages
+- Monitor **Next Planned Outage** and **Next Connectivity** timestamps for countdown displays
+
 Caveats:
 - Scraping DTEK Regions outage website is tricky, as it uses an anti-bot system.
   I can only able to bypass the anti-bot system by using third-party scraping services.
