@@ -10,7 +10,10 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
+import datetime
+
 from homeassistant.helpers.translation import async_get_translations
+from homeassistant.util import dt as dt_utils
 
 from ..api.yasno import YasnoApi
 from ..const import (
@@ -139,6 +142,11 @@ class YasnoCoordinator(IntegrationCoordinator):
 
         # Fetch outages data (now async with aiohttp, not blocking)
         await self.api.fetch_data()
+
+        # Check if outage data has changed (used for last_data_change attribute)
+        now = dt_utils.now()
+        current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
+        self.check_outage_data_changed(current_events)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
