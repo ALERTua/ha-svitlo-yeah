@@ -26,10 +26,11 @@ LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:  # noqa: ARG001
-    """Set up the Svitlo Yeah integration (called once during startup)."""
-    # Register debug service only when DEBUG is enabled
-    if DEBUG:
+if DEBUG:
+
+    async def async_setup(hass: HomeAssistant, config: dict) -> bool:  # noqa: ARG001
+        """Set up the Svitlo Yeah integration (called once during startup)."""
+        # Register debug service only when DEBUG is enabled
 
         async def trigger_data_change(call: Any) -> None:  # noqa: ARG001
             """Service to manually trigger data change detection (DEBUG only)."""
@@ -43,7 +44,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:  # noqa: ARG00
         hass.services.async_register(DOMAIN, "trigger_data_change", trigger_data_change)
         LOGGER.info("Debug service 'trigger_data_change' registered")
 
-    return True
+        return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
