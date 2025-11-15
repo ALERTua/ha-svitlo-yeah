@@ -106,11 +106,17 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
             return None
 
         current_event = self.coordinator.get_current_event()
+        attrs = {
+            # timestamp when outage data actually changed
+            "last_data_change": self.coordinator.outage_data_last_changed,
+        }
+        if self.entity_description.key not in ["electricity"]:
+            return attrs
+
         return {
+            **attrs,
             "event_type": current_event.description if current_event else None,
             "event_start": current_event.start if current_event else None,
             "event_end": current_event.end if current_event else None,
             "supported_states": self.options,
-            # timestamp when outage data actually changed
-            "last_data_change": self.coordinator.outage_data_last_changed,
         }
