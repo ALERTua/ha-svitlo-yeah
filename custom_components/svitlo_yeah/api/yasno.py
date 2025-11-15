@@ -246,24 +246,25 @@ class YasnoApi:
         """
         """
         # manual outage data
-        minutes = 16 * 60 + 52
+        minutes = 14 * 60 + 8
         self.planned_outage_data = {
             "3.1": {
-                'today': {
-                    'slots': [
+                "today": {
+                    "slots": [
                         {"start": 0, "end": minutes, "type": "NotPlanned"},
-                        {'start': minutes, 'end': minutes + 1, 'type': 'Definite'}
+                        {"start": minutes, "end": minutes + 1, "type": "Definite"},
                     ],
-                    'date': dt_utils.now().isoformat(timespec='seconds'),
-                    'status': 'ScheduleApplies'
+                    "date": dt_utils.now().isoformat(timespec="seconds"),
+                    "status": "ScheduleApplies",
                 },
-                'tomorrow': {
-                    'slots': [],
-                    'date': (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
-                        timespec='seconds'),
-                    'status': 'WaitingForSchedule'
+                "tomorrow": {
+                    "slots": [],
+                    "date": (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
+                        timespec="seconds"
+                    ),
+                    "status": "WaitingForSchedule",
                 },
-                'updatedOn': dt_utils.now().isoformat(timespec='seconds')
+                "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
             }
         }
         """

@@ -45,6 +45,13 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
         val_func=lambda coordinator: coordinator.schedule_updated_on,
     ),
     IntegrationSensorDescription(
+        key="schedule_data_changed",
+        translation_key="schedule_data_changed",
+        icon="mdi:update",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        val_func=lambda coordinator: coordinator.outage_data_last_changed,
+    ),
+    IntegrationSensorDescription(
         key="next_planned_outage",
         translation_key="next_planned_outage",
         icon="mdi:calendar-remove",
@@ -101,14 +108,23 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return additional attributes for the electricity sensor."""
-        if self.entity_description.key != "electricity":
+        # Show extra attributes only for these sensors
+        if self.entity_description.key not in ["electricity", "schedule_updated_on"]:
             return None
 
-        # Get the current event to provide additional context
         current_event = self.coordinator.get_current_event()
+        attrs = {
+            # timestamp when outage data actually changed
+            "last_data_change": self.coordinator.outage_data_last_changed,
+        }
+        if self.entity_description.key not in ["electricity"]:
+            return attrs
+
         return {
+            **attrs,
             "event_type": current_event.description if current_event else None,
             "event_start": current_event.start if current_event else None,
             "event_end": current_event.end if current_event else None,
             "supported_states": self.options,
+            "current_state": self.state,
         }

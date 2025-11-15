@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
 
-from .const import CONF_PROVIDER_TYPE, PROVIDER_TYPE_DTEK, PROVIDER_TYPE_YASNO
+from .const import (
+    CONF_PROVIDER_TYPE,
+    PROVIDER_TYPE_DTEK,
+    PROVIDER_TYPE_YASNO,
+)
 from .coordinator.dtek import DtekCoordinator
 from .coordinator.yasno import YasnoCoordinator
 

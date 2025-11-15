@@ -1,0 +1,1 @@
+- run pytest using "uv run pytest"
