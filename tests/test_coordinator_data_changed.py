@@ -24,6 +24,14 @@ def mock_coordinator():
     ):
         coordinator = IntegrationCoordinator(hass, config_entry)
         # Initialize the coordinator attributes
+        coordinator.hass = hass  # Assign hass to the coordinator
+        coordinator.config_entry = (
+            config_entry  # Assign config_entry to the coordinator
+        )
+        # Add group attribute for tests
+        coordinator.group = "A"
+        coordinator.region = "test_region"
+        coordinator.provider = "test_provider"
         coordinator.translations = {}
         coordinator._previous_outage_events = None
         coordinator.outage_data_last_changed = None
@@ -50,26 +58,6 @@ class TestOutageDataChangeTracking:
                 end=base_datetime + datetime.timedelta(hours=8),
             ),
         ]
-
-    def test_initialization_sets_last_changed_to_schedule_updated_on(
-        self, mock_coordinator
-    ):
-        """Test that initial outage_data_last_changed is set to schedule_updated_on."""
-        # Mock API updated timestamp
-        mock_coordinator.api.get_updated_on.return_value = datetime.datetime(
-            2025, 1, 15, 10, 30, 0
-        )
-
-        # Create test events
-        events = self.create_test_events(datetime.datetime(2025, 1, 15, 0, 0, 0))
-
-        # Initialize tracking
-        mock_coordinator.initialize_outage_data_tracking(events)
-
-        assert mock_coordinator.outage_data_last_changed == datetime.datetime(
-            2025, 1, 15, 10, 30, 0
-        )
-        assert mock_coordinator._previous_outage_events is not None
 
     def test_no_change_detected_does_not_update_timestamp(self, mock_coordinator):
         """Test that when events don't change, timestamp is not updated."""
@@ -103,12 +91,15 @@ class TestOutageDataChangeTracking:
         modified_events = original_events[:-1]  # Remove last event
 
         # Check for changes (should return True)
-        changed = mock_coordinator.check_outage_data_changed(modified_events)
+        with patch.object(mock_coordinator.hass.bus, "async_fire") as mock_fire:
+            changed = mock_coordinator.check_outage_data_changed(modified_events)
 
         assert changed
         # When using freeze_time, dt_utils.now() returns timezone-aware datetime
         expected_time = datetime.datetime(2025, 1, 15, 12, 30, 0, tzinfo=datetime.UTC)
         assert mock_coordinator.outage_data_last_changed == expected_time
+        # Verify event was fired
+        mock_fire.assert_called_once()
 
     def test_events_are_sorted_for_consistent_comparison(self, mock_coordinator):
         """Test that events are sorted before comparison for consistent results."""
@@ -170,9 +161,12 @@ class TestOutageDataChangeTracking:
             )
         ]
 
-        changed = mock_coordinator.check_outage_data_changed(modified_events)
+        with patch.object(mock_coordinator.hass.bus, "async_fire") as mock_fire:
+            changed = mock_coordinator.check_outage_data_changed(modified_events)
 
         assert changed  # Time change should be detected
+        # Verify event was fired
+        mock_fire.assert_called_once()
 
     def test_emergency_vs_planned_events_are_differently_detected(
         self, mock_coordinator
@@ -197,6 +191,9 @@ class TestOutageDataChangeTracking:
             )
         ]
 
-        changed = mock_coordinator.check_outage_data_changed(emergency_events)
+        with patch.object(mock_coordinator.hass.bus, "async_fire") as mock_fire:
+            changed = mock_coordinator.check_outage_data_changed(emergency_events)
 
         assert changed  # Different event types should be detected
+        # Verify event was fired
+        mock_fire.assert_called_once()

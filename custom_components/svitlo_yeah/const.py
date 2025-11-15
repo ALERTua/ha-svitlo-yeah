@@ -25,8 +25,10 @@ REGION_SELECTION_DTEK_KEY: Final = "region_dtek"
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
 PROVIDER_DTEK_SHORT: Final = "ДТЕК"
 
-# Consts
-UPDATE_INTERVAL: Final = 15
+if DEBUG:
+    UPDATE_INTERVAL: Final = 1
+else:
+    UPDATE_INTERVAL: Final = 15
 
 # API Endpoints
 REGIONS_ENDPOINT: Final = (
@@ -44,6 +46,9 @@ TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )
+
+# Events
+EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"
 
 # Device
 DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"

@@ -56,7 +56,16 @@
       enabled: true
   mode: single
 
-- alias: "Power Outage Schedule Updated"
+- alias: "Power Outage Schedule Changed"
+  trigger:
+    - platform: state
+      entity_id: sensor.kiiv_dtek_3_1_schedule_data_changed_on
+  action:
+    - service: notify.mobile_app
+      data:
+        message: "Power outage schedule has changed!"
+
+- alias: "Power Outage Schedule Changed"
   trigger:
     - platform: state
       entity_id: sensor.kiiv_dtek_3_1_schedule_updated_on
@@ -65,3 +74,38 @@
     - service: notify.mobile_app
       data:
         message: "Power outage schedule has changed!"
+
+- alias: "Power Outage Schedule Changed - Kyiv DTEK 3.1"
+  description: "Notify only when outage schedule changes for Kyiv DTEK group 3.1"
+  trigger:
+    - platform: event
+      event_type: svitlo_yeah_data_changed
+  condition:
+    - condition: and
+      conditions:
+        - condition: template
+          value_template: "{{ trigger.event.data.region == 'Київ' }}"
+        - condition: template
+          value_template: "{{ trigger.event.data.provider == 'ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»' }}"
+        - condition: template
+          value_template: "{{ trigger.event.data.group == '3.1' }}"
+  action:
+    - service: notify.mobile_app
+      data:
+        message: "Kyiv DTEK Group 3.1 Schedule Changed"
+
+- alias: "Power Outage Schedule Changed - Kyiv DTEK 3.1"
+  description: "Notify only when outage schedule changes for Kyiv DTEK group 3.1"
+  trigger:
+    - platform: event
+      event_type: svitlo_yeah_data_changed
+  condition:
+    - condition: template
+      value_template: >-
+        {{ trigger.event.data.region == 'Київ' and
+           trigger.event.data.provider == 'ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»' and
+           trigger.event.data.group == '3.1' }}
+  action:
+    - service: notify.mobile_app
+      data:
+        message: "Kyiv DTEK Group 3.1 Schedule Changed"

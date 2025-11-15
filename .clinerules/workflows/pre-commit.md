@@ -1,0 +1,1 @@
+- run precommit using "pre-commit run --all-files"

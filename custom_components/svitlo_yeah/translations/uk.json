@@ -97,6 +97,9 @@
       "schedule_updated_on": {
         "name": "Графік оновлено"
       },
+      "schedule_data_changed": {
+        "name": "Графік змінився"
+      },
       "next_planned_outage": {
         "name": "Наступне планове відключення"
       },

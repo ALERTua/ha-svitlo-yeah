@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import Platform
 
-from .const import CONF_PROVIDER_TYPE, PROVIDER_TYPE_DTEK, PROVIDER_TYPE_YASNO
+from .const import (
+    CONF_PROVIDER_TYPE,
+    DEBUG,
+    DOMAIN,
+    PROVIDER_TYPE_DTEK,
+    PROVIDER_TYPE_YASNO,
+)
 from .coordinator.dtek import DtekCoordinator
 from .coordinator.yasno import YasnoCoordinator
 
@@ -18,6 +24,26 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:  # noqa: ARG001
+    """Set up the Svitlo Yeah integration (called once during startup)."""
+    # Register debug service only when DEBUG is enabled
+    if DEBUG:
+
+        async def trigger_data_change(call: Any) -> None:  # noqa: ARG001
+            """Service to manually trigger data change detection (DEBUG only)."""
+            for entry in hass.config_entries.async_entries(DOMAIN):
+                if hasattr(entry, "runtime_data") and entry.runtime_data:
+                    coordinator = entry.runtime_data
+                    # Reset previous events to force change detection on next update
+                    coordinator._previous_outage_events = []  # noqa: SLF001
+                    await coordinator.async_refresh()
+
+        hass.services.async_register(DOMAIN, "trigger_data_change", trigger_data_change)
+        LOGGER.info("Debug service 'trigger_data_change' registered")
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
