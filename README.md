@@ -79,6 +79,12 @@ The integration creates the following entities in Home Assistant:
 |--------|------|---------|-------------|
 | **Planned Outages Calendar** | Calendar Entity | Provides full calendar integration for blackout schedules | Shows all planned power outages as calendar events. Can be used with Home Assistant's calendar cards, automations, and triggers. Events include "Definite" planned outages and "Emergency" unscheduled blackouts. |
 
+### Events
+
+| Event | Description | Data |
+|-------|-------------|------|
+| **svitlo_yeah_data_changed** | Fired when outage data actually changes | ```yaml<br/>event_type: svitlo_yeah_data_changed<br/>data:<br/>  region: Київ<br/>  provider: ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»<br/>  group: "3.1"<br/>  last_data_change: "2025-11-15T14:20:24.627353+02:00"<br/>  config_entry_id: 01K9Q7AZX5KF5F6352RX98JY9T<br/>time_fired: "2025-11-15T12:20:24.627416+00:00"<br/>``` |
+
 ### Entity Usage Examples
 
 - Use the **Electricity** sensor in dashboards to display current power status from the calendar perspective
