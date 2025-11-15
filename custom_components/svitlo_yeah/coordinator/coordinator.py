@@ -50,6 +50,8 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             config_entry=config_entry,
         )
         self.translations = {}
+        self._previous_outage_events: list[PlannedOutageEvent] | None = None
+        self.outage_data_last_changed: datetime.datetime | None = None
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
@@ -177,3 +179,37 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""
         raise NotImplementedError
+
+    def initialize_outage_data_tracking(
+        self, current_events: list[PlannedOutageEvent]
+    ) -> None:
+        """Initialize outage tracking with current events and update timestamp."""
+        sorted_current = sorted(
+            current_events, key=lambda e: (e.start, e.end, e.event_type.value)
+        )
+        self._previous_outage_events = sorted_current
+        # Initialize with the API's last update timestamp
+        self.outage_data_last_changed = self.schedule_updated_on
+
+    def check_outage_data_changed(
+        self, current_events: list[PlannedOutageEvent]
+    ) -> bool:
+        """Check if outage data has changed and update last changed timestamp."""
+        # Sort events for consistent comparison
+        sorted_current = sorted(
+            current_events, key=lambda e: (e.start, e.end, e.event_type.value)
+        )
+
+        if self._previous_outage_events is None:
+            # First run - initialize tracking
+            self.initialize_outage_data_tracking(sorted_current)
+            return False
+
+        # Compare with previous events
+        if sorted_current != self._previous_outage_events:
+            self._previous_outage_events = sorted_current
+            self.outage_data_last_changed = dt_utils.now()
+            LOGGER.debug("Outage data changed at %s", self.outage_data_last_changed)
+            return True
+
+        return False
