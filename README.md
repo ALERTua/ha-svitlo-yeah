@@ -81,14 +81,25 @@ The integration creates the following entities in Home Assistant:
 
 ### Events
 
-| Event | Description | Data |
-|-------|-------------|------|
-| **svitlo_yeah_data_changed** | Fired when outage data actually changes | ```yaml<br/>event_type: svitlo_yeah_data_changed<br/>data:<br/>  region: Київ<br/>  provider: ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»<br/>  group: "3.1"<br/>  last_data_change: "2025-11-15T14:20:24.627353+02:00"<br/>  config_entry_id: 01K9Q7AZX5KF5F6352RX98JY9T<br/>time_fired: "2025-11-15T12:20:24.627416+00:00"<br/>``` |
+| Event | Description |
+|-------|-------------|
+| **svitlo_yeah_data_changed** | Fired when outage data actually changes |
 
 ### Entity Usage Examples
 
 - Use the **Electricity** sensor in dashboards to display current power status from the calendar perspective
 - Set up notifications when **Schedule Data Changed On** updates to alert about schedule changes
+- Or use the event to trigger on:
+```yaml
+event_type: svitlo_yeah_data_changed
+data:
+  region: Київ
+  provider: ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»
+  group: "3.1"
+  last_data_change: "2025-11-15T14:20:24.627353+02:00"
+  config_entry_id: 01K9Q7AZX5KF5F6352RX98JY9T
+time_fired: "2025-11-15T12:20:24.627416+00:00"
+```
 - Use the **Planned Outages Calendar** with calendar triggers for advance warnings before outages
 - Monitor **Next Planned Outage** and **Next Connectivity** timestamps for countdown displays
 
