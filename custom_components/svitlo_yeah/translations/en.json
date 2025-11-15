@@ -97,6 +97,9 @@
       "schedule_updated_on": {
         "name": "Schedule Updated On"
       },
+      "schedule_data_changed": {
+        "name": "Schedule Data Changed On"
+      },
       "next_planned_outage": {
         "name": "Next Planned Outage"
       },

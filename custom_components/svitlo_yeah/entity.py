@@ -112,7 +112,7 @@ class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinator]):
             self.hass, self._handle_boundary, next_boundary
         )
 
-    async def _handle_boundary(self) -> None:
+    async def _handle_boundary(self, *_args: any) -> None:
         """Run at exact event start/end."""
         self._update_active_state()
         self._schedule_next_boundary()

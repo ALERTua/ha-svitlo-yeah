@@ -2,7 +2,6 @@
 - run precommit using "pre-commit run --all-files"
 - run pytest using "uv run pytest"
 - raise open questions before proceeding with implementations
-- the tests should work around the main code, not vise versa
 - calendar async_get_events incoming datetime objects are timezone-aware,
   so coordinator.get_events_between datetime objects are also timezone-aware,
   so api.get_events datetime objects are also timezone-aware
@@ -11,3 +10,6 @@
 - for multiple stages of an implementation use a markdown list.
   after implementing one of the steps mark it in the list and return the list
 - do not compromise the production code for the sake of the tests: tests should work around the code, not vise versa
+- the tests should work around the main code, not vise versa
+- run all python files using "uv run" to use the virtual environment
+- you are not allowed to perform "git commit", "git add" operations
