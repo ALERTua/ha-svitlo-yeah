@@ -10,3 +10,4 @@
   it is better to work around the non-production environment differences inside the tests' code
 - for multiple stages of an implementation use a markdown list.
   after implementing one of the steps mark it in the list and return the list
+- do not compromise the production code for the sake of the tests: tests should work around the code, not vise versa
