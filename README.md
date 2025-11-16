@@ -59,6 +59,8 @@ Examples:
 - [Automation](/examples/automation.yaml)
 - [Dashboard](/examples/dashboard.yaml)
 
+![dashboard](media/7_dashboard.png)
+
 ## Integration Entities
 
 The integration creates the following entities in Home Assistant:
