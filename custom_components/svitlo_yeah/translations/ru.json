@@ -1,0 +1,115 @@
+{
+  "title": "Svitlo Yeah!",
+  "config": {
+    "abort": {
+      "dtek_scraping_fail": "Помилка запиту на сайт ДТЕК\nЯкщо ви певні, що сайт працює, то причина в захисті сайту від збору даних (анти-бот система Incapsula Imperva).\nЗбір даних про відключення ДТЕК є складним процесом, оскільки сайт використовує антибот систему.\nЯ можу спробувати обійти антибот систему лише за допомогою сторонніх спеціалізованих сервісів.\nТакий сервіс коштує близько 2.5 EUR за 1000 запитів (наприклад https://hypersolutions.co/pricing).\nЯкщо сторінка на моєму кешу-сервері оновлюватиметься кожні 30 хвилин, максимальна вартість становитиме ~2.5 EUR за ~20 днів.\nОдин отриманий cookie можливо можна буде використовувати кілька разів, тому реальна вартість може бути нижчою (або значно нижчою).\nЯкщо хтось зацікавлений у цьому, я міг би реалізувати все це самостійно, мені потрібен лише API ключ відповідного сервісу.\nТелеграм @ALERTua"
+    },
+    "step": {
+      "user": {
+        "title": "Налаштування",
+        "data": {
+          "region": "Оберіть свій регіон:"
+        },
+        "data_description": {
+        }
+      },
+      "provider": {
+        "title": "Налаштування",
+        "data": {
+          "provider": "Оберіть свою систему розподілу (ОСР):"
+        }
+      },
+      "group": {
+        "title": "Налаштування",
+        "data": {
+          "group": "Оберіть свою групу:"
+        },
+        "data_description": {
+          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages"
+        }
+      },
+      "dtek_group": {
+        "title": "Налаштування",
+        "data": {
+          "group": "Оберіть свою групу:"
+        },
+        "data_description": {
+          "group": "Знайдіть свою групу на: https://www.dtek-krem.com.ua/ua/shutdowns"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Налаштування",
+        "data": {
+          "region": "Оберіть свій регіон:"
+        }
+      },
+      "provider": {
+        "title": "Налаштування",
+        "data": {
+          "provider": "Оберіть свою систему розподілу:"
+        }
+      },
+      "group": {
+        "title": "Налаштування",
+        "data": {
+          "group": "Оберіть свою групу:"
+        },
+        "data_description": {
+          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages"
+        }
+      }
+    }
+  },
+  "device": {
+    "device_name_yasno": {
+      "name": "{region} {provider} {group}"
+    },
+    "device_name_dtek": {
+      "name": "Область {group}"
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "region_dtek": "Область"
+      }
+    }
+  },
+  "entity": {
+    "calendar": {
+      "calendar": {
+        "name": "Графік планових відключень"
+      }
+    },
+    "sensor": {
+      "electricity": {
+        "name": "Електрика",
+        "state": {
+          "normal": "Заживлено",
+          "planned_outage": "Планове відключення",
+          "emergency": "Екстрене відключення"
+        }
+      },
+      "schedule_updated_on": {
+        "name": "Графік оновлено"
+      },
+      "schedule_data_changed": {
+        "name": "Графік змінився"
+      },
+      "next_planned_outage": {
+        "name": "Наступне планове відключення"
+      },
+      "next_connectivity": {
+        "name": "Наступне відновлення"
+      }
+    }
+  },
+  "common": {
+    "event_name_planned_outage": "Планове відключення",
+    "event_name_emergency_outage": "Екстрене відключення"
+  }
+}
