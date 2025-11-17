@@ -34,9 +34,9 @@ def _merge_adjacent_events(
                 continue
 
             # For datetime events, merge if they are adjacent
-            # This handles the case where 24:00 becomes 23:59:59.999999
             # and next day starts at 00:00:00
-            if current.end + datetime.timedelta(microseconds=1) >= next_event.start:
+            # adding a second is currently viable only for DTEK
+            if current.end + datetime.timedelta(seconds=1) >= next_event.start:
                 # Extend current event to the end of the next event
                 current = PlannedOutageEvent(
                     start=current.start,
