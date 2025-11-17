@@ -30,9 +30,10 @@ def _minutes_to_time(minutes: int, dt: datetime.datetime) -> datetime.datetime:
     hours = minutes // 60
     mins = minutes % 60
 
-    # Handle end of day (24:00) - keep it as 23:59:59 to stay on same day
+    # Handle end of day (24:00) as 00:00 of the next day
     if hours == 24:  # noqa: PLR2004
-        return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        dt = dt + datetime.timedelta(days=1)
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
     return dt.replace(hour=hours, minute=mins, second=0, microsecond=0)
 

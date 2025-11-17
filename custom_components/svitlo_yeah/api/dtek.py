@@ -217,12 +217,20 @@ class DtekAPI:
                     second=0,
                     microsecond=0,
                 )
-                event_end = day_dt.replace(
-                    hour=end_time.hour,
-                    minute=end_time.minute,
-                    second=end_time.second,
-                    microsecond=end_time.microsecond,
-                )
+                if end_time.hour == 23 and end_time.minute == 59:  # noqa: PLR2004
+                    event_end = (day_dt + datetime.timedelta(days=1)).replace(
+                        hour=0,
+                        minute=0,
+                        second=0,
+                        microsecond=0,
+                    )
+                else:
+                    event_end = day_dt.replace(
+                        hour=end_time.hour,
+                        minute=end_time.minute,
+                        second=end_time.second,
+                        microsecond=0,
+                    )
 
                 events.append(
                     PlannedOutageEvent(

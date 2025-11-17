@@ -250,9 +250,9 @@ class TestYasnoApiTimeConversion:
         """Test converting 24:00 to time."""
         date = dt_utils.now()
         result = _minutes_to_time(1440, date)
-        assert result.hour == 23
-        assert result.minute == 59
-        assert result.second == 59
+        assert result.hour == 0
+        assert result.minute == 0
+        assert result.second == 0
 
 
 class TestYasnoApiScheduleParsing:
@@ -301,7 +301,7 @@ class TestYasnoApiEventMerging:
         events = [
             PlannedOutageEvent(
                 start=dt1,
-                end=dt_utils.parse_datetime("2025-10-27T23:59:59.999999+02:00"),
+                end=dt2,
                 event_type=PlannedOutageEventType.DEFINITE,
             ),
             PlannedOutageEvent(
@@ -353,7 +353,7 @@ class TestYasnoApiEventMerging:
         events = [
             PlannedOutageEvent(
                 start=dt1,
-                end=dt_utils.parse_datetime("2025-10-27T23:59:59.999999+02:00"),
+                end=dt2,
                 event_type=PlannedOutageEventType.DEFINITE,
             ),
             PlannedOutageEvent(

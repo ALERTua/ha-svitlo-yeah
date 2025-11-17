@@ -450,6 +450,6 @@ class TestDtekRegionAPIEventMerging:
         assert len(events) == 1
         assert events[0].start.hour == 23
         assert events[0].start.minute == 0
-        assert events[0].end.hour == 23
-        assert events[0].end.minute == 59
-        assert events[0].end.second == 59
+        assert events[0].end.hour == 0
+        assert events[0].end.minute == 0
+        assert events[0].end.second == 0
