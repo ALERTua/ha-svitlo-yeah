@@ -10,6 +10,7 @@ from homeassistant.util import dt as dt_utils
 
 from ..const import (
     BLOCK_KEY_STATUS,
+    DEBUG,
     PLANNED_OUTAGES_ENDPOINT,
     REGIONS_ENDPOINT,
     UPDATE_INTERVAL,
@@ -116,6 +117,76 @@ def _parse_day_schedule(
     return events
 
 
+def _debug_data() -> dict:
+    # emergency shutdowns
+    today_midnight = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    output = {
+        "3.1": {
+            "today": {
+                "slots": [],
+                "date": today_midnight.isoformat(timespec="seconds"),
+                "status": "EmergencyShutdowns",
+            },
+            "tomorrow": {
+                "slots": [],
+                "date": (today_midnight + datetime.timedelta(days=1)).isoformat(
+                    timespec="seconds"
+                ),
+                "status": "EmergencyShutdowns",
+            },
+            "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
+        }
+    }
+    # over midnight events
+    output = {
+        "3.1": {
+            "today": {
+                "slots": [
+                    {"start": 0, "end": 960, "type": "NotPlanned"},
+                    {"start": 960, "end": 1200, "type": "Definite"},
+                    {"start": 1200, "end": 1350, "type": "NotPlanned"},
+                    {"start": 1350, "end": 1440, "type": "Definite"},
+                ],
+                "date": dt_utils.now().isoformat(timespec="seconds"),
+                "status": "ScheduleApplies",
+            },
+            "tomorrow": {
+                "slots": [
+                    {"start": 0, "end": 270, "type": "Definite"},
+                ],
+                "date": (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
+                    timespec="seconds"
+                ),
+                "status": "ScheduleApplies",
+            },
+            "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
+        }
+    }
+    # manual outage data
+    minutes = 14 * 60 + 8
+    output = {
+        "3.1": {
+            "today": {
+                "slots": [
+                    {"start": 0, "end": minutes, "type": "NotPlanned"},
+                    {"start": minutes, "end": minutes + 1, "type": "Definite"},
+                ],
+                "date": dt_utils.now().isoformat(timespec="seconds"),
+                "status": "ScheduleApplies",
+            },
+            "tomorrow": {
+                "slots": [],
+                "date": (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
+                    timespec="seconds"
+                ),
+                "status": "WaitingForSchedule",
+            },
+            "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
+        }
+    }
+    return output  # noqa: RET504
+
+
 class YasnoApi:
     """Class to interact with Yasno API."""
 
@@ -195,80 +266,8 @@ class YasnoApi:
         async with aiohttp.ClientSession() as session:
             self.planned_outage_data = await self._get_route_data(session, url)
 
-        # DEBUG. DO NOT COMMIT UNCOMMENTED!
-        """
-        # emergency shutdowns
-        today_midnight = dt_utils.now().replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        self.planned_outage_data = {
-            "3.1": {
-                "today": {
-                    "slots": [],
-                    "date": today_midnight.isoformat(timespec='seconds'),
-                    "status": "EmergencyShutdowns"
-                },
-                "tomorrow": {
-                    "slots": [],
-                    "date": (today_midnight + datetime.timedelta(days=1)).isoformat(
-                        timespec='seconds'),
-                    "status": "EmergencyShutdowns"
-                },
-                "updatedOn": dt_utils.now().isoformat(timespec='seconds')
-            }
-        }
-        """
-        """
-        # over midnight events
-        self.planned_outage_data = {
-            "3.1": {
-                'today': {
-                    'slots': [
-                        {"start": 0, "end": 960, "type": "NotPlanned"},
-                        {"start": 960, "end": 1200, "type": "Definite"},
-                        {"start": 1200, "end": 1350, "type": "NotPlanned"},
-                        {'start': 1350, 'end': 1440, 'type': 'Definite'}
-                    ],
-                    'date': dt_utils.now().isoformat(timespec='seconds'),
-                    'status': 'ScheduleApplies'
-                },
-                'tomorrow': {
-                    'slots': [
-                        {'start': 0, 'end': 270, 'type': 'Definite'},
-                    ],
-                    'date': (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
-                        timespec='seconds'),
-                    'status': 'ScheduleApplies'
-                },
-                'updatedOn': dt_utils.now().isoformat(timespec='seconds')
-            }
-        }
-        """
-        """
-        # manual outage data
-        minutes = 14 * 60 + 8
-        self.planned_outage_data = {
-            "3.1": {
-                "today": {
-                    "slots": [
-                        {"start": 0, "end": minutes, "type": "NotPlanned"},
-                        {"start": minutes, "end": minutes + 1, "type": "Definite"},
-                    ],
-                    "date": dt_utils.now().isoformat(timespec="seconds"),
-                    "status": "ScheduleApplies",
-                },
-                "tomorrow": {
-                    "slots": [],
-                    "date": (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
-                        timespec="seconds"
-                    ),
-                    "status": "WaitingForSchedule",
-                },
-                "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
-            }
-        }
-        """
-        # DEBUG. DO NOT COMMIT UNCOMMENTED!
+        if DEBUG:
+            self.planned_outage_data = _debug_data()
 
         YasnoApi._cached_planned_outage_data = self.planned_outage_data
         YasnoApi._planned_outage_last_fetch = now

@@ -10,7 +10,7 @@ import re
 import aiohttp
 from homeassistant.util import dt as dt_utils
 
-from ..const import DTEK_HEADERS, UPDATE_INTERVAL
+from ..const import DEBUG, DTEK_ENDPOINT, DTEK_HEADERS, UPDATE_INTERVAL
 from ..models import PlannedOutageEvent, PlannedOutageEventType
 from .common_tools import _merge_adjacent_events
 
@@ -85,6 +85,47 @@ def _extract_data(html: str) -> dict | None:
         return None
 
 
+def _debug_data() -> dict:
+    now = dt_utils.now()
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # till_midnight
+    output = {
+        "data": {
+            midnight.timestamp(): {
+                "GPV1.1": {
+                    "1": "yes",
+                    "2": "yes",
+                    "3": "yes",
+                    "4": "yes",
+                    "5": "yes",
+                    "6": "yes",
+                    "7": "yes",
+                    "8": "yes",
+                    "9": "yes",
+                    "10": "yes",
+                    "11": "yes",
+                    "12": "yes",
+                    "13": "second",
+                    "14": "no",
+                    "15": "no",
+                    "16": "no",
+                    "17": "first",
+                    "18": "yes",
+                    "19": "yes",
+                    "20": "yes",
+                    "21": "yes",
+                    "22": "second",
+                    "23": "no",
+                    "24": "no",
+                },
+            },
+        },
+        "update": midnight.strftime("%d.%m.%Y %H:%M"),
+        "today": midnight.timestamp(),
+    }
+    return output  # noqa: RET504
+
+
 class DtekAPI:
     """Class to interact with DTEK Regions API."""
 
@@ -106,7 +147,13 @@ class DtekAPI:
             self.data = DtekAPI._cached_data
             return
 
-        url = "https://www.dtek-krem.com.ua/ua/shutdowns"
+        if DEBUG:
+            self.data = _debug_data()
+            DtekAPI._cached_data = self.data
+            DtekAPI._last_fetch = now
+            return
+
+        url = DTEK_ENDPOINT
         headers = DTEK_HEADERS
         try:
             async with aiohttp.ClientSession() as session:

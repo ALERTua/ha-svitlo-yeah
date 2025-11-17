@@ -30,6 +30,7 @@ if DEBUG:
 else:
     UPDATE_INTERVAL: Final = 15
 
+DTEK_ENDPOINT: Final = "https://www.dtek-krem.com.ua/ua/shutdowns"
 # API Endpoints
 REGIONS_ENDPOINT: Final = (
     "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/regions"
