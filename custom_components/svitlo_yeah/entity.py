@@ -3,35 +3,35 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_utils
 
+from .api.dtek.json import LOGGER
 from .const import (
     CONF_PROVIDER_TYPE,
+    DEBUG,
     DEVICE_MANUFACTURER,
-    DEVICE_NAME_DTEK_TRANSLATION_KEY,
-    DEVICE_NAME_YASNO_TRANSLATION_KEY,
     DOMAIN,
-    PROVIDER_TYPE_DTEK,
+    PROVIDER_TO_DEVICE_NAME_MAP,
     UPDATE_INTERVAL,
 )
-from .coordinator.dtek import DtekCoordinator
+from .coordinator.dtek.base import DtekCoordinatorBase
 from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
 
 
-class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinator]):
+class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinatorBase]):
     """Common logic for Svitlo Yeah entity."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: YasnoCoordinator | DtekCoordinator) -> None:
+    def __init__(self, coordinator: YasnoCoordinator | DtekCoordinatorBase) -> None:
         """Initialize the integration entity."""
         super().__init__(coordinator)
         self._unsubscribe_boundary = None
@@ -44,18 +44,23 @@ class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinator]):
             CONF_PROVIDER_TYPE,
             self.coordinator.config_entry.data.get(CONF_PROVIDER_TYPE),
         )
+        translation_key = PROVIDER_TO_DEVICE_NAME_MAP[provider_type]
 
-        translation_key = (
-            DEVICE_NAME_DTEK_TRANSLATION_KEY
-            if provider_type == PROVIDER_TYPE_DTEK
-            else DEVICE_NAME_YASNO_TRANSLATION_KEY
-        )
+        # provider is optional
+        if not all((self.coordinator.provider_name, self.coordinator.group)) or DEBUG:
+            LOGGER.warning(f"""
+            Provider Type {provider_type}
+            translation_key: {translation_key}
+            region: {self.coordinator.region_name}
+            provider: {self.coordinator.provider_name}
+            group: {self.coordinator.group}
+            """)
 
         return DeviceInfo(
             translation_key=translation_key,
             translation_placeholders={
-                "region": self.coordinator.region_name,
-                "provider": self.coordinator.provider_name,
+                "region_name": self.coordinator.region_name,
+                "provider_name": self.coordinator.provider_name,
                 "group": str(self.coordinator.group),
             },
             identifiers={(DOMAIN, self.coordinator.config_entry.entry_id)},
@@ -112,7 +117,7 @@ class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinator]):
             self.hass, self._handle_boundary, next_boundary
         )
 
-    async def _handle_boundary(self, *_args: any) -> None:
+    async def _handle_boundary(self, *_args: Any) -> None:
         """Run at exact event start/end."""
         self._update_active_state()
         self._schedule_next_boundary()

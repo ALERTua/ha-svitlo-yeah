@@ -13,3 +13,4 @@
 - the tests should work around the main code, not vise versa
 - run all python files using "uv run" to use the virtual environment
 - you are not allowed to perform "git commit", "git add" operations
+- fetch github files using github mcp
