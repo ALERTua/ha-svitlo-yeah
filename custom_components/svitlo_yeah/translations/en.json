@@ -65,13 +65,13 @@
         "name": "Schedule Updated On"
       },
       "schedule_data_changed": {
-        "name": "Schedule Changed"
+        "name": "Schedule Data Changed On"
       },
       "next_planned_outage": {
         "name": "Next Planned Outage"
       },
       "next_connectivity": {
-        "name": "Next Restored"
+        "name": "Next Connectivity"
       }
     }
   },
