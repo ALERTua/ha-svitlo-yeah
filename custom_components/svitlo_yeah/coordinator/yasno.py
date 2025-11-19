@@ -20,6 +20,7 @@ from ..const import (
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_REGION,
+    DEBUG,
     DOMAIN,
     PROVIDER_DTEK_FULL,
     PROVIDER_DTEK_SHORT,
@@ -29,10 +30,22 @@ from ..const import (
 from ..models import (
     ConnectivityState,
     PlannedOutageEventType,
+    YasnoProvider,
+    YasnoRegion,
 )
 from .coordinator import IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _simplify_provider_name(provider_name: str) -> str:
+    """Simplify provider names for cleaner display in device names."""
+    # Replace long DTEK provider names with just "ДТЕК"
+    if PROVIDER_DTEK_FULL in provider_name.upper():
+        return PROVIDER_DTEK_SHORT
+
+    # Add more provider simplifications here as needed
+    return provider_name
 
 
 class YasnoCoordinator(IntegrationCoordinator):
@@ -46,11 +59,11 @@ class YasnoCoordinator(IntegrationCoordinator):
         self.translations = {}
 
         # Get configuration values
-        self.region = config_entry.options.get(
+        self.region_id = config_entry.options.get(
             CONF_REGION,
             config_entry.data.get(CONF_REGION),
         )
-        self.provider = config_entry.options.get(
+        self.provider_id = config_entry.options.get(
             CONF_PROVIDER,
             config_entry.data.get(CONF_PROVIDER),
         )
@@ -59,7 +72,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             config_entry.data.get(CONF_GROUP),
         )
 
-        if not self.region:
+        if not self.region_id:
             region_required_msg = (
                 "Region not set in configuration - this should not happen "
                 "with proper config flow"
@@ -68,7 +81,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             LOGGER.error(region_required_msg)
             raise ValueError(region_error)
 
-        if not self.provider:
+        if not self.provider_id:
             provider_required_msg = (
                 "Provider not set in configuration - this should not happen "
                 "with proper config flow"
@@ -86,18 +99,14 @@ class YasnoCoordinator(IntegrationCoordinator):
             LOGGER.error(group_required_msg)
             raise ValueError(group_error)
 
-        # Initialize with names first, then we'll update with IDs when we fetch data
-        self.region_id = None
-        self.provider_id = None
-        self._provider_name = ""  # Cache the provider name
-
-        # Initialize API and resolve IDs
+        self._region: YasnoRegion | None = None
         self.api = YasnoApi()
-        # Note: We'll resolve IDs and update API during first data update
 
     @property
     def event_name_map(self) -> dict:
         """Return a mapping of event names to translations."""
+        if DEBUG:
+            LOGGER.debug("Event names mapped to translations: %s", self.translations)
         return {
             PlannedOutageEventType.DEFINITE: self.translations.get(
                 TRANSLATION_KEY_EVENT_PLANNED_OUTAGE
@@ -107,38 +116,15 @@ class YasnoCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _resolve_ids(self) -> None:
-        """Resolve region and provider IDs from names."""
-        if not self.api.regions_data:
-            await self.api.fetch_yasno_regions()
-
-        if self.region:
-            region_data = self.api.get_region_by_name(self.region)
-            if region_data:
-                self.region_id = region_data["id"]
-                if self.provider:
-                    provider_data = self.api.get_yasno_provider_by_name(
-                        self.region, self.provider
-                    )
-                    if provider_data:
-                        self.provider_id = provider_data["id"]
-                        # Cache the provider name for device naming
-                        self._provider_name = provider_data["name"]
-
     async def _async_update_data(self) -> None:
         """Fetch data from Svitlo Yeah API."""
         await self.async_fetch_translations()
 
-        # Resolve IDs if not already resolved
-        if self.region_id is None or self.provider_id is None:
-            await self._resolve_ids()
-
-            # Update API with resolved IDs
-            self.api = YasnoApi(
-                region_id=self.region_id,
-                provider_id=self.provider_id,
-                group=self.group,
-            )
+        self.api = YasnoApi(
+            region_id=self.region_id,
+            provider_id=self.provider_id,
+            group=self.group,
+        )
 
         # Fetch outages data (now async with aiohttp, not blocking)
         await self.api.fetch_data()
@@ -153,7 +139,7 @@ class YasnoCoordinator(IntegrationCoordinator):
         self.translations = await async_get_translations(
             self.hass,
             self.hass.config.language,
-            "common",
+            "coordinator",
             [DOMAIN],
         )
         LOGGER.debug(
@@ -161,33 +147,41 @@ class YasnoCoordinator(IntegrationCoordinator):
         )
 
     @property
+    def region(self) -> YasnoRegion | None:
+        """Get the configured region."""
+        if not self._region:
+            self._region = self.api.get_region_by_id(self.region_id)
+            LOGGER.debug("Caching region to %s", self._region)
+        return self._region
+
+    @property
     def region_name(self) -> str:
         """Get the configured region name."""
-        return self.region or ""
+        if not self.region:
+            LOGGER.warning("Trying to get region_name without region")
+            return ""
+
+        return self.region.value or ""
+
+    @property
+    def provider(self) -> YasnoProvider | None:
+        """Get the configured provider."""
+        if not self.region:
+            LOGGER.warning("Trying to get provider without region")
+            return None
+
+        return next(
+            (_ for _ in self.region.dsos if _.provider_id == self.provider_id), None
+        )
 
     @property
     def provider_name(self) -> str:
         """Get the configured provider name."""
-        # Return cached name if available (but apply simplification first)
-        if self._provider_name:
-            return self._simplify_provider_name(self._provider_name)
-
-        # Fallback to lookup if not cached yet
-        if not self.api.regions_data:
+        if not self.provider:
+            LOGGER.warning("Trying to get provider_name without provider")
             return ""
 
-        region_data = self.api.get_region_by_name(self.region)
-        if not region_data:
-            return ""
-
-        providers = region_data.get("dsos", [])
-        for provider in providers:
-            if (provider_name := provider.get("name", "")) == self.provider:
-                # Cache the simplified name
-                self._provider_name = provider_name
-                return self._simplify_provider_name(provider_name)
-
-        return ""
+        return _simplify_provider_name(self.provider.name)
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""
@@ -202,12 +196,3 @@ class YasnoCoordinator(IntegrationCoordinator):
 
         LOGGER.warning("Unknown event type: %s", event.uid)
         return ConnectivityState.STATE_NORMAL
-
-    def _simplify_provider_name(self, provider_name: str) -> str:
-        """Simplify provider names for cleaner display in device names."""
-        # Replace long DTEK provider names with just "ДТЕК"
-        if PROVIDER_DTEK_FULL in provider_name.upper():
-            return PROVIDER_DTEK_SHORT
-
-        # Add more provider simplifications here as needed
-        return provider_name

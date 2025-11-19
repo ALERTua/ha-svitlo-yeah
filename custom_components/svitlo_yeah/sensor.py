@@ -28,7 +28,7 @@ class IntegrationSensorDescription(SensorEntityDescription):
     val_func: Callable[[YasnoCoordinator], Any]
 
 
-SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
+SENSORS: tuple[IntegrationSensorDescription, ...] = (
     IntegrationSensorDescription(
         key="electricity",
         translation_key="electricity",
@@ -68,6 +68,7 @@ SENSOR_TYPES: tuple[IntegrationSensorDescription, ...] = (
 )
 
 
+# noinspection PyUnusedLocal
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
     config_entry: ConfigEntry,
@@ -77,7 +78,7 @@ async def async_setup_entry(
     LOGGER.debug("Setup new sensor: %s", config_entry)
     coordinator: YasnoCoordinator = config_entry.runtime_data
     async_add_entities(
-        IntegrationSensor(coordinator, description) for description in SENSOR_TYPES
+        IntegrationSensor(coordinator, description) for description in SENSORS
     )
 
 
@@ -94,10 +95,9 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = entity_description
+
         self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}-"
-            f"{coordinator.group}-"
-            f"{self.entity_description.key}"
+            f"{coordinator.config_entry.entry_id}_{self.entity_description.key}"
         )
 
     @property

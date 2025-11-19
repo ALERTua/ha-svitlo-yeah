@@ -1,1 +1,2 @@
 - run pytest using "uv run pytest"
+- do not change folders before running the commands
