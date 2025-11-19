@@ -100,7 +100,7 @@ class YasnoProvider(BaseProvider):
         return PROVIDER_TYPE_YASNO
 
 
-@dataclass(frozen=True)
+@dataclass
 class YasnoRegion:
     """Yasno region data."""
 
