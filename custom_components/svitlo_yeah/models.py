@@ -71,7 +71,7 @@ class BaseProvider:
         return self.unique_key
 
 
-@dataclass
+@dataclass(frozen=True)
 class YasnoProvider(BaseProvider):
     """Yasno provider model."""
 
