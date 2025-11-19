@@ -139,7 +139,7 @@ class YasnoCoordinator(IntegrationCoordinator):
         self.translations = await async_get_translations(
             self.hass,
             self.hass.config.language,
-            "coordinator",
+            "common",
             [DOMAIN],
         )
         LOGGER.debug(

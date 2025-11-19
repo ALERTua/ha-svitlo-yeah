@@ -75,7 +75,7 @@
       }
     }
   },
-  "coordinator": {
+  "common": {
     "event_name_planned_outage": "Scheduled Outage",
     "event_name_emergency_outage": "Emergency Outage",
     "kyiv_region": "Kyiv Region",
