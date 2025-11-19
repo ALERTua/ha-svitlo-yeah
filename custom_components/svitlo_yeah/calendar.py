@@ -39,7 +39,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         super().__init__(coordinator)
 
         self.entity_id = (
-            f"calendar."
+            "calendar."
             f"_{coordinator.region_name}"
             f"_{coordinator.provider_name}"
             f"_{coordinator.group}"
