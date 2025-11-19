@@ -43,7 +43,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
             f"_{coordinator.region_name}"
             f"_{coordinator.provider_name}"
             f"_{coordinator.group}"
-            f"_planned_outages"
+            "_planned_outages"
         )
         self.entity_description = EntityDescription(
             key="calendar",
