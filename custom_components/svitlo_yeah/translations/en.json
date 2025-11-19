@@ -2,87 +2,54 @@
   "title": "Svitlo Yeah!",
   "config": {
     "abort": {
-      "dtek_scraping_fail": "Error accessing the DTEK website\nIf you are certain the site is operational, the issue is due to the website's anti-data scraping protection (Incapsula Imperva anti-bot system).\n\nCollecting data on DTEK outages is a complex process because of this anti-bot system.\nI can try to bypass the anti-bot system only through third-party specialized services.\nSuch a service costs ~2.5 EUR per 1,000 requests (e.g., https://hypersolutions.co/pricing).\n\nIf the page on my cache server updates every 30 minutes, the maximum cost would be around 2.5 EUR for ~20 days.\nOne obtained cookie might be reusable, so the actual cost could be lower (or significantly lower).\n\nIf someone is interested in this, I could implement it myself—I would only need an API key for the relevant service.\nTelegram: @ALERTua"
+      "dtek_scraping_fail": "Error accessing the DTEK website\nIf you are sure the site is working, the reason is the site's protection against data collection (anti-bot system Incapsula Imperva).\nCollecting data on DTEK outages is a complex process because the site uses an anti-bot system.\nI can try to bypass the anti-bot system only through third-party specialized services.\nSuch a service costs about 2.5 EUR for 1000 requests (for example https://hypersolutions.co/pricing).\nIf the page on my cache server updates every 30 minutes, the maximum cost will be about ~2.5 EUR for ~20 days.\nOne obtained cookie can possibly be used multiple times, so the real cost may be lower (or significantly lower).\nIf someone is interested in this, I could implement everything myself, I just need the API key of the appropriate service.\nTelegram @ALERTua"
     },
     "step": {
       "user": {
-        "title": "Settings",
+        "title": "Select Region/System Distribution",
         "data": {
-          "region": "Please select your region:"
+          "provider": "Select your region/system distribution:"
         },
         "data_description": {
-        }
-      },
-      "provider": {
-        "title": "Settings",
-        "data": {
-          "provider": "Please select your provider:"
         }
       },
       "group": {
         "title": "Settings",
         "data": {
-          "group": "Please select your group:"
+          "group": "Select your group:"
         },
         "data_description": {
-          "group": "You can find your group at: https://static.yasno.ua/kyiv/outages"
-        }
-      },
-      "dtek_group": {
-        "title": "Settings",
-        "data": {
-          "group": "Please select your group:"
-        },
-        "data_description": {
-          "group": "You can find your group at: https://www.dtek-krem.com.ua/ua/shutdowns"
-        }
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Settings",
-        "data": {
-          "region": "Please select your region:"
-        }
-      },
-      "provider": {
-        "title": "Settings",
-        "data": {
-          "provider": "Please select your provider:"
-        }
-      },
-      "group": {
-        "title": "Settings",
-        "data": {
-          "group": "Please select your group:"
-        },
-        "data_description": {
-          "group": "You can find your group at: https://static.yasno.ua/kyiv/outages"
+          "group": "Find your group at: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
         }
       }
     }
   },
   "device": {
     "device_name_yasno": {
-      "name": "{region} {provider} {group}"
+      "name": "{region_name} {provider_name} {group}"
     },
     "device_name_dtek": {
-      "name": "Oblast {group}"
+      "name": "{provider_name} {group}"
     }
   },
   "selector": {
-    "region": {
+    "provider": {
       "options": {
-        "region_dtek": "Oblast"
+        "dtekjsonprovider_kyiv_region": "DTEK — Kyiv Region",
+        "dtekjsonprovider_dnipro": "DTEK — Dnipro",
+        "dtekjsonprovider_odesa": "DTEK — Odesa",
+        "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi",
+        "yasnoprovider_25_902": "Yasno — Kyiv",
+        "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
+        "yasnoprovider_3_303": "Yasno — Dnipro — CEC",
+        "dtek_html": "Other (anti-bot protection)"
       }
     }
   },
   "entity": {
     "calendar": {
       "calendar": {
-        "name": "Planned Outages Calendar"
+        "name": "Scheduled Outages Schedule"
       }
     },
     "sensor": {
@@ -90,7 +57,7 @@
         "name": "Electricity",
         "state": {
           "normal": "Connected",
-          "planned_outage": "Planned Outage",
+          "planned_outage": "Scheduled Outage",
           "emergency": "Emergency Outage"
         }
       },
@@ -98,18 +65,23 @@
         "name": "Schedule Updated On"
       },
       "schedule_data_changed": {
-        "name": "Schedule Data Changed On"
+        "name": "Schedule Changed"
       },
       "next_planned_outage": {
-        "name": "Next Planned Outage"
+        "name": "Next Scheduled Outage"
       },
       "next_connectivity": {
-        "name": "Next Connectivity"
+        "name": "Next Restored"
       }
     }
   },
-  "common": {
-    "event_name_planned_outage": "Planned Outage",
-    "event_name_emergency_outage": "Emergency Outage"
+  "coordinator": {
+    "event_name_planned_outage": "Scheduled Outage",
+    "event_name_emergency_outage": "Emergency Outage",
+    "kyiv_region": "Kyiv Region",
+    "dnipro": "Dnipro",
+    "odesa": "Odesa",
+    "khmelnytskyi": "Khmelnytskyi",
+    "dtek_html": "DTEK"
   }
 }

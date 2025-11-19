@@ -2,45 +2,42 @@
 
 from __future__ import annotations
 
-import datetime
 import logging
+from datetime import UTC, date, datetime, time, timedelta
 
 import aiohttp
-from homeassistant.util import dt as dt_utils
 
 from ..const import (
     BLOCK_KEY_STATUS,
     DEBUG,
-    PLANNED_OUTAGES_ENDPOINT,
-    REGIONS_ENDPOINT,
-    UPDATE_INTERVAL,
+    YASNO_PLANNED_OUTAGES_ENDPOINT,
+    YASNO_REGIONS_ENDPOINT,
 )
 from ..models import (
     PlannedOutageEvent,
     PlannedOutageEventType,
     YasnoPlannedOutageDayStatus,
+    YasnoRegion,
 )
 from .common_tools import _merge_adjacent_events
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _minutes_to_time(minutes: int, dt: datetime.datetime) -> datetime.datetime:
+def _minutes_to_time(minutes: int, dt: datetime) -> datetime:
     """Convert minutes from start of day to datetime."""
     hours = minutes // 60
     mins = minutes % 60
 
     # Handle end of day (24:00) as 00:00 of the next day
     if hours == 24:  # noqa: PLR2004
-        dt = dt + datetime.timedelta(days=1)
+        dt = dt + timedelta(days=1)
         return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
     return dt.replace(hour=hours, minute=mins, second=0, microsecond=0)
 
 
-def _parse_day_schedule(
-    day_data: dict, dt: datetime.datetime
-) -> list[PlannedOutageEvent]:
+def _parse_day_schedule(day_data: dict, dt: datetime) -> list[PlannedOutageEvent]:
     """
     Parse schedule for a single day.
 
@@ -118,9 +115,11 @@ def _parse_day_schedule(
     return events
 
 
+# noinspection PyUnusedLocal
 def _debug_data() -> dict:
     # emergency shutdowns
-    today_midnight = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    now = datetime.now(UTC)
+    today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     output = {
         "3.1": {
             "today": {
@@ -130,12 +129,12 @@ def _debug_data() -> dict:
             },
             "tomorrow": {
                 "slots": [],
-                "date": (today_midnight + datetime.timedelta(days=1)).isoformat(
+                "date": (today_midnight + timedelta(days=1)).isoformat(
                     timespec="seconds"
                 ),
                 "status": "EmergencyShutdowns",
             },
-            "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
+            "updatedOn": now.isoformat(timespec="seconds"),
         }
     }
     # over midnight events
@@ -148,19 +147,17 @@ def _debug_data() -> dict:
                     {"start": 1200, "end": 1350, "type": "NotPlanned"},
                     {"start": 1350, "end": 1440, "type": "Definite"},
                 ],
-                "date": dt_utils.now().isoformat(timespec="seconds"),
+                "date": now.isoformat(timespec="seconds"),
                 "status": "ScheduleApplies",
             },
             "tomorrow": {
                 "slots": [
                     {"start": 0, "end": 270, "type": "Definite"},
                 ],
-                "date": (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
-                    timespec="seconds"
-                ),
+                "date": (now + timedelta(days=1)).isoformat(timespec="seconds"),
                 "status": "ScheduleApplies",
             },
-            "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
+            "updatedOn": now.isoformat(timespec="seconds"),
         }
     }
     # manual outage data
@@ -172,17 +169,15 @@ def _debug_data() -> dict:
                     {"start": 0, "end": minutes, "type": "NotPlanned"},
                     {"start": minutes, "end": minutes + 1, "type": "Definite"},
                 ],
-                "date": dt_utils.now().isoformat(timespec="seconds"),
+                "date": now.isoformat(timespec="seconds"),
                 "status": "ScheduleApplies",
             },
             "tomorrow": {
                 "slots": [],
-                "date": (dt_utils.now() + datetime.timedelta(days=1)).isoformat(
-                    timespec="seconds"
-                ),
+                "date": (now + timedelta(days=1)).isoformat(timespec="seconds"),
                 "status": "WaitingForSchedule",
             },
-            "updatedOn": dt_utils.now().isoformat(timespec="seconds"),
+            "updatedOn": now.isoformat(timespec="seconds"),
         }
     }
     return output  # noqa: RET504
@@ -191,9 +186,7 @@ def _debug_data() -> dict:
 class YasnoApi:
     """Class to interact with Yasno API."""
 
-    _cached_regions_data: list[dict] | None = None
-    _planned_outage_last_fetch: datetime.datetime | None = None
-    _cached_planned_outage_data: dict | None = None
+    _regions: list[YasnoRegion] | None = None
 
     def __init__(
         self,
@@ -202,18 +195,17 @@ class YasnoApi:
         group: str | None = None,
     ) -> None:
         """Initialize the Yasno API."""
-        self.region_id = region_id
-        self.provider_id = provider_id
-        self.group = group
-        self.regions_data = None
-        self.planned_outage_data = None
+        self.region_id: int = region_id
+        self.provider_id: int = provider_id
+        self.group: str = group
+        self.planned_outage_data: dict | None = None
 
     async def _get_route_data(
         self,
         session: aiohttp.ClientSession,
         url: str,
         timeout_secs: int = 60,
-    ) -> dict | list[dict] | None:
+    ) -> list[dict] | None:
         """Fetch data from the given URL."""
         try:
             async with session.get(
@@ -229,87 +221,52 @@ class YasnoApi:
 
     async def fetch_yasno_regions(self) -> None:
         """Fetch regions and providers data."""
-        if YasnoApi._cached_regions_data:
-            self.regions_data = YasnoApi._cached_regions_data
+        if YasnoApi._regions:
             return
 
         async with aiohttp.ClientSession() as session:
-            self.regions_data = (
-                YasnoApi._cached_regions_data
-            ) = await self._get_route_data(session, REGIONS_ENDPOINT)
+            result = await self._get_route_data(session, YASNO_REGIONS_ENDPOINT)
 
-    async def fetch_planned_outage_data(
-        self, cache_minutes: int = UPDATE_INTERVAL
-    ) -> None:
+        if result:
+            YasnoApi._regions = [YasnoRegion.from_dict(_) for _ in result]
+
+        LOGGER.debug("Fetched yasno regions data: %s", YasnoApi._regions)
+
+    async def fetch_planned_outage_data(self) -> None:
         """Fetch outage data for the configured region and provider."""
-        now = datetime.datetime.now(datetime.UTC)
-        # Only use cache if we have the required region/provider IDs
-        if (
-            self.region_id
-            and self.provider_id
-            and YasnoApi._planned_outage_last_fetch
-            and (now - YasnoApi._planned_outage_last_fetch).total_seconds()
-            < cache_minutes * 60
-        ):
-            self.planned_outage_data = YasnoApi._cached_planned_outage_data
-            return
-
         if not self.region_id or not self.provider_id:
-            LOGGER.warning(
-                "Region ID and Provider ID must be set before fetching outages",
+            LOGGER.error(
+                "Region ID %s and Provider ID %s must be set before fetching outages",
+                self.region_id,
+                self.provider_id,
             )
             return
 
-        url = PLANNED_OUTAGES_ENDPOINT.format(
+        url = YASNO_PLANNED_OUTAGES_ENDPOINT.format(
             region_id=self.region_id,
             dso_id=self.provider_id,
         )
+        LOGGER.debug("Fetching Yasno planned outage data: %s", url)
         async with aiohttp.ClientSession() as session:
             self.planned_outage_data = await self._get_route_data(session, url)
 
         if DEBUG:
             self.planned_outage_data = _debug_data()
 
-        YasnoApi._cached_planned_outage_data = self.planned_outage_data
-        YasnoApi._planned_outage_last_fetch = now
+    @property
+    def regions(self) -> list[YasnoRegion] | None:
+        """Return the list of regions."""
+        return YasnoApi._regions
 
-    def get_yasno_regions(self) -> list[dict]:
-        """Get a list of available regions."""
-        if not self.regions_data:
-            return []
-
-        return self.regions_data
-
-    def get_region_by_name(self, region_name: str) -> dict | None:
+    def get_region_by_id(self, region_id: int) -> YasnoRegion | None:
         """Get region data by name."""
-        for region in self.get_yasno_regions():
-            if region["value"] == region_name:
-                return region
-
-        return None
-
-    def get_yasno_providers_for_region(self, region_name: str) -> list[dict]:
-        """Get providers for a specific region."""
-        region = self.get_region_by_name(region_name)
-        if not region:
-            return []
-
-        return region.get("dsos", [])
-
-    def get_yasno_provider_by_name(
-        self, region_name: str, provider_name: str
-    ) -> dict | None:
-        """Get provider data by region and provider name."""
-        providers = self.get_yasno_providers_for_region(region_name)
-        for provider in providers:
-            if provider["name"] == provider_name:
-                return provider
-
-        return None
+        LOGGER.debug("Getting region by id: %s among %s", region_id, self.regions)
+        return next((_ for _ in self.regions if _.id == region_id), None)
 
     def get_yasno_groups(self) -> list[str]:
         """Get groups from planned outage data."""
         if not self.planned_outage_data:
+            LOGGER.warning("Cannot get yasno groups: no planned outage data yet")
             return []
 
         return list(self.planned_outage_data.keys())
@@ -365,15 +322,26 @@ class YasnoApi:
         }
         """
         if not self.planned_outage_data or self.group not in self.planned_outage_data:
+            LOGGER.warning("No planned outage data for group %s", self.group)
             return None
 
         return self.planned_outage_data[self.group]
 
-    def get_updated_on(self) -> datetime.datetime | None:
+    def get_updated_on(self) -> datetime | None:
         """Get the updated on timestamp for the configured group."""
         group_data = self._get_group_data()
-        if not group_data or "updatedOn" not in group_data:
+        if not group_data:
+            LOGGER.warning("Cannot get_updated_on: no group_data data yet")
             return None
+
+        if "updatedOn" not in group_data:
+            LOGGER.warning(
+                "Cannot get_updated_on: updatedOn not in group_data %s", group_data
+            )
+            return None
+
+        # for the API to be usable outside HA
+        from homeassistant.util import dt as dt_utils  # noqa: PLC0415
 
         try:
             updated_on = dt_utils.parse_datetime(group_data["updatedOn"])
@@ -386,9 +354,9 @@ class YasnoApi:
             )
             return None
 
-    def get_current_event(self, at: datetime.datetime) -> PlannedOutageEvent | None:
+    def get_current_event(self, at: datetime) -> PlannedOutageEvent | None:
         """Get the current event."""
-        all_events = self.get_events(at, at + datetime.timedelta(days=1))
+        all_events = self.get_events(at, at + timedelta(days=1))
         for event in all_events:
             if event.all_day and event.start == at.date():
                 return event
@@ -398,20 +366,25 @@ class YasnoApi:
         return None
 
     def get_events(
-        self, start_date: datetime.datetime, end_date: datetime.datetime
+        self, start_date: datetime, end_date: datetime
     ) -> list[PlannedOutageEvent]:
         """Get all events within the date range."""
+        # for the API to be usable outside HA
+        from homeassistant.util import dt as dt_utils  # noqa: PLC0415
+
         group_data = self._get_group_data()
         if not group_data:
+            LOGGER.warning("Cannot get_events: no group_data yet")
             return []
 
-        LOGGER.debug(
-            "get_events for %s from %s to %s:\n%s",
-            self.group,
-            start_date,
-            end_date,
-            group_data,
-        )
+        if DEBUG:
+            LOGGER.debug(
+                "get_events for %s from %s to %s:\n%s",
+                self.group,
+                start_date,
+                end_date,
+                group_data,
+            )
 
         events = []
         for key, day_data in group_data.items():
@@ -451,7 +424,7 @@ class YasnoApi:
                 events.append(
                     PlannedOutageEvent(
                         start=day_dt.date(),
-                        end=day_dt.date() + datetime.timedelta(days=1),
+                        end=day_dt.date() + timedelta(days=1),
                         all_day=True,
                         event_type=PlannedOutageEventType.EMERGENCY,
                     )
@@ -459,8 +432,8 @@ class YasnoApi:
 
         events.sort(
             key=lambda e: (
-                datetime.datetime.combine(e.start, datetime.time.min)
-                if isinstance(e.start, datetime.date)
+                datetime.combine(e.start, time.min)
+                if isinstance(e.start, date)
                 else e.start
             )
         )
@@ -469,11 +442,30 @@ class YasnoApi:
         events = _merge_adjacent_events(events)
 
         return [
-            e
-            for e in events
-            if e.all_day or not (e.end <= start_date or e.start >= end_date)
+            _
+            for _ in events
+            if _.all_day or not (_.end <= start_date or _.start >= end_date)
         ]
 
     async def fetch_data(self) -> None:
         """Fetch all required data."""
+        await self.fetch_yasno_regions()
         await self.fetch_planned_outage_data()
+
+
+async def _main() -> None:
+    """Test the API functionality."""
+    _api = YasnoApi()
+    await _api.fetch_yasno_regions()
+    _regions = _api.regions
+    _api.region_id = _regions[0].id
+    _api.provider_id = _regions[0].dsos[0].id
+    await _api.fetch_planned_outage_data()
+    _groups = _api.get_yasno_groups()
+    _api.group = _groups[0]
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(_main())

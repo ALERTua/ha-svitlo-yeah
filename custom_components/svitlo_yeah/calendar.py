@@ -9,21 +9,22 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .coordinator.dtek import DtekCoordinator
+from .coordinator.dtek.base import DtekCoordinatorBase
 from .coordinator.yasno import YasnoCoordinator
 from .entity import IntegrationEntity
 
 LOGGER = logging.getLogger(__name__)
 
 
+# noinspection PyUnusedLocal
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Svitlo Yeah calendar platform."""
-    LOGGER.debug("Setup new entry: %s", config_entry)
-    coordinator: YasnoCoordinator | DtekCoordinator = config_entry.runtime_data
+    LOGGER.debug("Setup new calendar entry: %s", config_entry)
+    coordinator: YasnoCoordinator | DtekCoordinatorBase = config_entry.runtime_data
     async_add_entities([PlannedOutagesCalendar(coordinator)])
 
 
@@ -32,16 +33,17 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
 
     def __init__(
         self,
-        coordinator: YasnoCoordinator | DtekCoordinator,
+        coordinator: YasnoCoordinator | DtekCoordinatorBase,
     ) -> None:
         """Initialize the calendar entity."""
         super().__init__(coordinator)
 
         self.entity_id = (
-            f"calendar.planned_outages"
+            f"calendar."
             f"_{coordinator.region_name}"
             f"_{coordinator.provider_name}"
             f"_{coordinator.group}"
+            f"_planned_outages"
         )
         self.entity_description = EntityDescription(
             key="calendar",
@@ -49,9 +51,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
             translation_key="calendar",
         )
         self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}-"
-            f"{coordinator.group}-"
-            f"{self.entity_description.key}"
+            f"{coordinator.config_entry.entry_id}-{self.entity_description.key}"
         )
 
     @property

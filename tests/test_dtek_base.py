@@ -1,15 +1,12 @@
-"""Tests for DTEK API."""
+"""Tests for DTEK base API functionality (shared between HTML and JSON APIs)."""
 
 import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.dtek import (
-    DtekAPI,
-    _parse_group_hours,
-)
+from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
+from custom_components.svitlo_yeah.api.dtek.html import DtekAPIHtml
 
 TEST_GROUP = "1.1"
 TEST_TIMESTAMP = "1761688800"
@@ -17,8 +14,8 @@ TEST_TIMESTAMP = "1761688800"
 
 @pytest.fixture(name="api")
 def _api():
-    """Create a DTEK API instance."""
-    return DtekAPI(group=TEST_GROUP)
+    """Create a DTEK API instance for testing base functionality."""
+    return DtekAPIHtml(group=TEST_GROUP)
 
 
 @pytest.fixture
@@ -53,6 +50,32 @@ def sample_data():
                     "8": "yes",
                     "9": "yes",
                 },
+                "GPV1.2": {
+                    "1": "yes",
+                    "2": "yes",
+                    "3": "yes",
+                    "4": "yes",
+                    "5": "yes",
+                    "6": "yes",
+                    "7": "yes",
+                    "8": "yes",
+                    "9": "yes",
+                    "10": "yes",
+                    "11": "yes",
+                    "12": "yes",
+                    "13": "yes",
+                    "14": "yes",
+                    "15": "yes",
+                    "16": "yes",
+                    "17": "yes",
+                    "18": "yes",
+                    "19": "yes",
+                    "20": "yes",
+                    "21": "yes",
+                    "22": "yes",
+                    "23": "yes",
+                    "24": "yes",
+                },
             },
         },
         "update": "29.10.2025 13:51",
@@ -60,76 +83,16 @@ def sample_data():
     }
 
 
-@pytest.fixture
-def sample_html():
-    """Sample HTML with DisconSchedule.fact."""
-    return """
-<html>
-<body>
-<script>
-DisconSchedule.currentWeekDayIndex = 3
-DisconSchedule.fact = {"data":{"1761688800":{"GPV1.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"second","14":"no","15":"no","16":"no","17":"first","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV1.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"second","14":"no","15":"no","16":"no","17":"first","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV2.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV2.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"no","16":"no","17":"first","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV3.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"no","18":"no","19":"no","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV3.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"no","10":"first","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV4.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"no","10":"first","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"no","18":"no","19":"no","20":"no","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV4.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"no","10":"no","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"no","18":"no","19":"no","20":"no","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV5.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"no","11":"no","12":"no","13":"no","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV5.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"no","11":"no","12":"no","13":"no","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV6.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"second","21":"no","22":"no","23":"yes","24":"yes"},"GPV6.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"second","21":"no","22":"no","23":"yes","24":"yes"}},"1761775200":{"GPV1.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV1.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV2.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV2.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV3.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV3.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV4.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV4.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV5.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV5.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV6.1":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"},"GPV6.2":{"1":"yes","2":"yes","3":"yes","4":"yes","5":"yes","6":"yes","7":"yes","8":"yes","9":"yes","10":"yes","11":"yes","12":"yes","13":"yes","14":"yes","15":"yes","16":"yes","17":"yes","18":"yes","19":"yes","20":"yes","21":"yes","22":"yes","23":"yes","24":"yes"}}},"update":"29.10.2025 13:51","today":1761688800}</script><script type="text/javascript" src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3&ns=1&cb=330913616" async></script></body>
-</html>
-    """
-
-
-class TestDtekRegionAPIInit:
-    """Test DtekRegionAPI initialization."""
-
-    def test_init_with_group(self):
-        """Test initialization with group."""
-        api = DtekAPI(group=TEST_GROUP)
-        assert api.group == TEST_GROUP
-        assert api.data is None
-
-    def test_init_without_group(self):
-        """Test initialization without group."""
-        api = DtekAPI()
-        assert api.group is None
-
-    @pytest.mark.skip(reason="Manual test only - requires real network access")
-    async def test_real_data(self):
-        """Test fetching real data from DTEK website."""
-        api = DtekAPI(group=TEST_GROUP)
-        await api.fetch_data(cache_minutes=0)
-        assert api.data is not None
-        assert "data" in api.data
-        assert "update" in api.data
-
-
-class TestDtekRegionAPIFetchData:
-    """Test data fetching methods."""
-
-    async def test_fetch_data_success(self, api, sample_html):
-        """Test successful data fetch."""
-        with patch(
-            "custom_components.svitlo_yeah.api.dtek.aiohttp.ClientSession"
-        ) as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.text = AsyncMock(return_value=sample_html)
-            mock_response.raise_for_status = MagicMock()
-
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
-
-            await api.fetch_data()
-            assert api.data is not None
-            assert "data" in api.data
-            assert TEST_TIMESTAMP in api.data["data"]
-
-
-class TestDtekRegionAPIGetGroups:
-    """Test get_groups method."""
+class TestDtekAPIBaseGroups:
+    """Test group-related methods."""
 
     def test_get_groups_success(self, api, sample_data):
         """Test getting groups list."""
         api.data = sample_data
         groups = api.get_dtek_region_groups()
-        assert TEST_GROUP in groups
         assert "1.1" in groups
+        assert "1.2" in groups
+        assert groups == ["1.1", "1.2"]
 
     def test_get_groups_no_data(self, api):
         """Test getting groups without data."""
@@ -140,8 +103,13 @@ class TestDtekRegionAPIGetGroups:
         api.data = {"update": "29.10.2025 13:51"}
         assert api.get_dtek_region_groups() == []
 
+    def test_get_groups_empty_data(self, api):
+        """Test getting groups with empty data."""
+        api.data = {"data": {}}
+        assert api.get_dtek_region_groups() == []
 
-class TestDtekRegionAPIParseGroupHours:
+
+class TestDtekAPIBaseParseGroupHours:
     """Test _parse_group_hours method."""
 
     @pytest.mark.parametrize(
@@ -223,8 +191,8 @@ class TestDtekRegionAPIParseGroupHours:
         assert result == expected
 
 
-class TestDtekRegionAPIGetUpdatedOn:
-    """Test get_updated_on method."""
+class TestDtekAPIBaseTimestamps:
+    """Test timestamp-related methods."""
 
     def test_get_updated_on_success(self, api):
         """Test getting updated timestamp."""
@@ -246,8 +214,8 @@ class TestDtekRegionAPIGetUpdatedOn:
         assert api.get_updated_on() is None
 
 
-class TestDtekRegionAPIGetCurrentEvent:
-    """Test get_current_event method."""
+class TestDtekAPIBaseEvents:
+    """Test event-related methods."""
 
     def test_get_current_event_during_outage(self, api, sample_data):
         """Test getting current event during an outage."""
@@ -280,8 +248,8 @@ class TestDtekRegionAPIGetCurrentEvent:
         assert api.get_current_event(current_time) is None
 
 
-class TestDtekRegionAPIEventMerging:
-    """Test event merging functionality in DTEK API."""
+class TestDtekAPIBaseEventMerging:
+    """Test event merging functionality in DTEK base API."""
 
     def test_merge_adjacent_events_in_get_events(self, api):
         """Test that adjacent events are merged in get_events method."""
