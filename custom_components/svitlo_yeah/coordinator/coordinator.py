@@ -59,7 +59,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         self.translations = await async_get_translations(
             self.hass,
             self.hass.config.language,
-            "coordinator",
+            "common",
             [DOMAIN],
         )
 
