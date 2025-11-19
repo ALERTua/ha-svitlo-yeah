@@ -6,7 +6,7 @@
 [![GitHub Release][gh-release-image]][gh-release-url]
 [![hacs][hacs-image]][hacs-url]
 
-![](/icons/logo.png)
+![logo](/icons/logo.png)
 
 # 💡 Svitlo Yeah | Світло Є
 
@@ -31,13 +31,9 @@ If it doesn't work, adding this repository to HACS manually by adding this URL:
 
 This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for **Svitlo Yeah**.
 
-Select your region:
+Select your region and Service Provider (if applicable):
 
 ![Region Selection](/media/1_region.png)
-
-Select your Service Provider (if applicable)
-
-![Service Provider Selection](/media/2_provider.png)
 
 Select your Group
 
@@ -67,24 +63,24 @@ The integration creates the following entities in Home Assistant:
 
 ### Sensors
 
-| Entity | Type | Purpose                                                          | Description                                                                                                                                                                                                                                                     |
-|--------|------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Electricity** | Enum Sensor | Shows current power connectivity state according to the calendar | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
-| **Schedule Updated On** | Timestamp Sensor | Shows when outage schedule was last updated by the provider | Displays the timestamp when the energy provider last updated the outage schedule on their servers. Reflects server-side data changes, not client fetch times.                                                                                                   |
-| **Schedule Data Changed On** | Timestamp Sensor | Shows when actual outage schedule data changed                   | Tracks the timestamp when the actual data was modified. Useful for notifications when schedules are updated. See examples.                                                                                                                                      |
-| **Next Planned Outage** | Timestamp Sensor | Shows the start time of the next scheduled blackout              | Displays the timestamp when the next planned power outage is scheduled to begin. Null when no outages are scheduled.                                                                                                                                            |
-| **Next Connectivity** | Timestamp Sensor | Shows when power is expected to return                           | Displays the timestamp when power connectivity is expected to be restored after an outage. Null when no outages are active.                                                                                                                                     |
+| Entity                       | Type             | Purpose                                                          | Description                                                                                                                                                                                                                                                                                                                                              |
+|------------------------------|------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Electricity**              | Enum Sensor      | Shows current power connectivity state according to the calendar | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
+| **Schedule Updated On**      | Timestamp Sensor | Shows when outage schedule was last updated by the provider      | Displays the timestamp when the energy provider last updated the outage schedule on their servers. Reflects server-side data changes, not client fetch times.                                                                                                                                                                                            |
+| **Schedule Data Changed On** | Timestamp Sensor | Shows when actual outage schedule data changed                   | Tracks the timestamp when the actual data was modified. Useful for notifications when schedules are updated. See examples.                                                                                                                                                                                                                               |
+| **Next Planned Outage**      | Timestamp Sensor | Shows the start time of the next scheduled blackout              | Displays the timestamp when the next planned power outage is scheduled to begin. Null when no outages are scheduled.                                                                                                                                                                                                                                     |
+| **Next Connectivity**        | Timestamp Sensor | Shows when power is expected to return                           | Displays the timestamp when power connectivity is expected to be restored after an outage. Null when no outages are active.                                                                                                                                                                                                                              |
 
 ### Calendar
 
-| Entity | Type | Purpose | Description |
-|--------|------|---------|-------------|
+| Entity                       | Type            | Purpose                                                   | Description                                                                                                                                                                                                       |
+|------------------------------|-----------------|-----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Planned Outages Calendar** | Calendar Entity | Provides full calendar integration for blackout schedules | Shows all planned power outages as calendar events. Can be used with Home Assistant's calendar cards, automations, and triggers. Events include "Definite" planned outages and "Emergency" unscheduled blackouts. |
 
 ### Events
 
-| Event | Description |
-|-------|-------------|
+| Event                        | Description                             |
+|------------------------------|-----------------------------------------|
 | **svitlo_yeah_data_changed** | Fired when outage data actually changes |
 
 ### Entity Usage Examples

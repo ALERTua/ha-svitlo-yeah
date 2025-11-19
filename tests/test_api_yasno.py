@@ -7,8 +7,8 @@ import aiohttp
 import pytest
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api import YasnoApi
 from custom_components.svitlo_yeah.api.yasno import (
+    YasnoApi,
     _merge_adjacent_events,
     _minutes_to_time,
     _parse_day_schedule,
@@ -16,6 +16,7 @@ from custom_components.svitlo_yeah.api.yasno import (
 from custom_components.svitlo_yeah.models import (
     PlannedOutageEvent,
     PlannedOutageEventType,
+    YasnoRegion,
 )
 
 TEST_REGION_ID = 25
@@ -111,7 +112,7 @@ class TestYasnoApiInit:
         assert api.region_id == TEST_REGION_ID
         assert api.provider_id == TEST_PROVIDER_ID
         assert api.group == TEST_GROUP
-        assert api.regions_data is None
+        assert api.regions is None
         assert api.planned_outage_data is None
 
     def test_init_without_params(self):
@@ -134,15 +135,17 @@ class TestYasnoApiFetchData:
             mock_get.return_value.__aenter__.return_value = mock_response
 
             await api.fetch_yasno_regions()
-            assert api.regions_data == regions_data
+            assert api.__class__._regions == [
+                YasnoRegion.from_dict(_) for _ in regions_data
+            ]
 
     async def test_fetch_regions_error(self, api):
         """Test regions fetch with error."""
-        YasnoApi._cached_regions_data = None
+        YasnoApi._regions = None
         with patch("aiohttp.ClientSession.get") as mock_get:
             mock_get.return_value.__aenter__.side_effect = aiohttp.ClientError()
             await api.fetch_yasno_regions()
-            assert api.regions_data is None
+            assert api.regions is None
 
     async def test_fetch_planned_outage_success(self, api, planned_outage_data):
         """Test successful planned outage fetch."""
@@ -163,8 +166,6 @@ class TestYasnoApiFetchData:
 
         api.region_id = None
         api.provider_id = None
-        YasnoApi._planned_outage_last_fetch = None  # Reset cache
-        YasnoApi._cached_planned_outage_data = None
 
         await api.fetch_planned_outage_data()
         assert api.planned_outage_data is None
@@ -172,55 +173,6 @@ class TestYasnoApiFetchData:
         # Restore original values
         api.region_id = original_region_id
         api.provider_id = original_provider_id
-
-
-class TestYasnoApiRegions:
-    """Test region-related methods."""
-
-    def test_get_regions(self, api, regions_data):
-        """Test getting regions list."""
-        api.regions_data = regions_data
-        assert api.get_yasno_regions() == regions_data
-
-    def test_get_regions_empty(self, api):
-        """Test getting regions when none loaded."""
-        assert api.get_yasno_regions() == []
-
-    def test_get_region_by_name(self, api, regions_data):
-        """Test getting region by name."""
-        api.regions_data = regions_data
-        region = api.get_region_by_name("Київ")
-        assert region["value"] == "Київ"
-
-    def test_get_region_by_name_not_found(self, api, regions_data):
-        """Test getting non-existent region."""
-        api.regions_data = regions_data
-        assert api.get_region_by_name("Unknown") is None
-
-    def test_get_providers_for_region(self, api, regions_data):
-        """Test getting providers for region."""
-        api.regions_data = regions_data
-        providers = api.get_yasno_providers_for_region("Київ")
-        assert len(providers) == 1
-        assert providers[0]["name"] == "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"
-
-    def test_get_providers_for_region_not_found(self, api, regions_data):
-        """Test getting providers for non-existent region."""
-        api.regions_data = regions_data
-        assert api.get_yasno_providers_for_region("Unknown") == []
-
-    def test_get_provider_by_name(self, api, regions_data):
-        """Test getting provider by name."""
-        api.regions_data = regions_data
-        provider = api.get_yasno_provider_by_name(
-            "Київ", "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"
-        )
-        assert provider["id"] == TEST_PROVIDER_ID
-
-    def test_get_provider_by_name_not_found(self, api, regions_data):
-        """Test getting non-existent provider."""
-        api.regions_data = regions_data
-        assert api.get_yasno_provider_by_name("Київ", "Unknown") is None
 
 
 class TestYasnoApiGroups:

@@ -6,17 +6,11 @@
     },
     "step": {
       "user": {
-        "title": "Налаштування",
+        "title": "Вибір Регіону/Системи розподілу",
         "data": {
-          "region": "Оберіть свій регіон:"
+          "provider": "Оберіть свій регіон/систему розподілу:"
         },
         "data_description": {
-        }
-      },
-      "provider": {
-        "title": "Налаштування",
-        "data": {
-          "provider": "Оберіть свою систему розподілу (ОСР):"
         }
       },
       "group": {
@@ -25,57 +19,30 @@
           "group": "Оберіть свою групу:"
         },
         "data_description": {
-          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages"
-        }
-      },
-      "dtek_group": {
-        "title": "Налаштування",
-        "data": {
-          "group": "Оберіть свою групу:"
-        },
-        "data_description": {
-          "group": "Знайдіть свою групу на: https://www.dtek-krem.com.ua/ua/shutdowns"
-        }
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Налаштування",
-        "data": {
-          "region": "Оберіть свій регіон:"
-        }
-      },
-      "provider": {
-        "title": "Налаштування",
-        "data": {
-          "provider": "Оберіть свою систему розподілу:"
-        }
-      },
-      "group": {
-        "title": "Налаштування",
-        "data": {
-          "group": "Оберіть свою групу:"
-        },
-        "data_description": {
-          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages"
+          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
         }
       }
     }
   },
   "device": {
     "device_name_yasno": {
-      "name": "{region} {provider} {group}"
+      "name": "{region_name} {provider_name} {group}"
     },
     "device_name_dtek": {
-      "name": "Область {group}"
+      "name": "{provider_name} {group}"
     }
   },
   "selector": {
-    "region": {
+    "provider": {
       "options": {
-        "region_dtek": "Область"
+        "dtekjsonprovider_kyiv_region": "ДТЕК — Київська Область",
+        "dtekjsonprovider_dnipro": "ДТЕК — Дніпро",
+        "dtekjsonprovider_odesa": "ДТЕК — Одеса",
+        "dtekjsonprovider_khmelnytskyi": "ДТЕК — Хмельницький",
+        "yasnoprovider_25_902": "Yasno — Київ",
+        "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
+        "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК",
+        "dtek_html": "Інше (анти-бот захист)"
       }
     }
   },
@@ -110,6 +77,11 @@
   },
   "common": {
     "event_name_planned_outage": "Планове відключення",
-    "event_name_emergency_outage": "Екстрене відключення"
+    "event_name_emergency_outage": "Екстрене відключення",
+    "kyiv_region": "Київська Область",
+    "dnipro": "Дніпро",
+    "odesa": "Одеса",
+    "khmelnytskyi": "Хмельницький",
+    "dtek_html": "ДТЕК"
   }
 }

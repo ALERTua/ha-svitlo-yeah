@@ -9,11 +9,10 @@ from homeassistant.const import Platform
 
 from .const import (
     CONF_PROVIDER_TYPE,
-    PROVIDER_TYPE_DTEK,
+    PROVIDER_TYPE_DTEK_HTML,
+    PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_YASNO,
 )
-from .coordinator.dtek import DtekCoordinator
-from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -26,17 +25,25 @@ PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a new entry."""
-    LOGGER.info("Setup entry: %s", entry)
+    from .coordinator.dtek.html import DtekCoordinatorHtml  # noqa: PLC0415
+    from .coordinator.dtek.json import DtekCoordinatorJson  # noqa: PLC0415
+    from .coordinator.yasno import YasnoCoordinator  # noqa: PLC0415
 
+    LOGGER.info("Setup entry: %s", entry)
     provider_type = entry.options.get(
         CONF_PROVIDER_TYPE,
-        entry.data.get(CONF_PROVIDER_TYPE, PROVIDER_TYPE_YASNO),
+        entry.data[CONF_PROVIDER_TYPE],
     )
 
-    if provider_type == PROVIDER_TYPE_DTEK:
-        coordinator = DtekCoordinator(hass, entry)
-    else:
+    if provider_type == PROVIDER_TYPE_DTEK_JSON:
+        coordinator = DtekCoordinatorJson(hass, entry)
+    elif provider_type == PROVIDER_TYPE_DTEK_HTML:
+        coordinator = DtekCoordinatorHtml(hass, entry)
+    elif provider_type == PROVIDER_TYPE_YASNO:
         coordinator = YasnoCoordinator(hass, entry)
+    else:
+        msg = f"Unsupported provider type: {provider_type}"
+        raise ValueError(msg)
 
     await coordinator.async_config_entry_first_refresh()
 

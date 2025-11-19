@@ -21,13 +21,10 @@ from ..const import (
     EVENT_DATA_CHANGED,
     UPDATE_INTERVAL,
 )
-from ..models import (
-    ConnectivityState,
-    PlannedOutageEvent,
-)
+from ..models import BaseProvider, ConnectivityState, PlannedOutageEvent, YasnoRegion
 
 if TYPE_CHECKING:
-    from ..api.dtek import DtekAPI
+    from ..api.dtek.base import DtekAPIBase
     from ..api.yasno import YasnoApi
 
 LOGGER = logging.getLogger(__name__)
@@ -39,7 +36,9 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     """Base class to manage fetching outages data."""
 
     config_entry: ConfigEntry
-    api: DtekAPI | YasnoApi
+    api: DtekAPIBase | YasnoApi
+    region: YasnoRegion
+    provider: BaseProvider
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -53,9 +52,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         self.translations = {}
         self._previous_outage_events: list[PlannedOutageEvent] | None = None
         self.outage_data_last_changed: datetime.datetime | None = None
-        self.group = None
-        self.region = None
-        self.provider = None
+        self.group: str | None = None
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
@@ -153,7 +150,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     ) -> list[CalendarEvent]:
         """Get all events."""
         events = self.api.get_events(start_date, end_date)
-        return [self._get_calendar_event(event) for event in events]
+        return [self._get_calendar_event(_) for _ in events]
 
     def _get_calendar_event(
         self, event: PlannedOutageEvent | None
@@ -162,6 +159,10 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         if not event:
             return None
 
+        # if DEBUG:
+        LOGGER.debug(
+            "Getting event name for %s from %s", event.event_type, self.event_name_map
+        )
         summary: str = self.event_name_map.get(event.event_type)
         if DEBUG:
             summary += (
