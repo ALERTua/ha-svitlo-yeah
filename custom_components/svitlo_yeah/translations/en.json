@@ -35,13 +35,13 @@
   "selector": {
     "provider": {
       "options": {
-        "dtekjsonprovider_kyiv_region": "DTEK — Kyiv Region",
-        "dtekjsonprovider_dnipro": "DTEK — Dnipro",
-        "dtekjsonprovider_odesa": "DTEK — Odesa",
-        "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi",
-        "yasnoprovider_25_902": "Yasno — Kyiv",
+        "dtekjsonprovider_kyiv_region": "DTEK — Kyiv Oblast",
+        "dtekjsonprovider_dnipro": "DTEK — Dnipro and Oblast",
+        "dtekjsonprovider_odesa": "DTEK — Odesa and Oblast",
+        "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi — HOE",
+        "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
-        "yasnoprovider_3_303": "Yasno — Dnipro — CEC",
+        "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
         "dtek_html": "Other (anti-bot protection)"
       }
     }
