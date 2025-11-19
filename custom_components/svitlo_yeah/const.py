@@ -59,10 +59,10 @@ PROVIDER_TO_DEVICE_NAME_MAP: Final = {
 }
 TRANSLATION_KEY_PROVIDER_DTEK: Final = "provider_name_dtek"
 TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
-    "component.svitlo_yeah.coordinator.event_name_planned_outage"
+    "component.svitlo_yeah.common.event_name_planned_outage"
 )
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
-    "component.svitlo_yeah.coordinator.event_name_emergency_outage"
+    "component.svitlo_yeah.common.event_name_emergency_outage"
 )
 
 # Events

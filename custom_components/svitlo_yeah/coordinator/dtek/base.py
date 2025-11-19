@@ -95,7 +95,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         LOGGER.debug(
             "Getting translation for %s from %s", self.provider_id, self.translations
         )
-        key = f"component.svitlo_yeah.coordinator.{self.provider_id}"
+        key = f"component.svitlo_yeah.common.{self.provider_id}"
         return self.translations.get(key)
 
     @property
