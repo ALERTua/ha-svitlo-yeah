@@ -49,7 +49,7 @@
   "entity": {
     "calendar": {
       "calendar": {
-        "name": "Scheduled Outages Schedule"
+        "name": "Planned Outages"
       }
     },
     "sensor": {
@@ -57,7 +57,7 @@
         "name": "Electricity",
         "state": {
           "normal": "Connected",
-          "planned_outage": "Scheduled Outage",
+          "planned_outage": "Planned Outage",
           "emergency": "Emergency Outage"
         }
       },
@@ -68,7 +68,7 @@
         "name": "Schedule Changed"
       },
       "next_planned_outage": {
-        "name": "Next Scheduled Outage"
+        "name": "Next Planned Outage"
       },
       "next_connectivity": {
         "name": "Next Restored"
@@ -76,7 +76,7 @@
     }
   },
   "common": {
-    "event_name_planned_outage": "Scheduled Outage",
+    "event_name_planned_outage": "Planned Outage",
     "event_name_emergency_outage": "Emergency Outage",
     "kyiv_region": "Kyiv Region",
     "dnipro": "Dnipro",
