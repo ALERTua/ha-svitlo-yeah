@@ -12,6 +12,20 @@
 
 A [Home Assistant][home-assistant] integration that tracks electricity outage schedules from Ukrainian energy providers, providing outage calendars, countdown timers, and status updates.
 
+## Supported Regions
+
+| Region                         | Provider | Data Source                                                                                                                                             |
+|--------------------------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Kyiv**                       | DTEK     | [Yasno API](https://yasno.ua)                                                                                                                           |
+| **Dnipro**                     | DnEM     | [Yasno API](https://yasno.ua)                                                                                                                           |
+| **Dnipro**                     | CEK      | [Yasno API](https://yasno.ua)                                                                                                                           |
+| **Kyiv Oblast**                | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/kyiv-region.json)                                         |
+| **Dnipro and Oblast**          | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/dnipro.json)                                              |
+| **Odesa and Oblast**           | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/odesa.json)                                               |
+| **Khmelnytskyi**               | HOE      | [yaroslav2901/HOE_OUTAGE_DATA](https://github.com/yaroslav2901/HOE_OUTAGE_DATA/blob/main/data/Khmelnytskyi.json)                                        |
+| **Ivano-Frankivsk and Oblast** | POE      | [yaroslav2901/PRYKARPATTIAOBLENERHO_OUTAGE_DATA](https://github.com/yaroslav2901/PRYKARPATTIAOBLENERHO_OUTAGE_DATA/blob/main/data/Ivano-Frankivsk.json) |
+| **Other**                      | DTEK     | [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). Uses anti-crawling protection.                                                                       |
+
 
 ## Installation
 
@@ -31,26 +45,29 @@ If it doesn't work, adding this repository to HACS manually by adding this URL:
 
 This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for **Svitlo Yeah**.
 
-Select your region and Service Provider (if applicable):
+### Select your region and Service Provider (if applicable)
 
 ![Region Selection](/media/1_region.png)
 
-Select your Group
+### Select your Group
 
 ![Group Selection](/media/3_group.png)
 
-Here's how the devices look
+### Here's how the devices look
 
 ![Devices page](/media/4_devices.png)
 
+### Sensors
+
 ![Sensors](/media/5_sensors.png) ![Sensors 2](/media/5_1_sensors.png)
 
+### Calendar View
 Then you can add the integration to your dashboard and see the information about the next planned outages.
 Integration also provides a calendar view of planned outages. You can add it to your dashboard as well via [Calendar card][calendar-card].
 
 ![Calendars view](/media/6_calendar.png)
 
-Examples:
+### Examples
 
 - [Automation](/examples/automation.yaml)
 - [Dashboard](/examples/dashboard.yaml)
