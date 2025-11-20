@@ -39,6 +39,7 @@
         "dtekjsonprovider_dnipro": "ДТЕК — Дніпро та Область",
         "dtekjsonprovider_odesa": "ДТЕК — Одеса та Область",
         "dtekjsonprovider_khmelnytskyi": "ДТЕК — Хмельницький — ХОЕ",
+        "dtekjsonprovider_ivano-frankivsk": "ДТЕК — Івано-Франківськ та Область — ПОЕ",
         "yasnoprovider_25_902": "Yasno — Київ — ДТЕК",
         "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
         "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК",
@@ -82,6 +83,7 @@
     "dnipro": "Дніпро",
     "odesa": "Одеса",
     "khmelnytskyi": "Хмельницький",
+    "ivano-frankivsk": "Івано-Франківськ",
     "dtek_html": "ДТЕК"
   }
 }
