@@ -195,9 +195,9 @@ class YasnoApi:
         group: str | None = None,
     ) -> None:
         """Initialize the Yasno API."""
-        self.region_id: int = region_id
-        self.provider_id: int = provider_id
-        self.group: str = group
+        self.region_id: int | None = region_id
+        self.provider_id: int | None = provider_id
+        self.group: str | None = group
         self.planned_outage_data: dict | None = None
 
     async def _get_route_data(
@@ -399,6 +399,8 @@ class YasnoApi:
             day_dt = dt_utils.parse_datetime(date_str)
             if not day_dt:
                 continue
+
+            day_dt = dt_utils.as_local(day_dt)
 
             status = day_data.get(BLOCK_KEY_STATUS)
             if status == YasnoPlannedOutageDayStatus.STATUS_SCHEDULE_APPLIES.value:
