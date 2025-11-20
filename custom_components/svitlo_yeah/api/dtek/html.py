@@ -2,14 +2,37 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 
 import aiohttp
 
 from ...const import DEBUG, DTEK_ENDPOINT, DTEK_HEADERS
-from .base import DtekAPIBase, _debug_data, _extract_data
+from .base import DtekAPIBase, _debug_data
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _extract_data(html: str) -> dict | None:
+    """Extract data from HTML."""
+    pattern = r"DisconSchedule\.fact\s*=\s*({.*?})</script>"
+    match = re.search(pattern, html, re.DOTALL)
+    if not match:
+        LOGGER.error(
+            "Could not find DisconSchedule.fact in HTML. "
+            "This may indicate that the request is being filtered as bot "
+            "or the service is down. If you are sure that the service is up, "
+            "please create an issue."
+        )
+        return None
+
+    try:
+        data = match.group(1)
+        return json.loads(data)
+    except json.JSONDecodeError:
+        LOGGER.exception("Failed to parse DisconSchedule.fact JSON")
+        return None
 
 
 class DtekAPIHtml(DtekAPIBase):
