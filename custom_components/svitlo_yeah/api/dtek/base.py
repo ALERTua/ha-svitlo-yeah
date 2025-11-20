@@ -3,16 +3,89 @@
 from __future__ import annotations
 
 import datetime
-import json
 import logging
-import re
 
 from homeassistant.util import dt as dt_utils
 
+from ...const import DEBUG
 from ...models import PlannedOutageEvent, PlannedOutageEventType
 from ..common_tools import _merge_adjacent_events
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _parse_group_hours(
+    group_hours: dict[str, str],
+) -> list[tuple[datetime.time, datetime.time]]:
+    """
+    Parse group hours data into a list of outage time ranges.
+
+    'GPV1.1': {
+    '1': 'yes',
+    ...
+    '12': 'yes',
+    '13': 'second',
+    '14': 'no',
+    '15': 'no',
+    '16': 'no',
+    '17': 'first',
+    '18': 'yes',
+    ...
+    '24': 'yes',
+    },
+    Supports two hour formats:
+    - Hours starting from '1' (corresponding to 0:00) up to '24'
+    - Hours starting from '0' (00:00) up to '23'
+    """
+    ranges = []
+    outage_start = None
+
+    # Check if '0' key is present to determine hour format
+    # If '0' exists, hours are 0-23 (keys '0' to '23')
+    # If no '0', hours are 1-24 (keys '1' to '24')
+    if "0" in group_hours:
+        # Parse 24-hour format starting from 0
+        start_n, end_n = 0, 24
+    else:
+        # Parse 24-hour format starting from 1
+        start_n, end_n = 1, 25
+
+    for n in range(start_n, end_n):
+        # Calculate actual hour (0-23) from n
+        if "0" in group_hours:
+            hour = n  # '0' key -> hour 0, '1' key -> hour 1, etc.
+            key = str(n)
+        else:
+            hour = n - 1  # '1' key -> hour 0, '2' key -> hour 1, etc.
+            key = str(n)
+
+        # Get status for this hour slot
+        status = group_hours.get(key, "yes")
+
+        if status == "yes":
+            # Power is on - close any open outage period
+            if outage_start is not None:
+                ranges.append((outage_start, datetime.time(hour, 0)))
+                outage_start = None
+        else:  # "first", "no", or "second" - all indicate outages
+            # Power is out - start or continue outage period
+            if outage_start is None:  # Start new outage at appropriate time
+                outage_start = (
+                    datetime.time(hour, 30)  # Start at half-hour if "second"
+                    if status == "second"
+                    else datetime.time(hour, 0)  # Otherwise start at top of hour
+                )
+            if (
+                status == "first"
+            ):  # If "first", close at hour:30 (next slot will be "yes")
+                ranges.append((outage_start, datetime.time(hour, 30)))
+                outage_start = None
+
+    # Close any remaining open outage period at end of day
+    if outage_start is not None:
+        ranges.append((outage_start, datetime.time(23, 59, 59)))
+
+    return ranges
 
 
 class DtekAPIBase:
@@ -101,7 +174,10 @@ class DtekAPIBase:
 
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)
-        return [e for e in events if not (e.end <= start_date or e.start >= end_date)]
+        output = [e for e in events if not (e.end <= start_date or e.start >= end_date)]
+        if DEBUG:
+            LOGGER.debug("%s: get_events: %s", self, output)
+        return output
 
     def get_updated_on(self) -> datetime.datetime | None:
         """Get the updated on timestamp."""
@@ -119,75 +195,6 @@ class DtekAPIBase:
             return None
 
         return aware_dt
-
-
-def _parse_group_hours(
-    group_hours: dict[str, str],
-) -> list[tuple[datetime.time, datetime.time]]:
-    """
-    Parse group hours data into a list of outage time ranges.
-
-    'GPV1.1': {
-    '1': 'yes',
-    ...
-    '12': 'yes',
-    '13': 'second',
-    '14': 'no',
-    '15': 'no',
-    '16': 'no',
-    '17': 'first',
-    '18': 'yes',
-    ...
-    '24': 'yes',
-    },
-    """
-    ranges = []
-    outage_start = None
-
-    for n in range(1, 25):  # 1 to 24
-        hour = n - 1
-        status = group_hours.get(str(n), "yes")
-
-        if status == "yes":
-            if outage_start is not None:
-                ranges.append((outage_start, datetime.time(hour, 0)))
-                outage_start = None
-        else:  # "first", "no", or "second" - all are outages
-            if outage_start is None:  # Start outage at appropriate time
-                outage_start = (
-                    datetime.time(hour, 30)
-                    if status == "second"
-                    else datetime.time(hour, 0)
-                )
-            if status == "first":  # If "first", close at hour:30 (next will be "yes")
-                ranges.append((outage_start, datetime.time(hour, 30)))
-                outage_start = None
-
-    if outage_start is not None:
-        ranges.append((outage_start, datetime.time(23, 59, 59)))
-
-    return ranges
-
-
-def _extract_data(html: str) -> dict | None:
-    """Extract data from HTML."""
-    pattern = r"DisconSchedule\.fact\s*=\s*({.*?})</script>"
-    match = re.search(pattern, html, re.DOTALL)
-    if not match:
-        LOGGER.error(
-            "Could not find DisconSchedule.fact in HTML. "
-            "This may indicate that the request is being filtered as bot "
-            "or the service is down. If you are sure that the service is up, "
-            "please create an issue."
-        )
-        return None
-
-    try:
-        data = match.group(1)
-        return json.loads(data)
-    except json.JSONDecodeError:
-        LOGGER.exception("Failed to parse DisconSchedule.fact JSON")
-        return None
 
 
 def _debug_data() -> dict:

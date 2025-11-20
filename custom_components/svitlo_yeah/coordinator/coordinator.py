@@ -159,10 +159,12 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         if not event:
             return None
 
-        # if DEBUG:
-        LOGGER.debug(
-            "Getting event name for %s from %s", event.event_type, self.event_name_map
-        )
+        if DEBUG:
+            LOGGER.debug(
+                "Getting event name for %s from %s",
+                event.event_type,
+                self.event_name_map,
+            )
         summary: str = self.event_name_map.get(event.event_type)
         if DEBUG:
             summary += (
