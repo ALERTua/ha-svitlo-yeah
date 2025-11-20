@@ -72,7 +72,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         self, state_type: ConnectivityState | None = None
     ) -> CalendarEvent | None:
         """Get the next event of a specific type."""
-        now = dt_utils.now()
+        now = dt_utils.as_local(dt_utils.now())
         # Sort events to handle multi-day spanning events correctly
         next_events = sorted(
             self.get_events_between(
@@ -82,7 +82,9 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             key=lambda _: _.start,
         )
         for event in next_events:
-            if event.start > now and (
+            _now = now.date() if event.all_day else now
+            # event.start can be datetime or date (all_day event)
+            if event.start > _now and (
                 state_type is None or self._event_to_state(event) == state_type
             ):
                 return event
