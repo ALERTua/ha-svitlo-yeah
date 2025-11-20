@@ -126,7 +126,7 @@ class DTEKJsonProvider(BaseProvider, StrEnum):
     DNIPRO = "dnipro"
     ODESA = "odesa"
     KHMELNYTSKYI = "khmelnytskyi"
-    IVANO_FRANKIVSK = "ivano-frankivsk"
+    IVANO_FRANKIVSK = "ivano_frankivsk"
 
     @property
     def unique_key(self) -> str:

@@ -39,7 +39,7 @@
         "dtekjsonprovider_dnipro": "DTEK — Dnipro and Oblast",
         "dtekjsonprovider_odesa": "DTEK — Odesa and Oblast",
         "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi — HOE",
-        "dtekjsonprovider_ivano-frankivsk": "DTEK — Ivano-Frankivsk and Oblast — POE",
+        "dtekjsonprovider_ivano_frankivsk": "DTEK — Ivano-Frankivsk and Oblast — POE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
@@ -83,7 +83,7 @@
     "dnipro": "Dnipro",
     "odesa": "Odesa",
     "khmelnytskyi": "Khmelnytskyi",
-    "ivano-frankivsk": "Ivano-Frankivsk",
+    "ivano_frankivsk": "Ivano-Frankivsk",
     "dtek_html": "DTEK"
   }
 }
