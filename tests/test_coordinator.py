@@ -1,5 +1,7 @@
 """Tests for coordinator functionality."""
 
+# Test for coordinator.check_outage_data_changed implemented.
+
 from datetime import timedelta
 from unittest.mock import MagicMock
 
@@ -7,8 +9,13 @@ import pytest
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.util import dt as dt_utils
 
+from custom_components.svitlo_yeah.const import EVENT_DATA_CHANGED
 from custom_components.svitlo_yeah.coordinator.coordinator import IntegrationCoordinator
-from custom_components.svitlo_yeah.models import ConnectivityState
+from custom_components.svitlo_yeah.models import (
+    ConnectivityState,
+    PlannedOutageEvent,
+    PlannedOutageEventType,
+)
 
 
 @pytest.fixture(name="coordinator")
@@ -166,3 +173,147 @@ class TestCoordinatorGetNextEventOfType:
 
         result = coordinator._get_next_event_of_type(None)
         assert result is None
+
+
+class TestCheckOutageDataChanged:
+    """Test check_outage_data_changed method."""
+
+    @pytest.fixture(autouse=True)
+    def setup_coordinator(self, coordinator):
+        """Set up coordinator with required attributes."""
+        coordinator.region = MagicMock()
+        coordinator.provider = MagicMock()
+        coordinator.group = "test_group"
+
+    def test_first_call_initializes_tracking(self, coordinator):
+        """Test that first call initializes outage data tracking and returns False."""
+        now = dt_utils.now()
+        events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=1),
+                end=now + timedelta(hours=2),
+                all_day=False,
+            )
+        ]
+
+        result = coordinator.check_outage_data_changed(events)
+
+        assert result is False
+        assert (
+            coordinator._previous_outage_events == events
+        )  # Should be sorted, but same
+        assert coordinator.outage_data_last_changed is None  # Not set on initialization
+        coordinator.hass.bus.async_fire.assert_not_called()
+
+    def test_same_data_returns_false(self, coordinator):
+        """Test that calling with same data returns False and no event fired."""
+        now = dt_utils.now()
+        events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=1),
+                end=now + timedelta(hours=2),
+                all_day=False,
+            )
+        ]
+
+        # First call
+        coordinator.check_outage_data_changed(events)
+
+        # Second call with same data
+        result = coordinator.check_outage_data_changed(events)
+
+        assert result is False
+        assert coordinator._previous_outage_events == events
+        coordinator.hass.bus.async_fire.assert_not_called()
+
+    def test_changed_data_returns_true_and_fires_event(self, coordinator):
+        """Test that calling with changed data returns True and fires event."""
+        now = dt_utils.now()
+        original_events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=1),
+                end=now + timedelta(hours=2),
+                all_day=False,
+            )
+        ]
+        new_events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.EMERGENCY,
+                start=now + timedelta(hours=3),
+                end=now + timedelta(hours=4),
+                all_day=False,
+            )
+        ]
+
+        # First call
+        coordinator.check_outage_data_changed(original_events)
+
+        # Clear the mock to check new calls
+        coordinator.hass.bus.async_fire.reset_mock()
+
+        # Second call with different data
+        result = coordinator.check_outage_data_changed(new_events)
+
+        assert result is True
+        assert coordinator._previous_outage_events == new_events
+        assert coordinator.outage_data_last_changed is not None
+
+        # Check event was fired with correct data
+        coordinator.hass.bus.async_fire.assert_called_once()
+        call_args = coordinator.hass.bus.async_fire.call_args
+        event_name = call_args.args[0]
+        event_data = call_args.args[1]
+        assert event_name == EVENT_DATA_CHANGED
+        assert event_data["region"] == coordinator.region
+        assert event_data["provider"] == coordinator.provider
+        assert event_data["group"] == coordinator.group
+        assert event_data["last_data_change"] == coordinator.outage_data_last_changed
+        assert event_data["config_entry_id"] == coordinator.config_entry.entry_id
+
+    def test_sorting_of_events(self, coordinator):
+        """Test that events are sorted before comparison."""
+        now = dt_utils.now()
+        # Create events out of order
+        events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=4),
+                end=now + timedelta(hours=5),
+                all_day=False,
+            ),
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=1),
+                end=now + timedelta(hours=2),
+                all_day=False,
+            ),
+        ]
+
+        # First call
+        coordinator.check_outage_data_changed(events)
+
+        # Sorted events
+        sorted_events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=1),
+                end=now + timedelta(hours=2),
+                all_day=False,
+            ),
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=now + timedelta(hours=4),
+                end=now + timedelta(hours=5),
+                all_day=False,
+            ),
+        ]
+
+        # Call with same events in different order
+        result = coordinator.check_outage_data_changed(events)
+
+        # Should be False because they get sorted and are the same
+        assert result is False
+        assert coordinator._previous_outage_events == sorted_events

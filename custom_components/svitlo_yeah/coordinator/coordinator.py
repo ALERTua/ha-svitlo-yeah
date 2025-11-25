@@ -193,8 +193,10 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         self, current_events: list[PlannedOutageEvent]
     ) -> None:
         """Initialize outage tracking with current events and update timestamp."""
+        # Sort events for comparison. isoformat due to datetime and date objects
         sorted_current = sorted(
-            current_events, key=lambda e: (e.start, e.end, e.event_type.value)
+            current_events,
+            key=lambda e: (e.start.isoformat(), e.end.isoformat(), e.event_type.value),
         )
         self._previous_outage_events = sorted_current
         # Initialize with the API's last update timestamp
@@ -204,9 +206,10 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         self, current_events: list[PlannedOutageEvent]
     ) -> bool:
         """Check if outage data has changed and update last changed timestamp."""
-        # Sort events for consistent comparison
+        # Sort events for comparison. isoformat due to datetime and date objects
         sorted_current = sorted(
-            current_events, key=lambda e: (e.start, e.end, e.event_type.value)
+            current_events,
+            key=lambda e: (e.start.isoformat(), e.end.isoformat(), e.event_type.value),
         )
 
         if self._previous_outage_events is None:
