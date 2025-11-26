@@ -127,6 +127,7 @@ class DTEKJsonProvider(BaseProvider, StrEnum):
     ODESA = "odesa"
     KHMELNYTSKYI = "khmelnytskyi"
     IVANO_FRANKIVSK = "ivano_frankivsk"
+    UZHHOROD = "uzhhorod"
 
     @property
     def unique_key(self) -> str:
@@ -166,5 +167,8 @@ DTEK_PROVIDER_URLS: dict[DTEKJsonProvider, list[str]] = {
     ],
     DTEKJsonProvider.IVANO_FRANKIVSK: [
         "https://github.com/yaroslav2901/PRYKARPATTIAOBLENERHO_OUTAGE_DATA/raw/main/data/Ivano-Frankivsk.json",
+    ],
+    DTEKJsonProvider.UZHHOROD: [
+        "https://github.com/yaroslav2901/ZAKARPATTIAOBLENERHO_OUTAGE_DATA/raw/main/data/Zakarpattiaoblenerho.json",
     ],
 }
