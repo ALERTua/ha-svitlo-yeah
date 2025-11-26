@@ -119,6 +119,10 @@ time_fired: "2025-11-15T12:20:24.627416+00:00"
 - Use the **Planned Outages Calendar** with calendar triggers for advance warnings before outages
 - Monitor **Next Planned Outage** and **Next Connectivity** timestamps for countdown displays
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for information about adding new regions and contributing to the project.
+
 Caveats:
 - Scraping DTEK Regions outage website is tricky, as it uses an anti-bot system.
   I can only able to bypass the anti-bot system by using third-party scraping services.
