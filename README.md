@@ -93,9 +93,9 @@ The integration creates the following entities in Home Assistant:
 
 ### Calendar
 
-| Entity                       | Type            | Purpose                                                   | Description                                                                                                                                                                                                                                                    |
-|------------------------------|-----------------|-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Planned Outages Calendar** | Calendar Entity | Provides full calendar integration for blackout schedules | Shows all planned power outages as calendar events. Can be used with Home Assistant's calendar cards, automations, and triggers. Events include "Definite" planned outages and "Emergency" unscheduled blackouts. The calendar state is `on` during any event. |
+| Entity                       | Type            | Purpose                                            | Description                                                                                                                                                                                                                                                    |
+|------------------------------|-----------------|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Planned Outages Calendar** | Calendar Entity | Provides calendar integration for outage schedules | Shows all planned power outages as calendar events. Can be used with Home Assistant's calendar cards, automations, and triggers. Events include "Definite" planned outages and "Emergency" unscheduled blackouts. The calendar state is `on` during any event. |
 
 ### Events
 
