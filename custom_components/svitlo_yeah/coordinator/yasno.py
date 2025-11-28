@@ -158,7 +158,7 @@ class YasnoCoordinator(IntegrationCoordinator):
     def region_name(self) -> str:
         """Get the configured region name."""
         if not self.region:
-            LOGGER.warning("Trying to get region_name without region")
+            LOGGER.debug("Trying to get region_name without region")
             return ""
 
         return self.region.value or ""
@@ -167,7 +167,7 @@ class YasnoCoordinator(IntegrationCoordinator):
     def provider(self) -> YasnoProvider | None:
         """Get the configured provider."""
         if not self.region:
-            LOGGER.warning("Trying to get provider without region")
+            LOGGER.debug("Trying to get provider without region")
             return None
 
         return next(
@@ -178,7 +178,7 @@ class YasnoCoordinator(IntegrationCoordinator):
     def provider_name(self) -> str:
         """Get the configured provider name."""
         if not self.provider:
-            LOGGER.warning("Trying to get provider_name without provider")
+            LOGGER.debug("Trying to get provider_name without provider")
             return ""
 
         return _simplify_provider_name(self.provider.name)
@@ -194,5 +194,5 @@ class YasnoCoordinator(IntegrationCoordinator):
         if event.uid == PlannedOutageEventType.EMERGENCY.value:
             return ConnectivityState.STATE_EMERGENCY
 
-        LOGGER.warning("Unknown event type: %s", event.uid)
+        LOGGER.debug("Unknown event type: %s", event.uid)
         return ConnectivityState.STATE_NORMAL

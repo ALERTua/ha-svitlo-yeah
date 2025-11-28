@@ -62,8 +62,8 @@ class DtekAPIJson(DtekAPIBase):
 
         # All sources failed/stale - use most recent data if available
         if self.data is None:
-            LOGGER.warning("All JSON sources failed or returned stale data")
+            LOGGER.debug("All JSON sources failed or returned stale data")
         else:
-            LOGGER.warning(
+            LOGGER.debug(
                 "Using stale data as fallback since no fresh sources available"
             )
