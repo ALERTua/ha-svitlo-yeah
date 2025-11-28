@@ -15,3 +15,6 @@
 - you are not allowed to perform "git commit", "git add" operations
 - fetch github files using github mcp
 - run git comands via git mcp
+- Always use context7 when I need code generation, setup or configuration steps, or
+  library/API documentation. This means you should automatically use the Context7 MCP
+  tools to resolve library id and get library docs without me having to explicitly ask.
