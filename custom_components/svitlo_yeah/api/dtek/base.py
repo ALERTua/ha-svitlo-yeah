@@ -191,7 +191,7 @@ class DtekAPIBase:
             )
             aware_dt = dt_utils.as_local(naive_dt)
         except (ValueError, TypeError):
-            LOGGER.warning("Failed to parse update timestamp: %s", self.data["update"])
+            LOGGER.debug("Failed to parse update timestamp: %s", self.data["update"])
             return None
 
         return aware_dt

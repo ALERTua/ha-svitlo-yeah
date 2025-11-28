@@ -48,7 +48,7 @@ class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinatorBase
 
         # provider is optional
         if not all((self.coordinator.provider_name, self.coordinator.group)) or DEBUG:
-            LOGGER.warning(f"""
+            LOGGER.debug(f"""
             Provider Type {provider_type}
             translation_key: {translation_key}
             region: {self.coordinator.region_name}

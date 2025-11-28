@@ -87,7 +87,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             for region in yasno_regions:
                 yasno_providers.extend(region.dsos)
         else:
-            LOGGER.error(
+            LOGGER.debug(
                 "Failed to fetch Yasno regions. Check internet or report issue"
             )
             # Continue with DTEK only

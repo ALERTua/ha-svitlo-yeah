@@ -266,7 +266,7 @@ class YasnoApi:
     def get_yasno_groups(self) -> list[str]:
         """Get groups from planned outage data."""
         if not self.planned_outage_data:
-            LOGGER.warning("Cannot get yasno groups: no planned outage data yet")
+            LOGGER.debug("Cannot get yasno groups: no planned outage data yet")
             return []
 
         return list(self.planned_outage_data.keys())
@@ -322,7 +322,7 @@ class YasnoApi:
         }
         """
         if not self.planned_outage_data or self.group not in self.planned_outage_data:
-            LOGGER.warning("No planned outage data for group %s", self.group)
+            LOGGER.debug("No planned outage data for group %s", self.group)
             return None
 
         return self.planned_outage_data[self.group]
@@ -331,11 +331,11 @@ class YasnoApi:
         """Get the updated on timestamp for the configured group."""
         group_data = self._get_group_data()
         if not group_data:
-            LOGGER.warning("Cannot get_updated_on: no group_data data yet")
+            LOGGER.debug("Cannot get_updated_on: no group_data data yet")
             return None
 
         if "updatedOn" not in group_data:
-            LOGGER.warning(
+            LOGGER.debug(
                 "Cannot get_updated_on: updatedOn not in group_data %s", group_data
             )
             return None
@@ -348,7 +348,7 @@ class YasnoApi:
             if updated_on:
                 return dt_utils.as_local(updated_on)
         except (ValueError, TypeError):
-            LOGGER.warning(
+            LOGGER.debug(
                 "Failed to parse updatedOn timestamp: %s",
                 group_data["updatedOn"],
             )
@@ -374,7 +374,7 @@ class YasnoApi:
 
         group_data = self._get_group_data()
         if not group_data:
-            LOGGER.warning("Cannot get_events: no group_data yet")
+            LOGGER.debug("Cannot get_events: no group_data yet")
             return []
 
         if DEBUG:
