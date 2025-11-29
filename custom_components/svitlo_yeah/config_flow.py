@@ -16,7 +16,6 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
-from .api.dtek.html import DtekAPIHtml
 from .api.dtek.json import DtekAPIJson
 from .api.yasno import YasnoApi
 from .const import (
@@ -26,13 +25,11 @@ from .const import (
     CONF_REGION,
     DOMAIN,
     NAME,
-    PROVIDER_TYPE_DTEK_HTML,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_YASNO,
 )
 from .models import (
     DTEK_PROVIDER_URLS,
-    DTEKHTMLProvider,
     DTEKJsonProvider,
     YasnoProvider,
     YasnoRegion,
@@ -93,7 +90,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             # Continue with DTEK only
 
         dtek_providers = list(DTEKJsonProvider)
-        all_providers = yasno_providers + dtek_providers + [DTEKHTMLProvider]
+        all_providers = yasno_providers + dtek_providers
         self.available_providers = {_.unique_key: _ for _ in all_providers}
 
         provider_options = [
@@ -150,20 +147,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 await temp_api.fetch_planned_outage_data()
                 groups = temp_api.get_yasno_groups()
-        elif provider_type == PROVIDER_TYPE_DTEK_JSON:
-            if provider_id:
-                urls = DTEK_PROVIDER_URLS.get(provider_id, [])
-                if urls:
-                    temp_api = DtekAPIJson(urls=urls, group=None)
-                    await temp_api.fetch_data()
-                    groups = temp_api.get_dtek_region_groups()
-        elif provider_type == PROVIDER_TYPE_DTEK_HTML:
-            temp_api = DtekAPIHtml(group=None)
-            await temp_api.fetch_data()
-            groups = temp_api.get_dtek_region_groups()
-            if not groups:
-                # noinspection PyTypeChecker
-                return self.async_abort(reason="dtek_scraping_fail")
+        elif provider_type == PROVIDER_TYPE_DTEK_JSON and provider_id:
+            urls = DTEK_PROVIDER_URLS.get(provider_id, [])
+            if urls:
+                temp_api = DtekAPIJson(urls=urls, group=None)
+                await temp_api.fetch_data()
+                groups = temp_api.get_dtek_region_groups()
 
         data_schema = vol.Schema(
             {
