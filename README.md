@@ -28,7 +28,6 @@ A [Home Assistant][home-assistant] integration that tracks electricity outage sc
 | **Ivano-Frankivsk and Oblast** | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Prykarpattiaoblenerho.json) |
 | **Uzhhorod and Oblast**        | ZOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Zakarpattiaoblenerho.json)  |
 | **Lviv and Oblast**            | LOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Lvivoblenerho.json)         |
-| **Other**                      | DTEK     | [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). Uses anti-crawling protection.                                       |
 
 
 ## Installation
@@ -125,15 +124,6 @@ time_fired: "2025-11-15T12:20:24.627416+00:00"
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for information about adding new regions and contributing to the project.
-
-Caveats:
-- Scraping DTEK Regions outage website is tricky, as it uses an anti-bot system.
-  I can only able to bypass the anti-bot system by using third-party scraping services.
-  Such services cost ~2.5 EUR per 1000 requests.
-  If the page on my hosted cache-server is updated every 30 minutes, the maximum price for this is 2.5 EUR for 20 days.
-  One obtained cookie might be used more than once, so the real price can be lower than that (or much lower).
-  If someone is interested in this, I could implement all this on my own, I just need an API key of said service.
-  E.g. https://hypersolutions.co/pricing
 
 <!-- Badges -->
 
