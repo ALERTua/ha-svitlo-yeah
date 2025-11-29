@@ -16,18 +16,19 @@ A [Home Assistant][home-assistant] integration that tracks electricity outage sc
 
 ## Supported Regions
 
-| Region                         | Provider | Data Source                                                                                                                                                |
-|--------------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Kyiv**                       | DTEK     | [Yasno API](https://yasno.ua)                                                                                                                              |
-| **Dnipro**                     | DnEM     | [Yasno API](https://yasno.ua)                                                                                                                              |
-| **Dnipro**                     | CEK      | [Yasno API](https://yasno.ua)                                                                                                                              |
-| **Kyiv Oblast**                | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/kyiv-region.json)                                            |
-| **Dnipro and Oblast**          | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/dnipro.json)                                                 |
-| **Odesa and Oblast**           | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/odesa.json)                                                  |
-| **Khmelnytskyi**               | HOE      | [yaroslav2901/HOE_OUTAGE_DATA](https://github.com/yaroslav2901/HOE_OUTAGE_DATA/blob/main/data/Khmelnytskyi.json)                                           |
-| **Ivano-Frankivsk and Oblast** | POE      | [yaroslav2901/PRYKARPATTIAOBLENERHO_OUTAGE_DATA](https://github.com/yaroslav2901/PRYKARPATTIAOBLENERHO_OUTAGE_DATA/blob/main/data/Ivano-Frankivsk.json)    |
-| **Uzhhorod and Oblast**        | ZOE      | [yaroslav2901/ZAKARPATTIAOBLENERHO_OUTAGE_DATA](https://github.com/yaroslav2901/ZAKARPATTIAOBLENERHO_OUTAGE_DATA/blob/main/data/Zakarpattiaoblenerho.json) |
-| **Other**                      | DTEK     | [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). Uses anti-crawling protection.                                                                          |
+| Region                         | Provider | Data Source                                                                                                             |
+|--------------------------------|----------|-------------------------------------------------------------------------------------------------------------------------|
+| **Kyiv**                       | DTEK     | [Yasno API](https://yasno.ua)                                                                                           |
+| **Dnipro**                     | DnEM     | [Yasno API](https://yasno.ua)                                                                                           |
+| **Dnipro**                     | CEK      | [Yasno API](https://yasno.ua)                                                                                           |
+| **Kyiv Oblast**                | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/kyiv-region.json)         |
+| **Dnipro and Oblast**          | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/dnipro.json)              |
+| **Odesa and Oblast**           | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/odesa.json)               |
+| **Khmelnytskyi**               | HOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Khmelnytskoblenerho.json)  |
+| **Ivano-Frankivsk and Oblast** | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Prykarpattiaoblenerho.json) |
+| **Uzhhorod and Oblast**        | ZOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Zakarpattiaoblenerho.json)  |
+| **Lviv and Oblast**            | LOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Lvivoblenerho.json)         |
+| **Other**                      | DTEK     | [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). Uses anti-crawling protection.                                       |
 
 
 ## Installation
