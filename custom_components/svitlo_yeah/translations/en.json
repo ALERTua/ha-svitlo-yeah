@@ -41,6 +41,7 @@
         "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi — HOE",
         "dtekjsonprovider_ivano_frankivsk": "DTEK — Ivano-Frankivsk and Oblast — POE",
         "dtekjsonprovider_uzhhorod": "DTEK — Uzhhorod and Oblast — ZOE",
+        "dtekjsonprovider_lviv": "DTEK — Lviv and Oblast — LOE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
@@ -86,6 +87,7 @@
     "khmelnytskyi": "Khmelnytskyi",
     "ivano_frankivsk": "Ivano-Frankivsk",
     "uzhhorod": "Uzhhorod",
+    "lviv": "Lviv",
     "dtek_html": "DTEK"
   }
 }
