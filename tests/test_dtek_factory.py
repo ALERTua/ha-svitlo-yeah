@@ -1,7 +1,8 @@
 """Tests for DTEK API factory function and region selection."""
 
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
-from custom_components.svitlo_yeah.models import DTEK_PROVIDER_URLS, DTEKJsonProvider
+from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.models.providers import DTEKJsonProvider
 
 
 class TestCreateDtekApi:

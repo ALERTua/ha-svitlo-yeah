@@ -1,7 +1,7 @@
 """Config flow for Svitlo Yeah integration."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.config_entries import (
@@ -24,16 +24,16 @@ from .const import (
     CONF_PROVIDER_TYPE,
     CONF_REGION,
     DOMAIN,
+    DTEK_PROVIDER_URLS,
     NAME,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_YASNO,
 )
-from .models import (
-    DTEK_PROVIDER_URLS,
-    DTEKJsonProvider,
-    YasnoProvider,
-    YasnoRegion,
-)
+from .models.providers import DTEKJsonProvider
+
+if TYPE_CHECKING:
+    from .models import YasnoRegion
+    from .models.providers import YasnoProvider
 
 LOGGER = logging.getLogger(__name__)
 
