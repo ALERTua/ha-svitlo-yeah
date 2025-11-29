@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
 
 
 class BaseProvider:
     """Base class for provider models."""
 
-    region_id: int | None = None
+    region_name: str
 
     @property
     def unique_key(self) -> str:
@@ -17,7 +16,7 @@ class BaseProvider:
         raise NotImplementedError
 
     @property
-    def provider_id(self) -> str:
+    def provider_id(self) -> str | int:
         """Subclasses must implement this property."""
         raise NotImplementedError
 
@@ -38,7 +37,8 @@ class YasnoProvider(BaseProvider):
 
     id: int
     name: str
-    region_id: int | None
+    region_id: int
+    region_name: str
 
     @property
     def unique_key(self) -> str:
@@ -46,9 +46,9 @@ class YasnoProvider(BaseProvider):
         return f"{self.__class__.__name__.lower()}_{self.region_id}_{self.id}"
 
     @classmethod
-    def from_dict(cls, data: dict, region_id: int) -> YasnoProvider:
+    def from_dict(cls, data: dict, region_id: int, region_name: str) -> YasnoProvider:
         """Create instance from dict data."""
-        return cls(**data, region_id=region_id)
+        return cls(**data, region_id=region_id, region_name=region_name)
 
     @property
     def provider_id(self) -> int:
@@ -63,26 +63,21 @@ class YasnoProvider(BaseProvider):
         return PROVIDER_TYPE_YASNO
 
 
-class DTEKJsonProvider(BaseProvider, StrEnum):
+@dataclass(frozen=True)
+class DTEKJsonProvider(BaseProvider):
     """DTEK provider for DTEK JSON API."""
 
-    KYIV_REGION = "kyiv_region"
-    DNIPRO = "dnipro"
-    ODESA = "odesa"
-    KHMELNYTSKYI = "khmelnytskyi"
-    IVANO_FRANKIVSK = "ivano_frankivsk"
-    UZHHOROD = "uzhhorod"
-    LVIV = "lviv"
+    region_name: str
 
     @property
     def unique_key(self) -> str:
         """Generate unique key for this provider."""
-        return f"{self.__class__.__name__.lower()}_{self.value}"
+        return f"{self.__class__.__name__.lower()}_{self.region_name}"
 
     @property
     def provider_id(self) -> str:
         """Provider ID."""
-        return str(self.value)
+        return self.region_name
 
     @property
     def provider_type(self) -> str:

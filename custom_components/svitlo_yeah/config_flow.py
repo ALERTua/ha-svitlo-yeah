@@ -68,9 +68,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 msg = "Invalid provider selection"
                 raise ValueError(msg)
 
-            self.data[CONF_REGION] = selected_provider.region_id
-            self.data[CONF_PROVIDER] = selected_provider.provider_id
             self.data[CONF_PROVIDER_TYPE] = selected_provider.provider_type
+            self.data[CONF_PROVIDER] = selected_provider.provider_id
+            if selected_provider.provider_type == PROVIDER_TYPE_YASNO:
+                self.data[CONF_REGION] = selected_provider.region_id
 
             # noinspection PyTypeChecker
             return await self.async_step_group()
@@ -89,7 +90,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             )
             # Continue with DTEK only
 
-        dtek_providers = list(DTEKJsonProvider)
+        # Create DTEKJsonProvider instances for each available provider key
+        dtek_providers = [DTEKJsonProvider(region_name=_) for _ in DTEK_PROVIDER_URLS]
         all_providers = yasno_providers + dtek_providers
         self.available_providers = {_.unique_key: _ for _ in all_providers}
 
@@ -134,7 +136,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         LOGGER.debug("async_step_user: No User input yet")
 
-        region_id = self.data[CONF_REGION]
+        region_id = self.data.get(CONF_REGION)
         provider_id = self.data[CONF_PROVIDER]
         provider_type = self.data[CONF_PROVIDER_TYPE]
 

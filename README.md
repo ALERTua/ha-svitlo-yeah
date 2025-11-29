@@ -24,7 +24,7 @@ A [Home Assistant][home-assistant] integration that tracks electricity outage sc
 | **Kyiv Oblast**                | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/kyiv-region.json)         |
 | **Dnipro and Oblast**          | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/dnipro.json)              |
 | **Odesa and Oblast**           | DTEK     | [Baskerville42/outage-data-ua](https://github.com/Baskerville42/outage-data-ua/blob/main/data/odesa.json)               |
-| **Khmelnytskyi**               | HOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Khmelnytskoblenerho.json)  |
+| **Khmelnytskyi**               | HOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Khmelnytskoblenerho.json)   |
 | **Ivano-Frankivsk and Oblast** | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Prykarpattiaoblenerho.json) |
 | **Uzhhorod and Oblast**        | ZOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Zakarpattiaoblenerho.json)  |
 | **Lviv and Oblast**            | LOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Lvivoblenerho.json)         |
@@ -103,21 +103,34 @@ The integration creates the following entities in Home Assistant:
 |------------------------------|-----------------------------------------|
 | **svitlo_yeah_data_changed** | Fired when outage data actually changes |
 
+```yaml
+event_type: svitlo_yeah_data_changed
+data:
+  region_name: Київ  # yes, Cyrillic. This is how it comes from the API
+  region_id: 25
+  provider_id: 902
+  provider_name: ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»
+  group: "3.1"
+  last_data_change: "2025-11-15T14:20:24.627353+02:00"
+  config_entry_id: 01KB817HS8R32RSYH5RW01G78Z
+```
+```yaml
+event_type: svitlo_yeah_data_changed
+data:
+  region_name: odesa
+  region_id: null
+  provider_id: null
+  provider_name: null
+  group: "1.1"
+  last_data_change: "2025-11-15T14:20:24.627353+02:00"
+  config_entry_id: 01KB817S4AXVFB39X97NGYCV55
+```
+
 ### Entity Usage Examples
 
 - Use the **Electricity** sensor in dashboards to display current power status from the calendar perspective
 - Set up notifications when **Schedule Data Changed On** updates to alert about schedule changes
-- Or use the event to trigger on:
-```yaml
-event_type: svitlo_yeah_data_changed
-data:
-  region: Київ
-  provider: ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»
-  group: "3.1"
-  last_data_change: "2025-11-15T14:20:24.627353+02:00"
-  config_entry_id: 01K9Q7AZX5KF5F6352RX98JY9T
-time_fired: "2025-11-15T12:20:24.627416+00:00"
-```
+- Or use the event to trigger on (described above and in [automation examples](/examples/automation.yaml))
 - Use the **Planned Outages Calendar** with calendar triggers for advance warnings before outages
 - Monitor **Next Planned Outage** and **Next Connectivity** timestamps for countdown displays
 

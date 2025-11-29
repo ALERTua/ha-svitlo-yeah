@@ -267,8 +267,14 @@ class TestCheckOutageDataChanged:
         event_name = call_args.args[0]
         event_data = call_args.args[1]
         assert event_name == EVENT_DATA_CHANGED
-        assert event_data["region"] == coordinator.region
-        assert event_data["provider"] == coordinator.provider
+        assert event_data["provider_name"] == getattr(
+            coordinator.provider, "name", None
+        )
+        assert event_data["provider_id"] == getattr(coordinator.provider, "id", None)
+        assert event_data["region_name"] == coordinator.provider.region_name
+        assert event_data["region_id"] == getattr(
+            coordinator.provider, "region_id", None
+        )
         assert event_data["group"] == coordinator.group
         assert event_data["last_data_change"] == coordinator.outage_data_last_changed
         assert event_data["config_entry_id"] == coordinator.config_entry.entry_id
