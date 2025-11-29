@@ -206,8 +206,10 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     def fire_event(self) -> None:
         """Fire event for data change."""
         event_data = {
-            "region": self.region,
-            "provider": self.provider,
+            "region_name": self.provider.region_name,
+            "region_id": getattr(self.provider, "region_id", None),
+            "provider_id": getattr(self.provider, "id", None),
+            "provider_name": getattr(self.provider, "name", None),
             "group": self.group,
             "last_data_change": self.outage_data_last_changed,
             "config_entry_id": self.config_entry.entry_id,
@@ -229,6 +231,10 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         if self._previous_outage_events is None:
             # First run - initialize tracking
             self.initialize_outage_data_tracking(sorted_current)
+            """
+            # EVENT DEBUG. DO NOT COMMIT UNCOMMENTED
+            self.fire_event()
+            """
             return False
 
         # Compare with previous events

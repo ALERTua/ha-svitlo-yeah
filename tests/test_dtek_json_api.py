@@ -10,7 +10,6 @@ from custom_components.svitlo_yeah.api.dtek.json import (
     _is_data_sufficiently_fresh,
 )
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
-from custom_components.svitlo_yeah.models.providers import DTEKJsonProvider
 
 TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
@@ -117,20 +116,20 @@ class TestJsonDtekAPIFetchData:
     @pytest.mark.skip(reason="Manual test only - requires real network access")
     async def test_fetch_data_real_endpoints(self):
         """Test fetching real data from DTEK JSON endpoints."""
-        for region in DTEKJsonProvider:
-            urls = DTEK_PROVIDER_URLS[region]
+        for provider_key in DTEK_PROVIDER_URLS:
+            urls = DTEK_PROVIDER_URLS[provider_key]
             api = DtekAPIJson(urls=urls)
             await api.fetch_data()
-            assert api.data is not None, f"error getting data for {region}"
+            assert api.data is not None, f"error getting data for {provider_key}"
             groups = api.get_dtek_region_groups()
             assert isinstance(groups, list), (
-                f"wrong data type for groups while getting info for {region}"
+                f"wrong data type for groups while getting info for {provider_key}"
             )
-            assert len(groups), f"no groups while getting info for {region}"
+            assert len(groups), f"no groups while getting info for {provider_key}"
 
             api.group = groups[0]
             updated_on = api.get_updated_on()
-            assert updated_on, f"no updated_on while getting info for {region}"
+            assert updated_on, f"no updated_on while getting info for {provider_key}"
 
 
 class TestJsonDtekAPIFreshness:
