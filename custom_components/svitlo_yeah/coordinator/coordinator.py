@@ -21,11 +21,12 @@ from ..const import (
     EVENT_DATA_CHANGED,
     UPDATE_INTERVAL,
 )
-from ..models import BaseProvider, ConnectivityState, PlannedOutageEvent, YasnoRegion
+from ..models import ConnectivityState, PlannedOutageEvent, YasnoRegion
 
 if TYPE_CHECKING:
     from ..api.dtek.base import DtekAPIBase
     from ..api.yasno import YasnoApi
+    from ..models.providers import BaseProvider
 
 LOGGER = logging.getLogger(__name__)
 
