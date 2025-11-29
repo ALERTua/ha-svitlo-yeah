@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from .models.providers import DTEKJsonProvider
-
 # Do not commit as True
 DEBUG: Final = False
 
@@ -59,26 +57,26 @@ TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
 
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"
 
-DTEK_PROVIDER_URLS: dict[DTEKJsonProvider, list[str]] = {
-    DTEKJsonProvider.KYIV_REGION: [
+DTEK_PROVIDER_URLS: dict[str, list[str]] = {
+    "kyiv_region": [
         "https://github.com/Baskerville42/outage-data-ua/raw/main/data/kyiv-region.json",
     ],
-    DTEKJsonProvider.DNIPRO: [
+    "dnipro": [
         "https://github.com/Baskerville42/outage-data-ua/raw/main/data/dnipro.json",
     ],
-    DTEKJsonProvider.ODESA: [
+    "odesa": [
         "https://github.com/Baskerville42/outage-data-ua/raw/main/data/odesa.json",
     ],
-    DTEKJsonProvider.KHMELNYTSKYI: [
+    "khmelnytskyi": [
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Khmelnytskoblenerho.json",
     ],
-    DTEKJsonProvider.IVANO_FRANKIVSK: [
+    "ivano_frankivsk": [
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Prykarpattiaoblenerho.json",
     ],
-    DTEKJsonProvider.UZHHOROD: [
+    "uzhhorod": [
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zakarpattiaoblenerho.json",
     ],
-    DTEKJsonProvider.LVIV: [
+    "lviv": [
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Lvivoblenerho.json",
     ],
 }

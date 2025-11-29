@@ -18,6 +18,7 @@ from ...models import (
     ConnectivityState,
     PlannedOutageEventType,
 )
+from ...models.providers import DTEKJsonProvider
 from ..coordinator import IntegrationCoordinator
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
 
     config_entry: ConfigEntry
     api: DtekAPIBase
+    region_name: str = ""
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -103,9 +105,9 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         return self.translations.get(key)
 
     @property
-    def region_name(self) -> str:
-        """Get the configured region name."""
-        return ""
+    def provider(self) -> DTEKJsonProvider:
+        """Get the configured provider."""
+        return DTEKJsonProvider(region_name=self.provider_id)
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""

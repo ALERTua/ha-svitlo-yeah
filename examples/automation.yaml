@@ -75,37 +75,30 @@
       data:
         message: "Power outage schedule has changed!"
 
-- alias: "Power Outage Schedule Changed - Kyiv DTEK 3.1"
+- alias: "Power Outage Schedule Changed - Kyiv 3.1"
   description: "Notify only when outage schedule changes for Kyiv DTEK group 3.1"
   trigger:
     - platform: event
       event_type: svitlo_yeah_data_changed
-  condition:
-    - condition: and
-      conditions:
-        - condition: template
-          value_template: "{{ trigger.event.data.region == 'Київ' }}"
-        - condition: template
-          value_template: "{{ trigger.event.data.provider == 'ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»' }}"
-        - condition: template
-          value_template: "{{ trigger.event.data.group == '3.1' }}"
+      event_data:
+        provider:
+          region_name: Київ
+        group: '3.1'
   action:
     - service: notify.mobile_app
       data:
-        message: "Kyiv DTEK Group 3.1 Schedule Changed"
+        message: "Kyiv Group 3.1 Schedule Changed"
 
-- alias: "Power Outage Schedule Changed - Kyiv DTEK 3.1"
-  description: "Notify only when outage schedule changes for Kyiv DTEK group 3.1"
+- alias: "Power Outage Schedule Changed - Lviv 2.2"
+  description: "Notify only when outage schedule changes for Lviv 2.2"
   trigger:
     - platform: event
       event_type: svitlo_yeah_data_changed
-  condition:
-    - condition: template
-      value_template: >-
-        {{ trigger.event.data.region == 'Київ' and
-           trigger.event.data.provider == 'ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»' and
-           trigger.event.data.group == '3.1' }}
+      event_data:
+        provider:
+          region_name: lviv
+        group: '2.2'
   action:
     - service: notify.mobile_app
       data:
-        message: "Kyiv DTEK Group 3.1 Schedule Changed"
+        message: "Lviv Group 2.2 Schedule Changed"
