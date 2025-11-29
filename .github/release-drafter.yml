@@ -57,8 +57,5 @@ template: |
 
   [![Add to HACS via My Home Assistant][hacs-install-image]][hasc-install-url]
 
-  ## Contributors to this release
-  $CONTRIBUTORS
-
   [hasc-install-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ALERTua&repository=ha-svitlo-yeah&category=integration
   [hacs-install-image]: https://my.home-assistant.io/badges/hacs_repository.svg
