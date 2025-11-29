@@ -31,7 +31,7 @@ class BaseProvider:
         return self.unique_key
 
 
-@dataclass
+@dataclass(frozen=True)
 class YasnoProvider(BaseProvider):
     """Yasno provider model."""
 
@@ -63,7 +63,7 @@ class YasnoProvider(BaseProvider):
         return PROVIDER_TYPE_YASNO
 
 
-@dataclass
+@dataclass(frozen=True)
 class DTEKJsonProvider(BaseProvider):
     """DTEK provider for DTEK JSON API."""
 
