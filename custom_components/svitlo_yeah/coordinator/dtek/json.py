@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ...api.dtek.json import DtekAPIJson
-from ...models import DTEK_PROVIDER_URLS
+from ...const import DTEK_PROVIDER_URLS
 from .base import DtekCoordinatorBase
 
 if TYPE_CHECKING:

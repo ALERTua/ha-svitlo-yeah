@@ -9,7 +9,8 @@ from custom_components.svitlo_yeah.api.dtek.json import (
     DtekAPIJson,
     _is_data_sufficiently_fresh,
 )
-from custom_components.svitlo_yeah.models import DTEK_PROVIDER_URLS, DTEKJsonProvider
+from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.models.providers import DTEKJsonProvider
 
 TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
