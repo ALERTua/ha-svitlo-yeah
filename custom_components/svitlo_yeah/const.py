@@ -17,7 +17,6 @@ CONF_PROVIDER_TYPE: Final = "provider_type"
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"
 PROVIDER_TYPE_DTEK_JSON: Final = "dtek_json"
-PROVIDER_TYPE_DTEK_HTML: Final = "dtek_html"
 
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
@@ -31,19 +30,10 @@ else:
 DTEK_FRESH_DATA_DAYS: Final = 2
 
 # API Endpoints
-DTEK_ENDPOINT: Final = "https://www.dtek-krem.com.ua/ua/shutdowns"
 YASNO_REGIONS_ENDPOINT: Final = (
     "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/regions"
 )
 YASNO_PLANNED_OUTAGES_ENDPOINT: Final = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/{region_id}/dsos/{dso_id}/planned-outages"
-DTEK_HEADERS = {
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "uk,en-US;q=0.8,en;q=0.5,ru;q=0.3",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Referer": "https://www.google.com/",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101"
-    " Firefox/144.0",
-}
 
 # API Block names
 BLOCK_KEY_STATUS: Final = "status"
@@ -55,9 +45,7 @@ DEVICE_MANUFACTURER = NAME
 PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_YASNO: DEVICE_NAME_YASNO_TRANSLATION_KEY,
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
-    PROVIDER_TYPE_DTEK_HTML: DEVICE_NAME_DTEK_TRANSLATION_KEY,
 }
-TRANSLATION_KEY_PROVIDER_DTEK: Final = "provider_name_dtek"
 TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_planned_outage"
 )
