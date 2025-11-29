@@ -9,7 +9,6 @@ from homeassistant.const import Platform
 
 from .const import (
     CONF_PROVIDER_TYPE,
-    PROVIDER_TYPE_DTEK_HTML,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_YASNO,
 )
@@ -25,7 +24,6 @@ PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a new entry."""
-    from .coordinator.dtek.html import DtekCoordinatorHtml  # noqa: PLC0415
     from .coordinator.dtek.json import DtekCoordinatorJson  # noqa: PLC0415
     from .coordinator.yasno import YasnoCoordinator  # noqa: PLC0415
 
@@ -37,8 +35,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if provider_type == PROVIDER_TYPE_DTEK_JSON:
         coordinator = DtekCoordinatorJson(hass, entry)
-    elif provider_type == PROVIDER_TYPE_DTEK_HTML:
-        coordinator = DtekCoordinatorHtml(hass, entry)
     elif provider_type == PROVIDER_TYPE_YASNO:
         coordinator = YasnoCoordinator(hass, entry)
     else:

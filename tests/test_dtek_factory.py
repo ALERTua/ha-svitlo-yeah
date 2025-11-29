@@ -1,18 +1,11 @@
 """Tests for DTEK API factory function and region selection."""
 
-from custom_components.svitlo_yeah.api.dtek.html import DtekAPIHtml
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
 from custom_components.svitlo_yeah.models import DTEK_PROVIDER_URLS, DTEKJsonProvider
 
 
 class TestCreateDtekApi:
     """Test the create_dtek_api factory function."""
-
-    def test_create_html_api_none_region(self):
-        """Test creating HTML API when region is None."""
-        api = DtekAPIHtml("1.1")
-        assert isinstance(api, DtekAPIHtml)
-        assert api.group == "1.1"
 
     def test_create_json_api_with_region(self):
         """Test creating JSON API when region is specified."""

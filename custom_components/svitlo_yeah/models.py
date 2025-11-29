@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from .const import PROVIDER_TYPE_DTEK_HTML, PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_YASNO
+from .const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_YASNO
 
 if TYPE_CHECKING:
     import datetime
@@ -143,12 +143,6 @@ class DTEKJsonProvider(BaseProvider, StrEnum):
     def provider_type(self) -> str:
         """Provider type."""
         return PROVIDER_TYPE_DTEK_JSON
-
-
-class DTEKHTMLProvider(BaseProvider):
-    """DTEK provider for DTEK HTML API."""
-
-    unique_key = translation_key = provider_id = provider_type = PROVIDER_TYPE_DTEK_HTML
 
 
 # URL mappings for JSON sources

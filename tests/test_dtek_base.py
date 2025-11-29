@@ -1,4 +1,4 @@
-"""Tests for DTEK base API functionality (shared between HTML and JSON APIs)."""
+"""Tests for DTEK base API functionality."""
 
 import datetime
 
@@ -6,7 +6,8 @@ import pytest
 from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
-from custom_components.svitlo_yeah.api.dtek.html import DtekAPIHtml
+from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
+from custom_components.svitlo_yeah.models import DTEK_PROVIDER_URLS
 
 TEST_GROUP = "1.1"
 TEST_TIMESTAMP = "1761688800"
@@ -15,7 +16,7 @@ TEST_TIMESTAMP = "1761688800"
 @pytest.fixture(name="api")
 def _api():
     """Create a DTEK API instance for testing base functionality."""
-    return DtekAPIHtml(group=TEST_GROUP)
+    return DtekAPIJson(urls=next(iter(DTEK_PROVIDER_URLS.values())), group=TEST_GROUP)
 
 
 @pytest.fixture
