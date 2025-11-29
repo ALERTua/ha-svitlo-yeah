@@ -1,6 +1,10 @@
 """Constants for the Svitlo Yeah integration."""
 
+from __future__ import annotations
+
 from typing import Final
+
+from .models.providers import DTEKJsonProvider
 
 # Do not commit as True
 DEBUG: Final = False
@@ -53,5 +57,28 @@ TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )
 
-# Events
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"
+
+DTEK_PROVIDER_URLS: dict[DTEKJsonProvider, list[str]] = {
+    DTEKJsonProvider.KYIV_REGION: [
+        "https://github.com/Baskerville42/outage-data-ua/raw/main/data/kyiv-region.json",
+    ],
+    DTEKJsonProvider.DNIPRO: [
+        "https://github.com/Baskerville42/outage-data-ua/raw/main/data/dnipro.json",
+    ],
+    DTEKJsonProvider.ODESA: [
+        "https://github.com/Baskerville42/outage-data-ua/raw/main/data/odesa.json",
+    ],
+    DTEKJsonProvider.KHMELNYTSKYI: [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Khmelnytskoblenerho.json",
+    ],
+    DTEKJsonProvider.IVANO_FRANKIVSK: [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Prykarpattiaoblenerho.json",
+    ],
+    DTEKJsonProvider.UZHHOROD: [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zakarpattiaoblenerho.json",
+    ],
+    DTEKJsonProvider.LVIV: [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Lvivoblenerho.json",
+    ],
+}

@@ -7,7 +7,7 @@ from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
-from custom_components.svitlo_yeah.models import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
 TEST_GROUP = "1.1"
 TEST_TIMESTAMP = "1761688800"
