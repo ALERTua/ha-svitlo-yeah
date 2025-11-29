@@ -202,6 +202,19 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         # Initialize with the API's last update timestamp
         self.outage_data_last_changed = None
 
+    def fire_event(self) -> None:
+        """Fire event for data change."""
+        event_data = {
+            "region": self.region,
+            "provider": self.provider,
+            "group": self.group,
+            "last_data_change": self.outage_data_last_changed,
+            "config_entry_id": self.config_entry.entry_id,
+        }
+
+        self.hass.bus.async_fire(EVENT_DATA_CHANGED, event_data)
+        LOGGER.debug("Fired %s event for %s", EVENT_DATA_CHANGED, self.group)
+
     def check_outage_data_changed(
         self, current_events: list[PlannedOutageEvent]
     ) -> bool:
@@ -222,18 +235,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             self._previous_outage_events = sorted_current
             self.outage_data_last_changed = dt_utils.now()
             LOGGER.debug("Outage data changed at %s", self.outage_data_last_changed)
-
-            # Fire event for data change
-            event_data = {
-                "region": self.region,
-                "provider": self.provider,
-                "group": self.group,
-                "last_data_change": self.outage_data_last_changed,
-                "config_entry_id": self.config_entry.entry_id,
-            }
-
-            self.hass.bus.async_fire(EVENT_DATA_CHANGED, event_data)
-            LOGGER.debug("Fired %s event for %s", EVENT_DATA_CHANGED, self.group)
+            self.fire_event()
             return True
 
         return False
