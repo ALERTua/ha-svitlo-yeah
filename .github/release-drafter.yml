@@ -42,6 +42,9 @@ template: |
   ### New Features ⚡
   - Feature 1: Description of feature 1.
 
+  ### ⚠️ Breaking Changes
+  - Breaking 1: Description of breaking change 1.
+
   ### Enhancements 🔥
   - Enhancement 1: Description of Enhancement 1.
 
