@@ -36,14 +36,15 @@ change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add
 template: |
   <img height="128" src="https://raw.githubusercontent.com/ALERTua/ha-svitlo-yeah/main/icons/logo.png" width="256"/>
 
+  ## ⚠️ Breaking Changes
+  - Breaking 1: Description of breaking change 1.
+
   ## What's changed
   $CHANGES
 
   ### New Features ⚡
   - Feature 1: Description of feature 1.
 
-  ### ⚠️ Breaking Changes
-  - Breaking 1: Description of breaking change 1.
 
   ### Enhancements 🔥
   - Enhancement 1: Description of Enhancement 1.
