@@ -166,7 +166,7 @@ DTEK_PROVIDER_URLS: dict[DTEKJsonProvider, list[str]] = {
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Khmelnytskoblenerho.json",
     ],
     DTEKJsonProvider.IVANO_FRANKIVSK: [
-        "https://github.com/yaroslav2901/PRYKARPATTIAOBLENERHO_OUTAGE_DATA/raw/main/data/Ivano-Frankivsk.json",
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Prykarpattiaoblenerho.json",
     ],
     DTEKJsonProvider.UZHHOROD: [
         "https://github.com/yaroslav2901/ZAKARPATTIAOBLENERHO_OUTAGE_DATA/raw/main/data/Zakarpattiaoblenerho.json",
