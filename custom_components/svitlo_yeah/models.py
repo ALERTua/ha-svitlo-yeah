@@ -104,15 +104,14 @@ class YasnoProvider(BaseProvider):
 class YasnoRegion:
     """Yasno region data."""
 
-    has_cities: bool
     id: int  # 25
-    value: str  # Київ
+    name: str  # Київ
     dsos: list[YasnoProvider] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> YasnoRegion:
         """Create instance from dict data."""
-        output = cls(has_cities=data["hasCities"], id=data["id"], value=data["value"])
+        output = cls(id=data["id"], name=data["value"])
         output.dsos = [
             YasnoProvider.from_dict(_, region_id=output.id) for _ in data["dsos"]
         ]

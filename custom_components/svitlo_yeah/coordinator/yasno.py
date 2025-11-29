@@ -161,7 +161,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             LOGGER.debug("Trying to get region_name without region")
             return ""
 
-        return self.region.value or ""
+        return self.region.name or ""
 
     @property
     def provider(self) -> YasnoProvider | None:
