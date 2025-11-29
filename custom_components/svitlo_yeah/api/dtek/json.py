@@ -20,12 +20,20 @@ def _is_data_sufficiently_fresh(json_data: dict) -> bool:
     if not update_dt:
         return False
 
-    try:
-        update_dt = datetime.strptime(update_dt, "%d.%m.%Y %H:%M").astimezone(UTC)
-        age_days = (datetime.now(UTC) - update_dt).days
-        return age_days <= DTEK_FRESH_DATA_DAYS  # noqa: TRY300
-    except ValueError:
-        return False
+    date_formats = [
+        "%d.%m.%Y %H:%M",  # DD.MM.YYYY HH:MM
+        "%H:%M %d.%m.%Y",  # HH:MM DD.MM.YYYY
+    ]
+
+    for fmt in date_formats:
+        try:
+            parsed_dt = datetime.strptime(update_dt, fmt).astimezone(UTC)
+            age_days = (datetime.now(UTC) - parsed_dt).days
+            return age_days <= DTEK_FRESH_DATA_DAYS  # noqa: TRY300
+        except ValueError:
+            continue
+
+    return False
 
 
 class DtekAPIJson(DtekAPIBase):

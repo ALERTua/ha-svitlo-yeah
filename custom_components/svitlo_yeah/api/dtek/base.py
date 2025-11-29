@@ -184,17 +184,23 @@ class DtekAPIBase:
         if not self.data or "update" not in self.data:
             return None
 
-        try:
-            update_str = self.data["update"]
-            naive_dt = datetime.datetime.strptime(  # noqa: DTZ007
-                update_str, "%d.%m.%Y %H:%M"
-            )
-            aware_dt = dt_utils.as_local(naive_dt)
-        except (ValueError, TypeError):
-            LOGGER.debug("Failed to parse update timestamp: %s", self.data["update"])
-            return None
+        date_formats = [
+            "%d.%m.%Y %H:%M",  # DD.MM.YYYY HH:MM
+            "%H:%M %d.%m.%Y",  # HH:MM DD.MM.YYYY
+        ]
 
-        return aware_dt
+        for fmt in date_formats:
+            try:
+                update_str = self.data["update"]
+                naive_dt = datetime.datetime.strptime(  # noqa: DTZ007
+                    update_str, fmt
+                )
+                return dt_utils.as_local(naive_dt)
+            except (ValueError, TypeError):
+                continue
+
+        LOGGER.debug("Failed to parse update timestamp: %s", self.data["update"])
+        return None
 
 
 def _debug_data() -> dict:
