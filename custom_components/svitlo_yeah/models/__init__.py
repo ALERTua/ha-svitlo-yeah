@@ -58,6 +58,9 @@ class YasnoRegion:
         """Create instance from dict data."""
         output = cls(id=data["id"], name=data["value"])
         output.dsos = [
-            YasnoProvider.from_dict(_, region_id=output.id) for _ in data["dsos"]
+            YasnoProvider.from_dict(
+                data=_, region_id=output.id, region_name=output.name
+            )
+            for _ in data["dsos"]
         ]
         return output
