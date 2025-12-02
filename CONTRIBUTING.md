@@ -47,23 +47,21 @@ This guide will help you add support for new regions to the integration.
 
 To add a new DTEK region, you need to modify several files following the established patterns. This typically involves:
 
-1. Adding the region to the `DTEKJsonProvider` enum
-2. Adding URL mappings in `DTEK_PROVIDER_URLS`
-3. Updating translations in `en.json` and `uk.json`
-4. Updating documentation in `README.md`
-5. Testing your changes
+1. Adding URL mappings in `DTEK_PROVIDER_URLS`
+2. Updating translations in `en.json` and `uk.json`
+3. Updating documentation in `README.md`
+4. Testing your changes
 
 ### Step-by-Step Process
 
-To add a new DTEK region, follow this process by examining **PR #16** as a reference example:
+To add a new DTEK region, follow this process by examining **PR #25** as a reference example:
 
 **Reference Example:** https://github.com/ALERTua/ha-svitlo-yeah/pull/25
 
 #### Files to Modify:
 
-1. **`custom_components/svitlo_yeah/models.py`**
-   - Add your region to the `DTEKJsonProvider` enum
-   - Add URL mapping in `DTEK_PROVIDER_URLS`
+1. **`custom_components/svitlo_yeah/const.py`**
+   - Add URL mapping for your region in `DTEK_PROVIDER_URLS`
 
 2. **`custom_components/svitlo_yeah/translations/en.json`**
    - Add provider translation key in `selector.provider.options`
@@ -77,8 +75,8 @@ To add a new DTEK region, follow this process by examining **PR #16** as a refer
 
 #### Pattern to Follow:
 
-Refer to PR #16 to see the exact pattern for:
-- Enum naming conventions (`UPPER_SNAKE_CASE`)
+Refer to PR #25 to see the exact pattern for:
+- Lowercase region names as keys in `DTEK_PROVIDER_URLS`
 - URL structure and data source links
 - Translation key format (`dtekjsonprovider_{region_name}`)
 - Table formatting in README
@@ -127,10 +125,9 @@ uv run pre-commit run --all-files
 Use clear, descriptive commit messages:
 
 ```
-Add DTEK support for Uzhhorod region
+Add Ternopil and Oblast (#25)
 
-- Added Uzhhorod region to DTEKJsonProvider enum
-- Added URL mapping for Zakarpattiaoblenerho data
+- Added Ternopil region support to DTEK_PROVIDER_URLS
 - Updated English and Ukrainian translations
 - Updated README documentation
 ```
@@ -138,15 +135,15 @@ Add DTEK support for Uzhhorod region
 ## Reference Example
 
 For a complete working example of adding a DTEK region, see:
-**https://github.com/ALERTua/ha-svitlo-yeah/pull/16**
+**https://github.com/ALERTua/ha-svitlo-yeah/pull/25**
 
-This PR demonstrates the exact changes needed to add Uzhhorod region support and can serve as a template for adding new regions.
+This PR demonstrates the exact changes needed to add Ternopil region support and can serve as a template for adding new regions.
 
 ## Troubleshooting
 
 ### Common Issues:
 
-1. **Tests failing**: Check if your enum values match the expected patterns
+1. **Tests failing**: Check if your region keys in `DTEK_PROVIDER_URLS` match the expected lowercase patterns
 2. **Translation not showing**: Ensure keys match exactly between en.json and uk.json
 3. **Integration not loading**: Verify all required files are modified consistently
 4. **Data source not working**: Test the URL manually and ensure JSON format is valid
