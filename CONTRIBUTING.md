@@ -57,7 +57,7 @@ To add a new DTEK region, you need to modify several files following the establi
 
 To add a new DTEK region, follow this process by examining **PR #16** as a reference example:
 
-**Reference Example:** https://github.com/ALERTua/ha-svitlo-yeah/pull/16
+**Reference Example:** https://github.com/ALERTua/ha-svitlo-yeah/pull/25
 
 #### Files to Modify:
 
