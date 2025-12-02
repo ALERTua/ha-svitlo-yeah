@@ -79,4 +79,7 @@ DTEK_PROVIDER_URLS: dict[str, list[str]] = {
     "lviv": [
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Lvivoblenerho.json",
     ],
+    "ternopil": [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Ternopiloblenerho.json",
+    ],
 }
