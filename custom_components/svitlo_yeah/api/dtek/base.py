@@ -62,6 +62,10 @@ def _parse_group_hours(
         # Get status for this hour slot
         status = group_hours.get(key, "yes")
 
+        # Cut off mfirst and msecond as no
+        if status in ("msecond", "mfirst"):
+            status = "no"
+
         if status == "yes":
             # Power is on - close any open outage period
             if outage_start is not None:
