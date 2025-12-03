@@ -224,7 +224,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             start=event.start,
             end=event.end,
             description=PlannedOutageEventType.SCHEDULED.value,
-            uid=event.event_type.value,
+            uid=PlannedOutageEventType.SCHEDULED.value,
             rrule=rrule,  # Configurable recurrence rule
         )
 

@@ -408,7 +408,7 @@ class TestCoordinatorScheduledEvents:
         scheduled_event = coordinator._get_scheduled_calendar_event(event)
         assert scheduled_event.summary == "Scheduled Outage"
         assert scheduled_event.description == "Scheduled"
-        assert scheduled_event.uid == "Definite"  # Still uses original event type
+        assert scheduled_event.uid == "Scheduled"
         assert scheduled_event.rrule is None
 
         # Test scheduled calendar event with custom rrule
