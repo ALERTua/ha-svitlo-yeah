@@ -449,6 +449,93 @@ class YasnoApi:
             if _.all_day or not (_.end <= start_date or _.start >= end_date)
         ]
 
+    def get_scheduled_events(
+        self, start_date: datetime, end_date: datetime
+    ) -> list[PlannedOutageEvent]:
+        """Get scheduled events (includes WaitingForSchedule status)."""
+        # for the API to be usable outside HA
+        from homeassistant.util import dt as dt_utils  # noqa: PLC0415
+
+        group_data = self._get_group_data()
+        if not group_data:
+            LOGGER.debug("Cannot get_scheduled_events: no group_data yet")
+            return []
+
+        if DEBUG:
+            LOGGER.debug(
+                "get_scheduled_events for %s from %s to %s:\n%s",
+                self.group,
+                start_date,
+                end_date,
+                group_data,
+            )
+
+        events = []
+        for key, day_data in group_data.items():
+            # parse only "today" and "tomorrow"
+            if key == "updatedOn" or not isinstance(day_data, dict):
+                continue
+
+            date_str = day_data.get("date")
+            if not date_str:
+                continue
+
+            day_dt = dt_utils.parse_datetime(date_str)
+            if not day_dt:
+                continue
+
+            day_dt = dt_utils.as_local(day_dt)
+
+            status = day_data.get(BLOCK_KEY_STATUS)
+            if status in [
+                YasnoPlannedOutageDayStatus.STATUS_SCHEDULE_APPLIES.value,
+                YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE.value,
+            ]:
+                events.extend(_parse_day_schedule(day_data, day_dt))
+            elif status == YasnoPlannedOutageDayStatus.STATUS_EMERGENCY_SHUTDOWNS.value:
+                """
+                {
+                    "3.1": {
+                        "today": {
+                            "slots": [],
+                            "date": "2025-10-27T00:00:00+02:00",
+                            "status": "EmergencyShutdowns"
+                        },
+                        "tomorrow": {
+                            "slots": [],
+                            "date": "2025-10-28T00:00:00+02:00",
+                            "status": "EmergencyShutdowns"
+                        },
+                        "updatedOn": "2025-10-27T07:04:31+00:00"
+                    }
+                }
+                """
+                events.append(
+                    PlannedOutageEvent(
+                        start=day_dt.date(),
+                        end=day_dt.date() + timedelta(days=1),
+                        all_day=True,
+                        event_type=PlannedOutageEventType.EMERGENCY,
+                    )
+                )
+
+        events.sort(
+            key=lambda e: (
+                datetime.combine(e.start, time.min)
+                if isinstance(e.start, date)
+                else e.start
+            )
+        )
+
+        # Merge adjacent events of the same type
+        events = _merge_adjacent_events(events)
+
+        return [
+            _
+            for _ in events
+            if _.all_day or not (_.end <= start_date or _.start >= end_date)
+        ]
+
     async def fetch_data(self) -> None:
         """Fetch all required data."""
         await self.fetch_yasno_regions()

@@ -16,6 +16,7 @@ class YasnoPlannedOutageDayStatus(StrEnum):
     """Outage day status."""
 
     STATUS_SCHEDULE_APPLIES = "ScheduleApplies"
+    STATUS_WAITING_FOR_SCHEDULE = "WaitingForSchedule"
     STATUS_EMERGENCY_SHUTDOWNS = "EmergencyShutdowns"
 
 
