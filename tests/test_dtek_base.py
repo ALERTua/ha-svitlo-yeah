@@ -184,6 +184,30 @@ class TestDtekAPIBaseParseGroupHours:
                 },
                 [(datetime.time(20, 30), datetime.time(21, 30))],
             ),
+            # 7 mfirst status converted to no (ends at hour boundary)
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "13": "second",
+                    "14": "no",
+                    "15": "no",
+                    "16": "no",
+                    "17": "mfirst",
+                },
+                [(datetime.time(12, 30), datetime.time(17, 0))],
+            ),
+            # 8 msecond + mfirst combination (full outage)
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "13": "msecond",
+                    "14": "no",
+                    "15": "no",
+                    "16": "no",
+                    "17": "mfirst",
+                },
+                [(datetime.time(12, 0), datetime.time(17, 0))],
+            ),
         ],
     )
     def test_parse_group_hours(self, group_hours, expected):
