@@ -220,8 +220,7 @@ class TestYasnoApiScheduleParsing:
             ],
             "date": today.isoformat(),
         }
-        date = today
-        events = _parse_day_schedule(day_data, date)
+        events = _parse_day_schedule(day_data, today)
         assert len(events) == 1
         assert events[0].event_type == PlannedOutageEventType.DEFINITE
         assert events[0].start.hour == 16  # 960
@@ -458,7 +457,7 @@ class TestYasnoApiScheduledEvents:
     """Test get_scheduled_events method."""
 
     def test_get_scheduled_events_schedule_applies(self, api, today, tomorrow):
-        """Test getting scheduled events with ScheduleApplies status."""
+        """Test getting scheduled events with ScheduleApplies status - now ignored."""
         api.planned_outage_data = {
             TEST_GROUP: {
                 "today": {
@@ -481,9 +480,8 @@ class TestYasnoApiScheduledEvents:
         end_date = tomorrow + timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
-        assert len(events) == 1
-        assert events[0].event_type == PlannedOutageEventType.DEFINITE
-        assert events[0].start.hour == 16  # 960 minutes
+        # ScheduleApplies status is now ignored, only WaitingForSchedule is processed
+        assert len(events) == 0
 
     def test_get_scheduled_events_waiting_for_schedule(self, api, today):
         """Test getting scheduled events with WaitingForSchedule status."""
@@ -508,7 +506,7 @@ class TestYasnoApiScheduledEvents:
         assert events[0].event_type == PlannedOutageEventType.DEFINITE
 
     def test_get_scheduled_events_emergency_shutdowns(self, api, today):
-        """Test getting scheduled events with EmergencyShutdowns status."""
+        """Test getting scheduled events with EmergencyShutdowns status - now ignored."""
         api.planned_outage_data = {
             TEST_GROUP: {
                 "today": {
@@ -524,9 +522,8 @@ class TestYasnoApiScheduledEvents:
         end_date = today + datetime.timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
-        assert len(events) == 1
-        assert events[0].event_type == PlannedOutageEventType.EMERGENCY
-        assert events[0].all_day is True
+        # EmergencyShutdowns status is now ignored, only WaitingForSchedule is processed
+        assert len(events) == 0
 
     def test_get_scheduled_events_no_data(self, api, today):
         """Test getting scheduled events without data."""
@@ -545,12 +542,12 @@ class TestYasnoApiScheduledEvents:
                 "today": {
                     "slots": [{"start": 960, "end": 1200, "type": "Definite"}],
                     "date": today.isoformat(),
-                    "status": "ScheduleApplies",
+                    "status": "WaitingForSchedule",
                 },
                 "tomorrow": {
                     "slots": [{"start": 960, "end": 1200, "type": "Definite"}],
                     "date": tomorrow.isoformat(),
-                    "status": "ScheduleApplies",
+                    "status": "WaitingForSchedule",
                 },
                 "updatedOn": today.isoformat(),
             }

@@ -486,38 +486,10 @@ class YasnoApi:
 
             day_dt = dt_utils.as_local(day_dt)
 
+            # parse only STATUS_WAITING_FOR_SCHEDULE statuses
             status = day_data.get(BLOCK_KEY_STATUS)
-            if status in [
-                YasnoPlannedOutageDayStatus.STATUS_SCHEDULE_APPLIES.value,
-                YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE.value,
-            ]:
+            if status == YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE.value:
                 events.extend(_parse_day_schedule(day_data, day_dt))
-            elif status == YasnoPlannedOutageDayStatus.STATUS_EMERGENCY_SHUTDOWNS.value:
-                """
-                {
-                    "3.1": {
-                        "today": {
-                            "slots": [],
-                            "date": "2025-10-27T00:00:00+02:00",
-                            "status": "EmergencyShutdowns"
-                        },
-                        "tomorrow": {
-                            "slots": [],
-                            "date": "2025-10-28T00:00:00+02:00",
-                            "status": "EmergencyShutdowns"
-                        },
-                        "updatedOn": "2025-10-27T07:04:31+00:00"
-                    }
-                }
-                """
-                events.append(
-                    PlannedOutageEvent(
-                        start=day_dt.date(),
-                        end=day_dt.date() + timedelta(days=1),
-                        all_day=True,
-                        event_type=PlannedOutageEventType.EMERGENCY,
-                    )
-                )
 
         events.sort(
             key=lambda e: (
