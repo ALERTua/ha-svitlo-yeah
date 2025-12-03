@@ -36,6 +36,19 @@ def _coordinator():
     coordinator.api.get_event_at = MagicMock()
     coordinator.api.get_current_event = MagicMock()
     coordinator.api.get_updated_on = MagicMock(return_value=None)
+    coordinator.api.get_scheduled_events = MagicMock(return_value=[])
+
+    # Add the scheduled events method to the coordinator
+    def mock_get_scheduled_events_between(start_date, end_date):
+        scheduled_events = coordinator.api.get_scheduled_events(start_date, end_date)
+        return [
+            coordinator._get_scheduled_calendar_event(event)
+            for event in scheduled_events
+        ]
+
+    coordinator.get_scheduled_events_between = MagicMock(
+        side_effect=mock_get_scheduled_events_between
+    )
 
     return coordinator
 
@@ -323,3 +336,92 @@ class TestCheckOutageDataChanged:
         # Should be False because they get sorted and are the same
         assert result is False
         assert coordinator._previous_outage_events == sorted_events
+
+
+class TestCoordinatorScheduledEvents:
+    """Test scheduled events functionality."""
+
+    def test_get_scheduled_events_between_with_events(self, coordinator):
+        """Test getting scheduled events between dates."""
+        # Mock the API to return scheduled events
+        scheduled_events = [
+            PlannedOutageEvent(
+                event_type=PlannedOutageEventType.DEFINITE,
+                start=dt_utils.now() + timedelta(hours=1),
+                end=dt_utils.now() + timedelta(hours=2),
+                all_day=False,
+            )
+        ]
+        coordinator.api.get_scheduled_events = MagicMock(return_value=scheduled_events)
+
+        start_date = dt_utils.now()
+        end_date = start_date + timedelta(days=1)
+
+        # Mock translations
+        coordinator.translations = {
+            "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
+        }
+
+        events = coordinator.get_scheduled_events_between(start_date, end_date)
+
+        assert len(events) == 1
+        assert events[0].summary == "Scheduled Outage"
+        assert events[0].rrule is None  # Base coordinator uses default None
+        coordinator.api.get_scheduled_events.assert_called_once_with(
+            start_date, end_date
+        )
+
+    def test_get_scheduled_events_between_no_events(self, coordinator):
+        """Test getting scheduled events when none exist."""
+        coordinator.api.get_scheduled_events = MagicMock(return_value=[])
+
+        start_date = dt_utils.now()
+        end_date = start_date + timedelta(days=1)
+
+        events = coordinator.get_scheduled_events_between(start_date, end_date)
+
+        assert events == []
+
+    def test_get_calendar_event_methods(self, coordinator):
+        """Test both _get_calendar_event and _get_scheduled_calendar_event methods."""
+        event = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=dt_utils.now() + timedelta(hours=1),
+            end=dt_utils.now() + timedelta(hours=2),
+            all_day=False,
+        )
+
+        # Mock the event_name_map property
+        type(coordinator).event_name_map = {
+            PlannedOutageEventType.DEFINITE: "Planned Outage"
+        }
+        coordinator.translations = {
+            "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
+        }
+
+        # Test regular calendar event
+        calendar_event = coordinator._get_calendar_event(event)
+        assert calendar_event.summary == "Planned Outage"
+        assert calendar_event.rrule is None
+
+        # Test scheduled calendar event with default rrule (None)
+        scheduled_event = coordinator._get_scheduled_calendar_event(event)
+        assert scheduled_event.summary == "Scheduled Outage"
+        assert scheduled_event.rrule is None
+
+        # Test scheduled calendar event with custom rrule
+        custom_rrule_event = coordinator._get_scheduled_calendar_event(
+            event, rrule="FREQ=DAILY"
+        )
+        assert custom_rrule_event.summary == "Scheduled Outage"
+        assert custom_rrule_event.rrule == "FREQ=DAILY"
+
+        # Test scheduled calendar event with no rrule
+        no_rrule_event = coordinator._get_scheduled_calendar_event(event, rrule=None)
+        assert no_rrule_event.summary == "Scheduled Outage"
+        assert no_rrule_event.rrule is None
+
+    def test_get_calendar_event_none_event(self, coordinator):
+        """Test _get_calendar_event with None event."""
+        result = coordinator._get_calendar_event(None)
+        assert result is None

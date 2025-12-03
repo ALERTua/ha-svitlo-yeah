@@ -51,6 +51,9 @@ PROVIDER_TO_DEVICE_NAME_MAP: Final = {
 TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_planned_outage"
 )
+TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = (
+    "component.svitlo_yeah.common.event_name_scheduled_outage"
+)
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )

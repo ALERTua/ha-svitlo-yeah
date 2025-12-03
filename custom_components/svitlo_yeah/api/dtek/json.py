@@ -43,6 +43,7 @@ class DtekAPIJson(DtekAPIBase):
         """Initialize the JSON DTEK API."""
         super().__init__(group)
         self.urls = urls
+        self.preset_data = None
 
     async def fetch_data(self) -> None:
         """Fetch from JSON sources with freshness checking."""
@@ -55,8 +56,10 @@ class DtekAPIJson(DtekAPIBase):
                     json_data = json.loads(json_data)
 
                     fact = json_data["fact"]
+                    preset = json_data.get("preset", {})
                     if _is_data_sufficiently_fresh(fact):
                         self.data = fact
+                        self.preset_data = preset
                         LOGGER.debug("Successfully fetched fresh data from %s", url)
                         return
 
