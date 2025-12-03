@@ -27,6 +27,10 @@ class TestYasnoPlannedOutageEventType:
         """Test EMERGENCY type."""
         assert PlannedOutageEventType.EMERGENCY == "Emergency"
 
+    def test_scheduled(self):
+        """Test SCHEDULED type."""
+        assert PlannedOutageEventType.SCHEDULED == "Scheduled"
+
 
 class TestYasnoPlannedOutageDayStatus:
     """Test YasnoPlannedOutageDayStatus enum."""

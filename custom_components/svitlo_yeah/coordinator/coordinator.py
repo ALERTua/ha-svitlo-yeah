@@ -25,6 +25,7 @@ from ..const import (
 from ..models import (
     ConnectivityState,
     PlannedOutageEvent,
+    PlannedOutageEventType,
     YasnoRegion,
 )
 
@@ -222,7 +223,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             summary=summary,
             start=event.start,
             end=event.end,
-            description=event.event_type.value,
+            description=PlannedOutageEventType.SCHEDULED.value,
             uid=event.event_type.value,
             rrule=rrule,  # Configurable recurrence rule
         )
