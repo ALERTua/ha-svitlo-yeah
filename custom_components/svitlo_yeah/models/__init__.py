@@ -26,6 +26,9 @@ class PlannedOutageEventType(StrEnum):
     DEFINITE = "Definite"
     NOT_PLANNED = "NotPlanned"
     EMERGENCY = "Emergency"
+    # This one does not exist in the API
+    # It is only to create scheduled events
+    SCHEDULED = "Scheduled"
 
 
 class ConnectivityState(StrEnum):
