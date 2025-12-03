@@ -52,7 +52,10 @@
   "entity": {
     "calendar": {
       "calendar": {
-        "name": "Графік планових відключень"
+        "name": "Планові відключення"
+      },
+      "scheduled_calendar": {
+        "name": "Розклад відключень"
       }
     },
     "sensor": {
@@ -80,6 +83,7 @@
   },
   "common": {
     "event_name_planned_outage": "Планове відключення",
+    "event_name_scheduled_outage": "Графікове відключення",
     "event_name_emergency_outage": "Екстрене відключення",
     "kyiv_region": "Київська Область",
     "dnipro": "Дніпро",

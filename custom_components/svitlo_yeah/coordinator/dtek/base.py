@@ -109,6 +109,17 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         """Get the configured provider."""
         return DTEKJsonProvider(region_name=self.provider_id)
 
+    def get_scheduled_events_between(
+        self,
+        start_date: datetime.datetime,
+        end_date: datetime.datetime,
+    ) -> list[CalendarEvent]:
+        """Get scheduled events (from preset data)."""
+        events = self.api.get_scheduled_events(start_date, end_date)
+        return [
+            self._get_scheduled_calendar_event(_, rrule="FREQ=WEEKLY") for _ in events
+        ]
+
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""
         if not event:
