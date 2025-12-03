@@ -1,5 +1,6 @@
 """Tests for Svitlo Yeah API."""
 
+import datetime
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -451,3 +452,121 @@ class TestYasnoApiEvents:
         at = today.replace(hour=8)  # this has to be in the debug data
         event = api.get_current_event(at)
         assert event is None
+
+
+class TestYasnoApiScheduledEvents:
+    """Test get_scheduled_events method."""
+
+    def test_get_scheduled_events_schedule_applies(self, api, today, tomorrow):
+        """Test getting scheduled events with ScheduleApplies status."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [
+                        {"start": 960, "end": 1200, "type": "Definite"},
+                    ],
+                    "date": today.isoformat(),
+                    "status": "ScheduleApplies",
+                },
+                "tomorrow": {
+                    "slots": [],
+                    "date": tomorrow.isoformat(),
+                    "status": "WaitingForSchedule",
+                },
+                "updatedOn": today.isoformat(),
+            }
+        }
+
+        start_date = today
+        end_date = tomorrow + timedelta(days=1)
+        events = api.get_scheduled_events(start_date, end_date)
+
+        assert len(events) == 1
+        assert events[0].event_type == PlannedOutageEventType.DEFINITE
+        assert events[0].start.hour == 16  # 960 minutes
+
+    def test_get_scheduled_events_waiting_for_schedule(self, api, today):
+        """Test getting scheduled events with WaitingForSchedule status."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [
+                        {"start": 600, "end": 900, "type": "Definite"},
+                    ],
+                    "date": today.isoformat(),
+                    "status": "WaitingForSchedule",
+                },
+                "updatedOn": today.isoformat(),
+            }
+        }
+
+        start_date = today
+        end_date = today + datetime.timedelta(days=1)
+        events = api.get_scheduled_events(start_date, end_date)
+
+        assert len(events) == 1
+        assert events[0].event_type == PlannedOutageEventType.DEFINITE
+
+    def test_get_scheduled_events_emergency_shutdowns(self, api, today):
+        """Test getting scheduled events with EmergencyShutdowns status."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [],
+                    "date": today.isoformat(),
+                    "status": "EmergencyShutdowns",
+                },
+                "updatedOn": today.isoformat(),
+            }
+        }
+
+        start_date = today
+        end_date = today + datetime.timedelta(days=1)
+        events = api.get_scheduled_events(start_date, end_date)
+
+        assert len(events) == 1
+        assert events[0].event_type == PlannedOutageEventType.EMERGENCY
+        assert events[0].all_day is True
+
+    def test_get_scheduled_events_no_data(self, api, today):
+        """Test getting scheduled events without data."""
+        api.planned_outage_data = None
+
+        start_date = today
+        end_date = today + datetime.timedelta(days=1)
+        events = api.get_scheduled_events(start_date, end_date)
+
+        assert events == []
+
+    def test_get_scheduled_events_date_filtering(self, api, today, tomorrow):
+        """Test that scheduled events are filtered by date range."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [{"start": 960, "end": 1200, "type": "Definite"}],
+                    "date": today.isoformat(),
+                    "status": "ScheduleApplies",
+                },
+                "tomorrow": {
+                    "slots": [{"start": 960, "end": 1200, "type": "Definite"}],
+                    "date": tomorrow.isoformat(),
+                    "status": "ScheduleApplies",
+                },
+                "updatedOn": today.isoformat(),
+            }
+        }
+
+        # Test range that only includes today
+        start_date = today
+        end_date = today + datetime.timedelta(days=1)
+        events = api.get_scheduled_events(start_date, end_date)
+
+        assert len(events) == 1
+        assert events[0].start.date() == today.date()
+
+        # Test range that includes both days
+        start_date = today
+        end_date = tomorrow + datetime.timedelta(days=1)
+        events = api.get_scheduled_events(start_date, end_date)
+
+        assert len(events) == 2

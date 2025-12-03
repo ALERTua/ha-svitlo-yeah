@@ -19,9 +19,14 @@ from ..const import (
     DEBUG,
     DOMAIN,
     EVENT_DATA_CHANGED,
+    TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
     UPDATE_INTERVAL,
 )
-from ..models import ConnectivityState, PlannedOutageEvent, YasnoRegion
+from ..models import (
+    ConnectivityState,
+    PlannedOutageEvent,
+    YasnoRegion,
+)
 
 if TYPE_CHECKING:
     from ..api.dtek.base import DtekAPIBase
@@ -158,7 +163,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     def _get_calendar_event(
         self, event: PlannedOutageEvent | None
     ) -> CalendarEvent | None:
-        """Transform an event into a CalendarEvent."""
+        """Transform a regular event into a CalendarEvent."""
         if not event:
             return None
 
@@ -168,7 +173,9 @@ class IntegrationCoordinator(DataUpdateCoordinator):
                 event.event_type,
                 self.event_name_map,
             )
+
         summary: str = self.event_name_map.get(event.event_type)
+
         if DEBUG:
             summary += (
                 f" {event.start.date().day}.{event.start.date().month}"
@@ -184,6 +191,40 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             end=event.end,
             description=event.event_type.value,
             uid=event.event_type.value,
+        )
+
+    def _get_scheduled_calendar_event(
+        self, event: PlannedOutageEvent | None, *, rrule: str | None = None
+    ) -> CalendarEvent | None:
+        """Transform a scheduled event into a CalendarEvent."""
+        if not event:
+            return None
+
+        if DEBUG:
+            LOGGER.debug(
+                "Getting scheduled event name for %s",
+                event.event_type,
+            )
+
+        # Use scheduled outage translation for scheduled events
+        summary: str = self.translations.get(TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE)
+
+        if DEBUG:
+            summary += (
+                f" {event.start.date().day}.{event.start.date().month}"
+                f"@{event.start.time()}"
+                f"-{event.end.date().day}.{event.end.date().month}"
+                f"@{event.end.time()}"
+            )
+
+        # noinspection PyTypeChecker
+        return CalendarEvent(
+            summary=summary,
+            start=event.start,
+            end=event.end,
+            description=event.event_type.value,
+            uid=event.event_type.value,
+            rrule=rrule,  # Configurable recurrence rule
         )
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:

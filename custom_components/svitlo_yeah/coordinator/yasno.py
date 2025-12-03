@@ -183,6 +183,15 @@ class YasnoCoordinator(IntegrationCoordinator):
 
         return _simplify_provider_name(self.provider.name)
 
+    def get_scheduled_events_between(
+        self,
+        start_date: datetime.datetime,
+        end_date: datetime.datetime,
+    ) -> list[CalendarEvent]:
+        """Get scheduled events."""
+        events = self.api.get_scheduled_events(start_date, end_date)
+        return [self._get_scheduled_calendar_event(_, rrule=None) for _ in events]
+
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""
         if not event:

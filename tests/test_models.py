@@ -42,6 +42,13 @@ class TestYasnoPlannedOutageDayStatus:
             == "EmergencyShutdowns"
         )
 
+    def test_waiting_for_schedule(self):
+        """Test STATUS_WAITING_FOR_SCHEDULE."""
+        assert (
+            YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE
+            == "WaitingForSchedule"
+        )
+
 
 class TestConnectivityState:
     """Test ConnectivityState enum."""

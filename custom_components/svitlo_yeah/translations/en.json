@@ -53,6 +53,9 @@
     "calendar": {
       "calendar": {
         "name": "Planned Outages"
+      },
+      "scheduled_calendar": {
+        "name": "Scheduled Outages"
       }
     },
     "sensor": {
@@ -80,6 +83,7 @@
   },
   "common": {
     "event_name_planned_outage": "Planned Outage",
+    "event_name_scheduled_outage": "Scheduled Outage",
     "event_name_emergency_outage": "Emergency Outage",
     "kyiv_region": "Kyiv Region",
     "dnipro": "Dnipro",

@@ -5,7 +5,10 @@ import datetime
 import pytest
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
+from custom_components.svitlo_yeah.api.dtek.base import (
+    _parse_group_hours,
+    _parse_preset_group_hours,
+)
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
@@ -214,6 +217,197 @@ class TestDtekAPIBaseParseGroupHours:
         """Test parsing various group hour patterns."""
         result = _parse_group_hours(group_hours)
         assert result == expected
+
+
+class TestDtekAPIBaseParsePresetGroupHours:
+    """Test _parse_preset_group_hours method."""
+
+    @pytest.mark.parametrize(
+        "group_hours,expected",  # noqa: PT006
+        [
+            # Test hour format detection - "0" key present (0-23 format)
+            (
+                {"0": "yes", "1": "yes", "23": "yes"},
+                [],
+            ),
+            # Test hour format detection - no "0" key (1-24 format)
+            (
+                {"1": "yes", "2": "yes", "24": "yes"},
+                [],
+            ),
+            # Test basic outage with "no" status
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "11": "no",
+                    "12": "no",
+                },
+                [(datetime.time(10, 0), datetime.time(12, 0))],
+            ),
+            # Test half-hour precision with "first" and "second"
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "11": "first",  # 10:00-10:30
+                    "12": "second",  # 11:30-12:00
+                },
+                [
+                    (datetime.time(10, 0), datetime.time(10, 30)),
+                    (datetime.time(11, 30), datetime.time(12, 0)),
+                ],
+            ),
+            # Test "maybe" status (treated as outage)
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "16": "maybe",
+                },
+                [(datetime.time(15, 0), datetime.time(16, 0))],
+            ),
+            # Test multiple separate outages
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "10": "no",
+                    "11": "no",
+                    "21": "no",
+                },
+                [
+                    (datetime.time(9, 0), datetime.time(11, 0)),
+                    (datetime.time(20, 0), datetime.time(21, 0)),
+                ],
+            ),
+            # Test continuous outage across multiple hours
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "13": "no",
+                    "14": "no",
+                    "15": "no",
+                    "16": "no",
+                },
+                [(datetime.time(12, 0), datetime.time(16, 0))],
+            ),
+            # Test "second" starting new outage
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "11": "second",  # Starts at 10:30
+                },
+                [(datetime.time(10, 30), datetime.time(11, 0))],
+            ),
+            # Test "first" ending outage at half-hour
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "11": "first",  # Ends at 10:30
+                },
+                [(datetime.time(10, 0), datetime.time(10, 30))],
+            ),
+            # Test end of day handling
+            (
+                {
+                    **{str(i): "yes" for i in range(1, 25)},
+                    "24": "no",  # Last hour
+                },
+                [(datetime.time(23, 0), datetime.time(23, 59, 59))],
+            ),
+        ],
+    )
+    def test_parse_preset_group_hours(self, group_hours, expected):
+        """Test parsing various preset group hour patterns."""
+        result = _parse_preset_group_hours(group_hours)
+        assert result == expected
+
+
+class TestDtekAPIBaseScheduledEvents:
+    """Test get_scheduled_events method."""
+
+    def test_get_scheduled_events_with_valid_data(self, api):
+        """Test getting scheduled events with valid preset data."""
+        # Mock preset data
+        api.preset_data = {
+            "data": {
+                "GPV1.1": {
+                    "1": {"10": "no", "11": "no"},  # Monday: 10:00-12:00 outage
+                    "2": {"15": "yes"},  # Tuesday: no outage
+                }
+            }
+        }
+        api.group = "1.1"
+
+        start_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=7)
+
+        events = api.get_scheduled_events(start_date, end_date)
+
+        # Should have events for Monday (day 1)
+        assert len(events) > 0
+        # Check that events have correct type and times
+        for event in events:
+            assert event.event_type.value == "Definite"
+            if event.start.hour == 10:
+                assert event.end.hour == 12
+
+    def test_get_scheduled_events_no_preset_data(self, api):
+        """Test getting scheduled events without preset data."""
+        api.preset_data = None
+        api.group = "1.1"
+
+        start_date = dt_utils.now()
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert events == []
+
+    def test_get_scheduled_events_no_group(self, api):
+        """Test getting scheduled events without group set."""
+        api.preset_data = {"data": {}}
+        api.group = None
+
+        start_date = dt_utils.now()
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert events == []
+
+    def test_get_scheduled_events_empty_data(self, api):
+        """Test getting scheduled events with empty preset data."""
+        api.preset_data = {"data": {}}
+        api.group = "1.1"
+
+        start_date = dt_utils.now()
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert events == []
+
+    def test_get_scheduled_events_date_filtering(self, api):
+        """Test that events are properly filtered by date range."""
+        base_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        api.preset_data = {
+            "data": {
+                "GPV1.1": {
+                    "1": {"10": "no"},  # Monday outage
+                }
+            }
+        }
+        api.group = "1.1"
+
+        # Test range that includes Monday
+        monday = base_date + datetime.timedelta(days=(7 - base_date.weekday()))
+        start_date = monday
+        end_date = monday + datetime.timedelta(days=1)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert len(events) > 0
+
+        # Test range that excludes Monday
+        start_date = monday + datetime.timedelta(days=2)
+        end_date = monday + datetime.timedelta(days=3)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert len(events) == 0
 
 
 class TestDtekAPIBaseTimestamps:
