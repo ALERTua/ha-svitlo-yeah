@@ -43,6 +43,7 @@
         "dtekjsonprovider_uzhhorod": "ДТЕК — Ужгород та Область — ЗОЕ",
         "dtekjsonprovider_lviv": "ДТЕК — Львів та Область — ЛОЕ",
         "dtekjsonprovider_ternopil": "ДТЕК — Тернопіль та Область — ТОЕ",
+        "dtekjsonprovider_chernihiv": "ДТЕК — Чернігів та Область — ЧОЕ",
         "yasnoprovider_25_902": "Yasno — Київ — ДТЕК",
         "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
         "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК"
@@ -92,6 +93,7 @@
     "ivano_frankivsk": "Івано-Франківськ",
     "uzhhorod": "Ужгород",
     "lviv": "Львів",
-    "ternopil": "Тернопіль"
+    "ternopil": "Тернопіль",
+    "chernihiv": "Чернігів"
   }
 }
