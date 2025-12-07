@@ -19,7 +19,7 @@ from ..models import (
     YasnoPlannedOutageDayStatus,
     YasnoRegion,
 )
-from .common_tools import _merge_adjacent_events
+from .common_tools import _merge_adjacent_events, parse_timestamp
 
 LOGGER = logging.getLogger(__name__)
 
@@ -340,19 +340,7 @@ class YasnoApi:
             )
             return None
 
-        # for the API to be usable outside HA
-        from homeassistant.util import dt as dt_utils  # noqa: PLC0415
-
-        try:
-            updated_on = dt_utils.parse_datetime(group_data["updatedOn"])
-            if updated_on:
-                return dt_utils.as_local(updated_on)
-        except (ValueError, TypeError):
-            LOGGER.debug(
-                "Failed to parse updatedOn timestamp: %s",
-                group_data["updatedOn"],
-            )
-            return None
+        return parse_timestamp(group_data["updatedOn"])
 
     def get_current_event(self, at: datetime) -> PlannedOutageEvent | None:
         """Get the current event."""
