@@ -45,6 +45,7 @@
         "dtekjsonprovider_ternopil": "DTEK — Ternopil and Oblast — TOE",
         "dtekjsonprovider_chernihiv": "DTEK — Chernihiv and Oblast — CHOE",
         "dtekjsonprovider_zaporizhzhia": "DTEK — Zaporizhzhia and Oblast — ZOE",
+        "dtekjsonprovider_vinnytsia": "DTEK — Vinnytsia and Oblast — VOE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
@@ -95,6 +96,7 @@
     "uzhhorod": "Uzhhorod",
     "lviv": "Lviv",
     "ternopil": "Ternopil",
-    "zaporizhzhia": "Zaporizhzhia"
+    "zaporizhzhia": "Zaporizhzhia",
+    "vinnytsia": "Vinnytsia"
   }
 }

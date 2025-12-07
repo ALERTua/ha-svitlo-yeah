@@ -45,6 +45,7 @@
         "dtekjsonprovider_ternopil": "ДТЕК — Тернопіль та Область — ТОЕ",
         "dtekjsonprovider_chernihiv": "ДТЕК — Чернігів та Область — ЧОЕ",
         "dtekjsonprovider_zaporizhzhia": "ДТЕК — Запоріжжя та Область — ЗОЕ",
+        "dtekjsonprovider_vinnytsia": "ДТЕК — Вінниця та Область — ВОЕ",
         "yasnoprovider_25_902": "Yasno — Київ — ДТЕК",
         "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
         "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК"
@@ -96,6 +97,7 @@
     "lviv": "Львів",
     "ternopil": "Тернопіль",
     "chernihiv": "Чернігів",
-    "zaporizhzhia": "Запоріжжя"
+    "zaporizhzhia": "Запоріжжя",
+    "vinnytsia": "Вінниця"
   }
 }
