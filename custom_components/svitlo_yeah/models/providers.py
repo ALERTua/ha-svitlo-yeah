@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_YASNO
+
 
 class BaseProvider:
     """Base class for provider models."""
@@ -58,8 +60,6 @@ class YasnoProvider(BaseProvider):
     @property
     def provider_type(self) -> str:
         """Provider type."""
-        from ..const import PROVIDER_TYPE_YASNO  # noqa: PLC0415
-
         return PROVIDER_TYPE_YASNO
 
 
@@ -82,6 +82,4 @@ class DTEKJsonProvider(BaseProvider):
     @property
     def provider_type(self) -> str:
         """Provider type."""
-        from ..const import PROVIDER_TYPE_DTEK_JSON  # noqa: PLC0415
-
         return PROVIDER_TYPE_DTEK_JSON

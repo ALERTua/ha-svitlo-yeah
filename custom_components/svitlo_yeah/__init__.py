@@ -12,6 +12,8 @@ from .const import (
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_YASNO,
 )
+from .coordinator.dtek.json import DtekCoordinatorJson
+from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -24,9 +26,6 @@ PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a new entry."""
-    from .coordinator.dtek.json import DtekCoordinatorJson  # noqa: PLC0415
-    from .coordinator.yasno import YasnoCoordinator  # noqa: PLC0415
-
     LOGGER.info("Setup entry: %s", entry)
     provider_type = entry.options.get(
         CONF_PROVIDER_TYPE,
