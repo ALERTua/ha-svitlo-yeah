@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, date, datetime, time, timedelta
 
 import aiohttp
+from homeassistant.util import dt as dt_utils
 
 from ..const import (
     BLOCK_KEY_STATUS,
@@ -357,9 +358,6 @@ class YasnoApi:
         self, start_date: datetime, end_date: datetime
     ) -> list[PlannedOutageEvent]:
         """Get all events within the date range."""
-        # for the API to be usable outside HA
-        from homeassistant.util import dt as dt_utils  # noqa: PLC0415
-
         group_data = self._get_group_data()
         if not group_data:
             LOGGER.debug("Cannot get_events: no group_data yet")
@@ -441,9 +439,6 @@ class YasnoApi:
         self, start_date: datetime, end_date: datetime
     ) -> list[PlannedOutageEvent]:
         """Get scheduled events (includes WaitingForSchedule status)."""
-        # for the API to be usable outside HA
-        from homeassistant.util import dt as dt_utils  # noqa: PLC0415
-
         group_data = self._get_group_data()
         if not group_data:
             LOGGER.debug("Cannot get_scheduled_events: no group_data yet")
