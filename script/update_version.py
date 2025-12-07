@@ -31,6 +31,7 @@ def update_version(
 
     with manifest_path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
 
     typer.echo(f"Version updated to {version}")
 
