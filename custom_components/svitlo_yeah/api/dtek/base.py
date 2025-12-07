@@ -257,6 +257,20 @@ class DtekAPIBase:
         if not self.data or "update" not in self.data:
             return None
 
+        update_str = self.data["update"]
+
+        try:
+            _dt = dt_utils.utc_from_timestamp(float(update_str))
+            return dt_utils.as_local(_dt)
+        except (ValueError, TypeError, IndexError, AttributeError):
+            pass
+
+        try:
+            _dt = dt_utils.parse_datetime(update_str)
+            return dt_utils.as_local(_dt)
+        except (ValueError, TypeError, IndexError, AttributeError):
+            pass
+
         date_formats = [
             "%d.%m.%Y %H:%M",  # DD.MM.YYYY HH:MM
             "%H:%M %d.%m.%Y",  # HH:MM DD.MM.YYYY
@@ -264,15 +278,14 @@ class DtekAPIBase:
 
         for fmt in date_formats:
             try:
-                update_str = self.data["update"]
                 naive_dt = datetime.datetime.strptime(  # noqa: DTZ007
                     update_str, fmt
                 )
                 return dt_utils.as_local(naive_dt)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, IndexError, AttributeError):
                 continue
 
-        LOGGER.debug("Failed to parse update timestamp: %s", self.data["update"])
+        LOGGER.debug("Failed to parse update timestamp: %s", update_str)
         return None
 
     def get_scheduled_events(
