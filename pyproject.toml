@@ -9,12 +9,12 @@ dependencies = []
 [dependency-groups]
 dev = [
     "freezegun>=1.5.5",
-    "homeassistant>=2025.11.3",
+    "homeassistant>=2025.12.1",
     "pre-commit-uv>=4.2.0",
-    "pytest>=9.0.1",
+    "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
-    "ruff>=0.14.7",
+    "ruff>=0.14.8",
 ]
 
 [tool.pytest.ini_options]
