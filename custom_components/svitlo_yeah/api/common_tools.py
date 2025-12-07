@@ -21,8 +21,8 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
     - Unix timestamp (integer/float): "1733520000"
     - ISO 8601 with timezone: "2025-12-07T11:10:49.815+02:00"
     - ISO 8601 UTC: "2025-12-07T11:10:49.815Z"
-    - DD.MM.YYYY HH:MM (treated as UTC): "07.12.2025 00:01"
-    - HH:MM DD.MM.YYYY (treated as UTC): "00:01 07.12.2025"
+    - DD.MM.YYYY HH:MM (treated as Europe/Kyiv): "07.12.2025 00:01"
+    - HH:MM DD.MM.YYYY (treated as Europe/Kyiv): "00:01 07.12.2025"
 
     Returns the parsed datetime in local timezone, or None if parsing fails.
     """
