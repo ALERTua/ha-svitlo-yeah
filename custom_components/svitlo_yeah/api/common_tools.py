@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+from zoneinfo import ZoneInfo
 
 from homeassistant.util import dt as dt_utils
 
@@ -43,7 +44,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
     except (ValueError, TypeError):
         pass
 
-    # Try parsing custom DD.MM.YYYY formats (treat as UTC)
+    # Try parsing custom DD.MM.YYYY formats (treat as Europe/Kyiv)
     date_formats = [
         "%d.%m.%Y %H:%M",  # DD.MM.YYYY HH:MM
         "%H:%M %d.%m.%Y",  # HH:MM DD.MM.YYYY
@@ -52,7 +53,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
     for fmt in date_formats:
         try:
             naive_dt = datetime.datetime.strptime(timestamp_str, fmt)  # noqa: DTZ007
-            utc_dt = naive_dt.replace(tzinfo=datetime.UTC)
+            utc_dt = naive_dt.replace(tzinfo=ZoneInfo("Europe/Kyiv"))
             return dt_utils.as_local(utc_dt)
         except (ValueError, TypeError):
             continue

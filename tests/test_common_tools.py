@@ -1,6 +1,7 @@
 """Tests for common_tools module."""
 
 import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from homeassistant.util import dt as dt_utils
@@ -50,15 +51,17 @@ class TestParseTimestamp:
         assert result is None
 
     def test_parse_timestamp_naive_formats_as_local(self):
-        """Test that naive DD.MM.YYYY formats are treated as UTC and converted to local."""
+        """Test that naive DD.MM.YYYY formats are treated as Europe/Kyiv and converted to local."""
         # Test a specific naive format
         timestamp_str = "07.12.2025 00:01"
         result = parse_timestamp(timestamp_str)
 
         assert result is not None
-        # Should be parsed as UTC and converted to local
-        expected_utc = datetime.datetime(2025, 12, 7, 0, 1, tzinfo=datetime.UTC)
-        expected_local = dt_utils.as_local(expected_utc)
+        # Should be parsed as Europe/Kyiv and converted to local
+        expected_kyiv = datetime.datetime(
+            2025, 12, 7, 0, 1, tzinfo=ZoneInfo("Europe/Kyiv")
+        )
+        expected_local = dt_utils.as_local(expected_kyiv)
         assert result == expected_local
 
     def test_parse_timestamp_iso_with_timezone(self):
