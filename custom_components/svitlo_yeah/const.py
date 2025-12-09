@@ -94,4 +94,7 @@ DTEK_PROVIDER_URLS: dict[str, list[str]] = {
     "vinnytsia": [
         "https://github.com/olnet93/gpv-voe-vinnytsia/raw/main/data/Vinnytsiaoblenerho.json",
     ],
+    "zhytomyr": [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zhytomyroblenergo.json",
+    ],
 }
