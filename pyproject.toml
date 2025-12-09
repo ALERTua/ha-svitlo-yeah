@@ -9,7 +9,7 @@ dependencies = []
 [dependency-groups]
 dev = [
     "freezegun>=1.5.5",
-    "homeassistant>=2025.12.1",
+    "homeassistant>=2025.12.2",
     "pre-commit-uv>=4.2.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
