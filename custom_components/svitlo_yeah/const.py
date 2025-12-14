@@ -19,6 +19,7 @@ CONF_PROVIDER_TYPE: Final = "provider_type"
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"
 PROVIDER_TYPE_DTEK_JSON: Final = "dtek_json"
+PROVIDER_TYPE_E_SVITLO: Final = "e-svitlo"
 
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
@@ -44,9 +45,11 @@ BLOCK_KEY_STATUS: Final = "status"
 DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"
 DEVICE_NAME_DTEK_TRANSLATION_KEY = "device_name_dtek"
 DEVICE_MANUFACTURER = NAME
+DEVICE_NAME_E_SVITLO_TRANSLATION_KEY = "device_name_e_svitlo"
 PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_YASNO: DEVICE_NAME_YASNO_TRANSLATION_KEY,
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
+    PROVIDER_TYPE_E_SVITLO: DEVICE_NAME_E_SVITLO_TRANSLATION_KEY,
 }
 TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_planned_outage"

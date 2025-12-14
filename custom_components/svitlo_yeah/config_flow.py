@@ -17,6 +17,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .api.dtek.json import DtekAPIJson
+from .api.e_svitlo import ESvitloClient
 from .api.yasno import YasnoApi
 from .const import (
     CONF_GROUP,
@@ -27,12 +28,15 @@ from .const import (
     DTEK_PROVIDER_URLS,
     NAME,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
 )
-from .models.providers import DTEKJsonProvider
+from .models.providers import DTEKJsonProvider, ESvitloProvider
 
 if TYPE_CHECKING:
     from .models import YasnoRegion
+    from .models.providers import BaseProvider, YasnoProvider
+else:
     from .models.providers import YasnoProvider
 
 LOGGER = logging.getLogger(__name__)
@@ -55,7 +59,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize config flow."""
         self.api_yasno = YasnoApi()
-        self.available_providers: dict[str, YasnoProvider | DTEKJsonProvider] = {}
+        self.available_providers: dict[str, BaseProvider] = {}
         self.data: dict[str, Any] = {}
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
@@ -71,14 +75,19 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self.data[CONF_PROVIDER_TYPE] = selected_provider.provider_type
             self.data[CONF_PROVIDER] = selected_provider.provider_id
             if selected_provider.provider_type == PROVIDER_TYPE_YASNO:
-                self.data[CONF_REGION] = selected_provider.region_id
+                # Type check and access region_id for YasnoProvider
+                if isinstance(selected_provider, YasnoProvider):
+                    self.data[CONF_REGION] = selected_provider.region_id
+            elif selected_provider.provider_type == PROVIDER_TYPE_E_SVITLO:
+                # For E-Svitlo, go to auth step first
+                return await self.async_step_auth()
 
             # noinspection PyTypeChecker
             return await self.async_step_group()
 
         LOGGER.debug("async_step_user: No User input yet")
         await self.api_yasno.fetch_yasno_regions()
-        yasno_regions: list[YasnoRegion] = self.api_yasno.regions
+        yasno_regions: list[YasnoRegion] = self.api_yasno.regions or []
         LOGGER.debug("async_step_user: yasno_regions: %s", yasno_regions)
         yasno_providers: list[YasnoProvider] = []
         if yasno_regions:
@@ -92,7 +101,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # Create DTEKJsonProvider instances for each available provider key
         dtek_providers = [DTEKJsonProvider(region_name=_) for _ in DTEK_PROVIDER_URLS]
-        all_providers = yasno_providers + dtek_providers
+
+        # Add E-Svitlo provider option (placeholder for selection)
+        e_svitlo_provider = ESvitloProvider(
+            user_name="", password="", region_name="e_svitlo"
+        )
+
+        all_providers = yasno_providers + dtek_providers + [e_svitlo_provider]
         self.available_providers = {_.unique_key: _ for _ in all_providers}
 
         provider_options = [
@@ -171,3 +186,43 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         # noinspection PyTypeChecker
         return self.async_show_form(step_id="group", data_schema=data_schema)
+
+    async def async_step_auth(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Handle authentication step for E-Svitlo."""
+        errors = {}
+
+        if user_input is not None:
+            LOGGER.debug("async_step_auth: User input received")
+
+            # Validate credentials by attempting login
+            provider = ESvitloProvider(
+                user_name=user_input["username"],
+                password=user_input["password"],
+                region_name="e_svitlo",
+            )
+
+            client = ESvitloClient(self.hass, provider)
+
+            if await client.login():
+                # Authentication successful, store credentials and proceed
+                self.data["username"] = user_input["username"]
+                self.data["password"] = user_input["password"]
+
+                # For E-Svitlo, we can skip group selection for now
+                # and create the entry directly
+                LOGGER.info("E-Svitlo authentication successful, creating entry")
+                return self.async_create_entry(title=NAME, data=self.data)
+
+            errors["base"] = "invalid_auth"
+
+        # Show authentication form
+        data_schema = vol.Schema(
+            {
+                vol.Required("username"): str,
+                vol.Required("password"): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="auth", data_schema=data_schema, errors=errors
+        )

@@ -10,9 +10,11 @@ from homeassistant.const import Platform
 from .const import (
     CONF_PROVIDER_TYPE,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
 )
 from .coordinator.dtek.json import DtekCoordinatorJson
+from .coordinator.e_svitlo import ESvitloCoordinator
 from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
@@ -36,6 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator = DtekCoordinatorJson(hass, entry)
     elif provider_type == PROVIDER_TYPE_YASNO:
         coordinator = YasnoCoordinator(hass, entry)
+    elif provider_type == PROVIDER_TYPE_E_SVITLO:
+        coordinator = ESvitloCoordinator(hass, entry)
     else:
         msg = f"Unsupported provider type: {provider_type}"
         raise ValueError(msg)

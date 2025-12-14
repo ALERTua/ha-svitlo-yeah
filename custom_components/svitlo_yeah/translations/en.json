@@ -21,7 +21,18 @@
         "data_description": {
           "group": "Find your group at: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
         }
+      },
+      "auth": {
+        "title": "E-Svitlo Authentication",
+        "description": "Enter your E-Svitlo credentials",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
       }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password"
     }
   },
   "device": {
@@ -30,6 +41,9 @@
     },
     "device_name_dtek": {
       "name": "{provider_name} {group}"
+    },
+    "device_name_e_svitlo": {
+      "name": "{region_name} {provider_name} {group}"
     }
   },
   "selector": {
@@ -48,6 +62,7 @@
         "dtekjsonprovider_vinnytsia": "DTEK — Vinnytsia and Oblast — VOE",
         "dtekjsonprovider_zhytomyr": "DTEK — Zhytomyr and Oblast — VOE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
+        "esvitloprovider_": "E-Svitlo (Authentication Required)",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
       }
