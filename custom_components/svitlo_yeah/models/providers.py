@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_YASNO
+from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
 
 
 class BaseProvider:
@@ -31,6 +31,37 @@ class BaseProvider:
     def translation_key(self) -> str:
         """Get translation key for this provider."""
         return self.unique_key
+
+
+class AuthAPIProvider(BaseProvider):
+    """Base class for providers that require authentication."""
+
+    user_name: str
+    password: str
+
+
+@dataclass(frozen=True)
+class ESvitloProvider(AuthAPIProvider):
+    """E-Svitlo provider model."""
+
+    user_name: str
+    password: str
+    region_name: str
+
+    @property
+    def unique_key(self) -> str:
+        """Generate unique key for this provider."""
+        return f"{self.__class__.__name__.lower()}_{self.user_name}"
+
+    @property
+    def provider_id(self) -> str:
+        """Provider ID."""
+        return self.user_name
+
+    @property
+    def provider_type(self) -> str:
+        """Provider type."""
+        return PROVIDER_TYPE_E_SVITLO
 
 
 @dataclass(frozen=True)
