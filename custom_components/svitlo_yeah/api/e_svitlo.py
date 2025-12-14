@@ -128,7 +128,9 @@ class ESvitloClient:
                     self._cached_events = events or []
                     # Store last update timestamp from API response
                     main_data = data.get("data", {})
-                    last_update_str = main_data.get("last_update", "")
+                    last_update_str = main_data.get("dict_tom", "").get(
+                        "last_update", ""
+                    ) or main_data.get("last_update", "")
                     if last_update_str and "Оновлено:" in last_update_str:
                         # Parse format: "Оновлено: 13.12.2025 10:59"
                         try:
@@ -175,11 +177,13 @@ class ESvitloClient:
             LOGGER.warning("No data found in E-Svitlo response")
             return events
 
-        disconnections = main_data.get("lst_time_disc", {})
-        if disconnections:
-            events = self._parse_day_data(
-                disconnections, main_data.get("date_today", "")
-            )
+        today = main_data.get("lst_time_disc", {})
+        if today:
+            events = self._parse_day_data(today, main_data.get("date_today", ""))
+
+        tomorrow = main_data.get("dict_tom", {})
+        if items := tomorrow.get("lst_time_disc", {}):
+            events.extend(self._parse_day_data(items, tomorrow.get("date_today", "")))
 
         LOGGER.debug("Parsed %d disconnection events from E-Svitlo data", len(events))
         return events
