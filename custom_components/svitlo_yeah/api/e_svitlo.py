@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from ..models import ESvitloProvider, PlannedOutageEvent
 
+from ..const import E_SVITLO_ERROR_NOT_LOGGED_IN, E_SVITLO_SUMY_BASE_URL
 from ..models import PlannedOutageEvent, PlannedOutageEventType
 
 LOGGER = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ LOGGER = logging.getLogger(__name__)
 class ESvitloClient:
     """E-Svitlo API client."""
 
-    base_url: str = "https://sm.e-svitlo.com.ua/ip_cabinet/restfull_api/improvise/"
+    base_url: str = E_SVITLO_SUMY_BASE_URL
 
     def __init__(self, hass: HomeAssistant, provider: ESvitloProvider) -> None:
         """Initialize the E-Svitlo client."""
@@ -32,7 +33,7 @@ class ESvitloClient:
         self.user_name = provider.user_name
         self.pwd = provider.password
         self.is_authenticated = False
-        self.user_id: str | None = None
+        self.user_id: str | int | None = provider.account_id
         self.group: str | None = None
         self._cached_events: list[PlannedOutageEvent] = []
         self._last_update: datetime | None = None
@@ -65,8 +66,8 @@ class ESvitloClient:
             LOGGER.exception("Exception during E-Svitlo login")
             return False
 
-    async def get_user_info(self) -> dict | None:
-        """Get user information from E-Svitlo API."""
+    async def get_accounts(self) -> list[dict] | None:
+        """Get list of available accounts."""
         if not self.is_authenticated and not await self.login():
             return None
 
@@ -80,35 +81,61 @@ class ESvitloClient:
                         # Session expired, try to re-authenticate
                         self.is_authenticated = False
                         if await self.login():
-                            return await self.get_user_info()
+                            return await self.get_accounts()
                         return None
 
-                    LOGGER.debug("E-Svitlo user info: %s", data)
-                    if accs := data.get("data", {}).get("lst_ls", []):
-                        # I don't have multiple accounts to test with,
-                        # so just take the first one
-                        self.user_id = accs[0].get("a")
+                    return data.get("data", {}).get("lst_ls", [])
 
-                    async with self.session.post(
-                        url=self.base_url + "/api_main_reg/all_details_ls_api.json",
-                        data={"a": self.user_id},
-                    ) as response_all:
-                        data_all = await response_all.json()
-                        identifiers = data_all.get("data", {}).get("lst_cherga")
-                        if identifiers:
-                            # ``` "lst_cherga": [
-                            #     "4.1",
-                            #     "\"4 черга 1 підчерга ГПВ\"",
-                            #     "infinity",
-                            #     "infinity"
-                            #  ]```
-                            self.group = identifiers[0]
-                        LOGGER.debug("E-Svitlo all_user info: %s", data_all)
-                        data.update(data_all)
-
-                        return data
-                LOGGER.error("E-Svitlo user info HTTP error: %s", response.status)
+                LOGGER.error("E-Svitlo accounts HTTP error: %s", response.status)
                 return None
+        except (aiohttp.ClientError, TimeoutError):
+            LOGGER.exception("Exception getting E-Svitlo accounts")
+            return None
+
+    async def get_user_info(self) -> dict | None:
+        """Get user information from E-Svitlo API."""
+        if not self.is_authenticated and not await self.login():
+            return None
+
+        try:
+            # If we don't have a user_id (account_id),
+            # we need to fetch the list and pick one
+            if not self.user_id:
+                start_data = await self.get_accounts()
+                if start_data:
+                    # Default to first account if not specified
+                    self.user_id = start_data[0].get("a")
+
+            if not self.user_id:
+                LOGGER.error("No account ID found for E-Svitlo")
+                return None
+
+            async with self.session.post(
+                url=self.base_url + "/api_main_reg/all_details_ls_api.json",
+                data={"a": self.user_id},
+            ) as response_all:
+                data_all = await response_all.json()
+
+                # Check for session expiration in this separate call too just in case
+                if self.is_logged_out(data_all):
+                    self.is_authenticated = False
+                    if await self.login():
+                        return await self.get_user_info()
+                    return None
+
+                identifiers = data_all.get("data", {}).get("lst_cherga")
+                if identifiers:
+                    # ``` "lst_cherga": [
+                    #     "4.1",
+                    #     "\"4 черга 1 підчерга ГПВ\"",
+                    #     "infinity",
+                    #     "infinity"
+                    #  ]```
+                    self.group = identifiers[0]
+                LOGGER.debug("E-Svitlo all_user info: %s", data_all)
+
+                return data_all
+
         except (aiohttp.ClientError, TimeoutError):
             LOGGER.exception("Exception getting E-Svitlo user info")
             return None
@@ -165,7 +192,7 @@ class ESvitloClient:
 
     def is_logged_out(self, data: dict) -> bool:
         """Check if the response indicates a logged out state."""
-        return data.get("error", {}).get("err") == "Ви не увійшли до кабінету"
+        return data.get("error", {}).get("err") == E_SVITLO_ERROR_NOT_LOGGED_IN
 
     def _parse_disconnections(self, data: dict) -> list[PlannedOutageEvent]:
         """Parse disconnections data into PlannedOutageEvent objects."""

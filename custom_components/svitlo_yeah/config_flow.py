@@ -20,6 +20,8 @@ from .api.dtek.json import DtekAPIJson
 from .api.e_svitlo import ESvitloClient
 from .api.yasno import YasnoApi
 from .const import (
+    CONF_ACCOUNT_ID,
+    CONF_ADDRESS_STR,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
@@ -102,9 +104,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # Create DTEKJsonProvider instances for each available provider key
         dtek_providers = [DTEKJsonProvider(region_name=_) for _ in DTEK_PROVIDER_URLS]
 
-        # Add E-Svitlo provider option (placeholder for selection)
+        # Add E-Svitlo provider option (Sumy)
         e_svitlo_provider = ESvitloProvider(
-            user_name="", password="", region_name="e_svitlo"
+            user_name="", password="", region_name="Sumy"
         )
 
         all_providers = yasno_providers + dtek_providers + [e_svitlo_provider]
@@ -208,10 +210,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.data["username"] = user_input["username"]
                 self.data["password"] = user_input["password"]
 
-                # For E-Svitlo, we can skip group selection for now
-                # and create the entry directly
-                LOGGER.info("E-Svitlo authentication successful, creating entry")
-                return self.async_create_entry(title=NAME, data=self.data)
+                # Proceed to account/group selection
+                return await self.async_step_account()
 
             errors["base"] = "invalid_auth"
 
@@ -225,4 +225,85 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="auth", data_schema=data_schema, errors=errors
+        )
+
+    async def async_step_account(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Handle account/group selection for E-Svitlo."""
+        if user_input is not None:
+            self.data[CONF_ACCOUNT_ID] = user_input[CONF_ACCOUNT_ID]
+
+            # To store the address string, we need to find it again
+            # from the account list
+            # Re-instantiate client to fetch accounts
+            provider = ESvitloProvider(
+                user_name=self.data["username"],
+                password=self.data["password"],
+                region_name="Sumy",
+            )
+            client = ESvitloClient(self.hass, provider)
+            accounts = await client.get_accounts() or []
+
+            # Find selected account
+            selected_acc = next(
+                (
+                    a
+                    for a in accounts
+                    if str(a.get("a")) == str(user_input[CONF_ACCOUNT_ID])
+                ),
+                None,
+            )
+
+            if selected_acc:
+                self.data[CONF_ADDRESS_STR] = selected_acc.get("address")
+
+            return self.async_create_entry(title=NAME, data=self.data)
+
+        # We already have credentials in self.data from previous step
+        provider = ESvitloProvider(
+            user_name=self.data["username"],
+            password=self.data["password"],
+            region_name="Sumy",
+        )
+        client = ESvitloClient(self.hass, provider)
+
+        accounts = await client.get_accounts()
+
+        if not accounts:
+            # If no accounts found or error, abort or show error
+            return self.async_abort(reason="no_accounts_found")
+
+        # Create options mapping: { account_id: "Address (LS)" }
+        # account_id is 'a' field
+        options = {}
+        for acc in accounts:
+            label = f"{acc.get('address')} ({acc.get('ls')})"
+            val = acc.get("a")
+            options[val] = label
+
+        if not options:
+            return self.async_abort(reason="no_accounts_found")
+
+        # If only one account, maybe auto-select?
+        # But explicit confirmation is better as per user request
+        # (showing it confirms login)
+
+        return self.async_show_form(
+            step_id="account",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_ACCOUNT_ID, default=next(iter(options.keys()))
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value=str(k), label=v)
+                                for k, v in options.items()
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
         )

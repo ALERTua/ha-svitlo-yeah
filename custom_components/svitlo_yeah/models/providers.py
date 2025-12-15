@@ -47,6 +47,7 @@ class ESvitloProvider(AuthAPIProvider):
     user_name: str
     password: str
     region_name: str
+    account_id: int | str | None = None
 
     @property
     def unique_key(self) -> str:
