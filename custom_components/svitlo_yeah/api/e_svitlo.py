@@ -155,7 +155,7 @@ class ESvitloClient:
                     self._cached_events = events or []
                     # Store last update timestamp from API response
                     main_data = data.get("data", {})
-                    last_update_str = main_data.get("dict_tom", "").get(
+                    last_update_str = main_data.get("dict_tom", {}).get(
                         "last_update", ""
                     ) or main_data.get("last_update", "")
                     if last_update_str and "Оновлено:" in last_update_str:
