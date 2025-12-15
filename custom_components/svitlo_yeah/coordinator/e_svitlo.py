@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.util import dt as dt_utils
@@ -102,6 +102,19 @@ class ESvitloCoordinator(IntegrationCoordinator):
             else:
                 LOGGER.warning("Failed to fetch E-Svitlo data")
                 # Keep existing data if fetch fails
+
+    async def get_scheduled_events_between(
+        self,
+        start_date: datetime,  # noqa: ARG002
+        end_date: datetime,  # noqa: ARG002
+    ) -> list[CalendarEvent]:
+        """
+        Get scheduled (theoretical) outages.
+
+        For now, E-Svitlo API only returns confirmed outages, so we return empty list
+        for the theoretical schedule to prevent errors.
+        """
+        return []
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""
