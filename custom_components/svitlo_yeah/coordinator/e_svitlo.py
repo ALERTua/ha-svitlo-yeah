@@ -36,6 +36,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
             user_name=config_entry.data["username"],
             password=config_entry.data["password"],
             region_name=config_entry.data.get("region", ""),
+            account_id=config_entry.data.get("account_id"),
         )
 
         # Initialize API client
@@ -53,6 +54,9 @@ class ESvitloCoordinator(IntegrationCoordinator):
     def provider_name(self) -> str:
         """Get the configured provider name."""
         if isinstance(self.provider, ESvitloProvider):
+            # Return address if available (saved during config flow)
+            if address := self.config_entry.data.get("address_str"):
+                return address
             return f"E-Svitlo ({self.provider.user_name})"
         return "E-Svitlo"
 

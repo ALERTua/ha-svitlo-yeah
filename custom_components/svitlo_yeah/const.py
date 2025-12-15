@@ -14,6 +14,8 @@ NAME: Final = "Svitlo Yeah | Світло Є"
 CONF_REGION: Final = "region"
 CONF_PROVIDER: Final = "provider"
 CONF_GROUP: Final = "group"
+CONF_ACCOUNT_ID: Final = "account_id"
+CONF_ADDRESS_STR: Final = "address_str"
 CONF_PROVIDER_TYPE: Final = "provider_type"
 
 # Provider types
@@ -60,6 +62,13 @@ TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = (
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )
+
+# E-Svitlo Constants
+E_SVITLO_SUMY_BASE_URL: Final = (
+    "https://sm.e-svitlo.com.ua/ip_cabinet/restfull_api/improvise/"
+)
+E_SVITLO_ERROR_NOT_LOGGED_IN: Final = "Ви не увійшли до кабінету"
+
 
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"
 
