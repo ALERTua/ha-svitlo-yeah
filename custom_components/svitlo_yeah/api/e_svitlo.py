@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, time
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -144,38 +143,40 @@ class ESvitloClient:
         """Get user disconnections from E-Svitlo API."""
         if not await self._ensure_connection():
             return None
+
         try:
             async with self.session.post(
                 url=self.base_url + "api_main/get_user_disconnections_image_api.json",
                 data={"a": self.user_id, "cherga": self.group, "mobile_v": True},
             ) as response:
-                if response.status == 200:  # noqa: PLR2004
-                    data = await response.json()
-                    events = self._parse_disconnections(data)
-                    self._cached_events = events or []
-                    # Store last update timestamp from API response
-                    main_data = data.get("data", {})
-                    last_update_str = main_data.get("dict_tom", {}).get(
-                        "last_update", ""
-                    ) or main_data.get("last_update", "")
-                    if last_update_str and "Оновлено:" in last_update_str:
-                        # Parse format: "Оновлено: 13.12.2025 10:59"
-                        try:
-                            date_part = last_update_str.replace("Оновлено:", "").strip()
-                            self._last_update = datetime.strptime(
-                                date_part, "%d.%m.%Y %H:%M"
-                            ).replace(tzinfo=ZoneInfo("Europe/Kyiv"))
-                        except ValueError:
-                            LOGGER.debug(
-                                "Failed to parse last_update: %s", last_update_str
-                            )
-                            self._last_update = datetime.now(ZoneInfo("Europe/Kyiv"))
-                    else:
-                        self._last_update = datetime.now(ZoneInfo("Europe/Kyiv"))
-                    return events
+                if response.status != 200:  # noqa: PLR2004
+                    LOGGER.error(
+                        "E-Svitlo disconnections HTTP error: %s", response.status
+                    )
+                    return None
 
-                LOGGER.error("E-Svitlo disconnections HTTP error: %s", response.status)
-                return None
+                data = await response.json()
+                events = self._parse_disconnections(data)
+                self._cached_events = events or []
+                # Store last update timestamp from API response
+                main_data = data.get("data", {})
+                last_update_str = main_data.get("dict_tom", {}).get(
+                    "last_update", ""
+                ) or main_data.get("last_update", "")
+                if last_update_str and "Оновлено:" in last_update_str:
+                    # Parse format: "Оновлено: 13.12.2025 10:59"
+                    try:
+                        date_part = last_update_str.replace("Оновлено:", "").strip()
+                        self._last_update = datetime.strptime(
+                            date_part, "%d.%m.%Y %H:%M"
+                        ).replace(tzinfo=TZ_UA)
+                    except ValueError:
+                        LOGGER.debug("Failed to parse last_update: %s", last_update_str)
+                        self._last_update = datetime.now(TZ_UA)
+                else:
+                    self._last_update = datetime.now(TZ_UA)
+                return events
+
         except (aiohttp.ClientError, TimeoutError):
             LOGGER.exception("Exception getting E-Svitlo disconnections")
             return None
