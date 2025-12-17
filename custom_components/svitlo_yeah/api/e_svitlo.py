@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     from ..models import ESvitloProvider, PlannedOutageEvent
 
-from ..const import E_SVITLO_ERROR_NOT_LOGGED_IN, E_SVITLO_SUMY_BASE_URL
+from ..const import E_SVITLO_ERROR_NOT_LOGGED_IN, E_SVITLO_SUMY_BASE_URL, TZ_UA
 from ..models import PlannedOutageEvent, PlannedOutageEventType
 
 LOGGER = logging.getLogger(__name__)
@@ -248,12 +248,8 @@ class ESvitloClient:
             start_time = time.fromisoformat(start_time_str)
             end_time = time.fromisoformat(end_time_str)
 
-            start_datetime = datetime.combine(
-                base_date, start_time, tzinfo=ZoneInfo("Europe/Kyiv")
-            )
-            end_datetime = datetime.combine(
-                base_date, end_time, tzinfo=ZoneInfo("Europe/Kyiv")
-            )
+            start_datetime = datetime.combine(base_date, start_time, tzinfo=TZ_UA)
+            end_datetime = datetime.combine(base_date, end_time, tzinfo=TZ_UA)
 
             # Handle end time on next day (e.g., 23:00-04:00)
             if end_time < start_time:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Final
+from zoneinfo import ZoneInfo
 
 # Do not commit as True
 DEBUG: Final = False
@@ -26,6 +27,8 @@ PROVIDER_TYPE_E_SVITLO: Final = "e-svitlo"
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
 PROVIDER_DTEK_SHORT: Final = "ДТЕК"
+
+TZ_UA = ZoneInfo("Europe/Kyiv")
 
 # Costants
 if DEBUG:
