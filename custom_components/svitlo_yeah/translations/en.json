@@ -10,8 +10,7 @@
         "data": {
           "provider": "Select your region/system distribution:"
         },
-        "data_description": {
-        }
+        "data_description": {}
       },
       "group": {
         "title": "Settings",
@@ -21,7 +20,26 @@
         "data_description": {
           "group": "Find your group at: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
         }
+      },
+      "auth": {
+        "title": "E-Svitlo Authentication",
+        "description": "Enter your E-Svitlo credentials",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "account": {
+        "title": "Select Account",
+        "description": "Select the account (address) to monitor",
+        "data": {
+          "account_id": "Account"
+        }
       }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password",
+      "no_accounts_found": "No accounts found"
     }
   },
   "device": {
@@ -30,6 +48,9 @@
     },
     "device_name_dtek": {
       "name": "{provider_name} {group}"
+    },
+    "device_name_e_svitlo": {
+      "name": "{region_name} {provider_name} {group}"
     }
   },
   "selector": {
@@ -49,7 +70,8 @@
         "dtekjsonprovider_zhytomyr": "DTEK — Zhytomyr and Oblast — VOE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
-        "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
+        "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
+        "esvitloprovider_sumy": "E-Svitlo — Sumy and Oblast — SOE"
       }
     }
   },

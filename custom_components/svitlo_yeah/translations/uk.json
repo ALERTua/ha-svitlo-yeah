@@ -10,8 +10,7 @@
         "data": {
           "provider": "Оберіть свій регіон/систему розподілу:"
         },
-        "data_description": {
-        }
+        "data_description": {}
       },
       "group": {
         "title": "Налаштування",
@@ -21,7 +20,26 @@
         "data_description": {
           "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
         }
+      },
+      "auth": {
+        "title": "Автентифікація E-Svitlo",
+        "description": "Введіть ваші дані для входу в E-Svitlo",
+        "data": {
+          "username": "Ім'я користувача",
+          "password": "Пароль"
+        }
+      },
+      "account": {
+        "title": "Вибір особового рахунку",
+        "description": "Оберіть особовий рахунок (адресу) для моніторингу",
+        "data": {
+          "account_id": "Рахунок"
+        }
       }
+    },
+    "error": {
+      "invalid_auth": "Неправильне ім'я користувача або пароль",
+      "no_accounts_found": "Не знайдено особових рахунків"
     }
   },
   "device": {
@@ -30,6 +48,9 @@
     },
     "device_name_dtek": {
       "name": "{provider_name} {group}"
+    },
+    "device_name_e_svitlo": {
+      "name": "{region_name} {provider_name} {group}"
     }
   },
   "selector": {
@@ -49,7 +70,8 @@
         "dtekjsonprovider_zhytomyr": "ДТЕК — Житомир та Область — ВОЕ",
         "yasnoprovider_25_902": "Yasno — Київ — ДТЕК",
         "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
-        "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК"
+        "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК",
+        "esvitloprovider_sumy": "E-Svitlo — Суми та Область — СОЕ"
       }
     }
   },

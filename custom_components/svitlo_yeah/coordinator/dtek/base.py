@@ -114,7 +114,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         start_date: datetime.datetime,
         end_date: datetime.datetime,
     ) -> list[CalendarEvent]:
-        """Get scheduled events (from preset data)."""
+        """Get scheduled outage events."""
         events = self.api.get_scheduled_events(start_date, end_date)
         return [
             self._get_scheduled_calendar_event(_, rrule="FREQ=WEEKLY") for _ in events
