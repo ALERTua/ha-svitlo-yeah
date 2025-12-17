@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.util import dt as dt_utils
@@ -52,12 +52,9 @@ class ESvitloCoordinator(IntegrationCoordinator):
     @property
     def provider_name(self) -> str:
         """Get the configured provider name."""
-        if isinstance(self.provider, ESvitloProvider):
-            # Return address if available (saved during config flow)
-            if address := self.config_entry.data.get("address_str"):
-                return address
-            return f"E-Svitlo ({self.provider.user_name})"
-        return "E-Svitlo"
+        return self.config_entry.data.get(
+            "address_str", f"E-Svitlo ({self.provider.user_name})"
+        )
 
     @property
     def event_name_map(self) -> dict:
