@@ -35,7 +35,6 @@ class ESvitloCoordinator(IntegrationCoordinator):
         self.provider: ESvitloProvider = ESvitloProvider(
             user_name=config_entry.data["username"],
             password=config_entry.data["password"],
-            region_name=config_entry.data.get("region", ""),
             account_id=config_entry.data.get("account_id"),
         )
 
@@ -48,7 +47,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
     @property
     def region_name(self) -> str:
         """Get the configured region name."""
-        return self.provider.region_name or "E-Svitlo"
+        return self.provider.region_name
 
     @property
     def provider_name(self) -> str:

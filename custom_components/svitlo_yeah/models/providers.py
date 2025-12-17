@@ -46,13 +46,13 @@ class ESvitloProvider(AuthAPIProvider):
 
     user_name: str
     password: str
-    region_name: str
+    region_name: str = "sumy"
     account_id: int | str | None = None
 
     @property
     def unique_key(self) -> str:
         """Generate unique key for this provider."""
-        return f"{self.__class__.__name__.lower()}_{self.user_name}"
+        return f"{self.__class__.__name__.lower()}_{self.region_name}"
 
     @property
     def provider_id(self) -> str:
