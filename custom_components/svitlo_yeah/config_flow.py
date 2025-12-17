@@ -33,13 +33,16 @@ from .const import (
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
 )
-from .models.providers import DTEKJsonProvider, ESvitloProvider
+from .models.providers import (
+    BaseProvider,
+    DTEKJsonProvider,
+    ESvitloProvider,
+    YasnoProvider,
+)
 
 if TYPE_CHECKING:
     from .models import YasnoRegion
-    from .models.providers import BaseProvider, YasnoProvider
-else:
-    from .models.providers import YasnoProvider
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,20 +80,18 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self.data[CONF_PROVIDER_TYPE] = selected_provider.provider_type
             self.data[CONF_PROVIDER] = selected_provider.provider_id
             if selected_provider.provider_type == PROVIDER_TYPE_YASNO:
-                # Type check and access region_id for YasnoProvider
-                if isinstance(selected_provider, YasnoProvider):
-                    self.data[CONF_REGION] = selected_provider.region_id
+                self.data[CONF_REGION] = selected_provider.region_id
             elif selected_provider.provider_type == PROVIDER_TYPE_E_SVITLO:
                 # For E-Svitlo, go to auth step first
                 # noinspection PyTypeChecker
-                return await self.async_step_auth()
+                return await self.async_step_esvitlo_auth()
 
             # noinspection PyTypeChecker
             return await self.async_step_group()
 
         LOGGER.debug("async_step_user: No User input yet")
         await self.api_yasno.fetch_yasno_regions()
-        yasno_regions: list[YasnoRegion] = self.api_yasno.regions or []
+        yasno_regions: list[YasnoRegion] = self.api_yasno.regions
         LOGGER.debug("async_step_user: yasno_regions: %s", yasno_regions)
         yasno_providers: list[YasnoProvider] = []
         if yasno_regions:
@@ -187,7 +188,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # noinspection PyTypeChecker
         return self.async_show_form(step_id="group", data_schema=data_schema)
 
-    async def async_step_auth(self, user_input: dict | None = None) -> ConfigFlowResult:
+    async def async_step_esvitlo_auth(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
         """Handle authentication step for E-Svitlo."""
         errors = {}
 
@@ -209,7 +212,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
                 # Proceed to account/group selection
                 # noinspection PyTypeChecker
-                return await self.async_step_account()
+                return await self.async_step_esvitlo_account()
 
             errors["base"] = "invalid_auth"
 
@@ -223,10 +226,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # noinspection PyTypeChecker
         return self.async_show_form(
-            step_id="auth", data_schema=data_schema, errors=errors
+            step_id="esvitlo_auth", data_schema=data_schema, errors=errors
         )
 
-    async def async_step_account(
+    async def async_step_esvitlo_account(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
         """Handle account/group selection for E-Svitlo."""
@@ -267,17 +270,16 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         client = ESvitloClient(self.hass, provider)
 
         accounts = await client.get_accounts()
-
         if not accounts:
             # If no accounts found or error, abort or show error
             # noinspection PyTypeChecker
             return self.async_abort(reason="no_accounts_found")
 
         # Create options mapping: { account_id: "Address (LS)" }
-        # account_id is 'a' field
         options = {}
         for acc in accounts:
             label = f"{acc.get('address')} ({acc.get('ls')})"
+            # account_id is 'a' field
             val = acc.get("a")
             options[val] = label
 
@@ -287,7 +289,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # noinspection PyTypeChecker
         return self.async_show_form(
-            step_id="account",
+            step_id="esvitlo_account",
             data_schema=vol.Schema(
                 {
                     vol.Required(
