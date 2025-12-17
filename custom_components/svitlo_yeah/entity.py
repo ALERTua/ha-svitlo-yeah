@@ -19,19 +19,18 @@ from .const import (
     PROVIDER_TO_DEVICE_NAME_MAP,
     UPDATE_INTERVAL,
 )
-from .coordinator.dtek.base import DtekCoordinatorBase
-from .coordinator.yasno import YasnoCoordinator
+from .coordinator.coordinator import IntegrationCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
 
 
-class IntegrationEntity(CoordinatorEntity[YasnoCoordinator | DtekCoordinatorBase]):
+class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
     """Common logic for Svitlo Yeah entity."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: YasnoCoordinator | DtekCoordinatorBase) -> None:
+    def __init__(self, coordinator: IntegrationCoordinator) -> None:
         """Initialize the integration entity."""
         super().__init__(coordinator)
         self._unsubscribe_boundary = None
