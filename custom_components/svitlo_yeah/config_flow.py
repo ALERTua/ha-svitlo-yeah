@@ -105,10 +105,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # Create DTEKJsonProvider instances for each available provider key
         dtek_providers = [DTEKJsonProvider(region_name=_) for _ in DTEK_PROVIDER_URLS]
 
-        # Add E-Svitlo provider option (Sumy)
-        e_svitlo_provider = ESvitloProvider(
-            user_name="sumy", password="", region_name="Sumy"
-        )
+        e_svitlo_provider = ESvitloProvider(user_name="sumy", password="")
 
         all_providers = yasno_providers + dtek_providers + [e_svitlo_provider]
         self.available_providers = {_.unique_key: _ for _ in all_providers}
@@ -201,7 +198,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             provider = ESvitloProvider(
                 user_name=user_input["username"],
                 password=user_input["password"],
-                region_name="e_svitlo",
             )
 
             client = ESvitloClient(self.hass, provider)
@@ -243,7 +239,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             provider = ESvitloProvider(
                 user_name=self.data["username"],
                 password=self.data["password"],
-                region_name="Sumy",
             )
             client = ESvitloClient(self.hass, provider)
             accounts = await client.get_accounts() or []
@@ -268,7 +263,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         provider = ESvitloProvider(
             user_name=self.data["username"],
             password=self.data["password"],
-            region_name="Sumy",
         )
         client = ESvitloClient(self.hass, provider)
 
