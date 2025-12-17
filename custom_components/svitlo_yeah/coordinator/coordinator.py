@@ -161,6 +161,14 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         events = self.api.get_events(start_date, end_date)
         return [self._get_calendar_event(_) for _ in events]
 
+    def get_scheduled_events_between(
+        self,
+        start_date: datetime.datetime,  # noqa: ARG002
+        end_date: datetime.datetime,  # noqa: ARG002
+    ) -> list[CalendarEvent]:
+        """Get scheduled outage events."""
+        return []
+
     def _get_calendar_event(
         self, event: PlannedOutageEvent | None
     ) -> CalendarEvent | None:

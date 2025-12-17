@@ -1,12 +1,12 @@
 """Tests for common_tools module."""
 
 import datetime
-from zoneinfo import ZoneInfo
 
 import pytest
 from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.common_tools import parse_timestamp
+from custom_components.svitlo_yeah.const import TZ_UA
 
 
 class TestParseTimestamp:
@@ -58,9 +58,7 @@ class TestParseTimestamp:
 
         assert result is not None
         # Should be parsed as Europe/Kyiv and converted to local
-        expected_kyiv = datetime.datetime(
-            2025, 12, 7, 0, 1, tzinfo=ZoneInfo("Europe/Kyiv")
-        )
+        expected_kyiv = datetime.datetime(2025, 12, 7, 0, 1, tzinfo=TZ_UA)
         expected_local = dt_utils.as_local(expected_kyiv)
         assert result == expected_local
 

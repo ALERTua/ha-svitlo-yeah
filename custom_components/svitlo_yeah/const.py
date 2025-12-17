@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Final
+from zoneinfo import ZoneInfo
 
 # Do not commit as True
 DEBUG: Final = False
@@ -14,15 +15,20 @@ NAME: Final = "Svitlo Yeah | Світло Є"
 CONF_REGION: Final = "region"
 CONF_PROVIDER: Final = "provider"
 CONF_GROUP: Final = "group"
+CONF_ACCOUNT_ID: Final = "account_id"
+CONF_ADDRESS_STR: Final = "address_str"
 CONF_PROVIDER_TYPE: Final = "provider_type"
 
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"
 PROVIDER_TYPE_DTEK_JSON: Final = "dtek_json"
+PROVIDER_TYPE_E_SVITLO: Final = "e-svitlo"
 
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
 PROVIDER_DTEK_SHORT: Final = "ДТЕК"
+
+TZ_UA = ZoneInfo("Europe/Kyiv")
 
 # Costants
 if DEBUG:
@@ -44,9 +50,11 @@ BLOCK_KEY_STATUS: Final = "status"
 DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"
 DEVICE_NAME_DTEK_TRANSLATION_KEY = "device_name_dtek"
 DEVICE_MANUFACTURER = NAME
+DEVICE_NAME_E_SVITLO_TRANSLATION_KEY = "device_name_e_svitlo"
 PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_YASNO: DEVICE_NAME_YASNO_TRANSLATION_KEY,
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
+    PROVIDER_TYPE_E_SVITLO: DEVICE_NAME_E_SVITLO_TRANSLATION_KEY,
 }
 TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_planned_outage"
@@ -57,6 +65,13 @@ TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = (
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )
+
+# E-Svitlo Constants
+E_SVITLO_SUMY_BASE_URL: Final = (
+    "https://sm.e-svitlo.com.ua/ip_cabinet/restfull_api/improvise/"
+)
+E_SVITLO_ERROR_NOT_LOGGED_IN: Final = "Ви не увійшли до кабінету"
+
 
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"
 

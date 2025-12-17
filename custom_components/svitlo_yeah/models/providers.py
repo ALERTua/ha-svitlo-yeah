@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_YASNO
+from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
 
 
 class BaseProvider:
     """Base class for provider models."""
 
     region_name: str
+    region_id: int | None = None
 
     @property
     def unique_key(self) -> str:
@@ -34,13 +35,38 @@ class BaseProvider:
 
 
 @dataclass(frozen=True)
+class ESvitloProvider(BaseProvider):
+    """E-Svitlo provider model."""
+
+    user_name: str
+    password: str
+    region_name: str = "sumy"
+    account_id: int | str | None = None
+
+    @property
+    def unique_key(self) -> str:
+        """Generate unique key for this provider."""
+        return f"{self.__class__.__name__.lower()}_{self.region_name}"
+
+    @property
+    def provider_id(self) -> str:
+        """Provider ID."""
+        return self.user_name
+
+    @property
+    def provider_type(self) -> str:
+        """Provider type."""
+        return PROVIDER_TYPE_E_SVITLO
+
+
+@dataclass(frozen=True)
 class YasnoProvider(BaseProvider):
     """Yasno provider model."""
 
     id: int
     name: str
-    region_id: int
     region_name: str
+    region_id: int | None = None
 
     @property
     def unique_key(self) -> str:

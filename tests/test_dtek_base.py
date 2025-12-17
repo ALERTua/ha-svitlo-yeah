@@ -395,7 +395,8 @@ class TestDtekAPIBaseScheduledEvents:
         api.group = "1.1"
 
         # Test range that includes Monday
-        monday = base_date + datetime.timedelta(days=(7 - base_date.weekday()))
+        days_until_monday = (0 - base_date.weekday()) % 7
+        monday = base_date + datetime.timedelta(days=days_until_monday)
         start_date = monday
         end_date = monday + datetime.timedelta(days=1)
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import datetime
 import logging
-from zoneinfo import ZoneInfo
 
 from homeassistant.util import dt as dt_utils
 
+from ..const import TZ_UA
 from ..models import PlannedOutageEvent
 
 LOGGER = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
     for fmt in date_formats:
         try:
             naive_dt = datetime.datetime.strptime(timestamp_str, fmt)  # noqa: DTZ007
-            utc_dt = naive_dt.replace(tzinfo=ZoneInfo("Europe/Kyiv"))
+            utc_dt = naive_dt.replace(tzinfo=TZ_UA)
             return dt_utils.as_local(utc_dt)
         except (ValueError, TypeError):
             continue
