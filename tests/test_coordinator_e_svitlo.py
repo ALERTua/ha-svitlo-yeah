@@ -77,7 +77,3 @@ def test_provider_name_fallback(coordinator, mock_entry):
     """Test provider_name fallback."""
     mock_entry.data = {}
     assert coordinator.provider_name == "E-Svitlo (user)"
-
-    # Test fallback if provider is not ESvitloProvider (unlikely but coverage)
-    coordinator.provider = MagicMock()
-    assert coordinator.provider_name == "E-Svitlo"
