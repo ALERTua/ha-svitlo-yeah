@@ -82,6 +82,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     self.data[CONF_REGION] = selected_provider.region_id
             elif selected_provider.provider_type == PROVIDER_TYPE_E_SVITLO:
                 # For E-Svitlo, go to auth step first
+                # noinspection PyTypeChecker
                 return await self.async_step_auth()
 
             # noinspection PyTypeChecker
@@ -211,6 +212,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.data["password"] = user_input["password"]
 
                 # Proceed to account/group selection
+                # noinspection PyTypeChecker
                 return await self.async_step_account()
 
             errors["base"] = "invalid_auth"
@@ -223,6 +225,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="auth", data_schema=data_schema, errors=errors
         )
@@ -258,6 +261,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             if selected_acc:
                 self.data[CONF_ADDRESS_STR] = selected_acc.get("address")
 
+            # noinspection PyTypeChecker
             return self.async_create_entry(title=NAME, data=self.data)
 
         # We already have credentials in self.data from previous step
@@ -272,6 +276,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if not accounts:
             # If no accounts found or error, abort or show error
+            # noinspection PyTypeChecker
             return self.async_abort(reason="no_accounts_found")
 
         # Create options mapping: { account_id: "Address (LS)" }
@@ -283,12 +288,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             options[val] = label
 
         if not options:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="no_accounts_found")
 
-        # If only one account, maybe auto-select?
-        # But explicit confirmation is better as per user request
-        # (showing it confirms login)
-
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="account",
             data_schema=vol.Schema(
