@@ -38,7 +38,8 @@
       }
     },
     "error": {
-      "invalid_auth": "Invalid username or password"
+      "invalid_auth": "Invalid username or password",
+      "no_accounts_found": "No accounts found"
     }
   },
   "device": {
