@@ -106,7 +106,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # Add E-Svitlo provider option (Sumy)
         e_svitlo_provider = ESvitloProvider(
-            user_name="", password="", region_name="Sumy"
+            user_name="sumy", password="", region_name="Sumy"
         )
 
         all_providers = yasno_providers + dtek_providers + [e_svitlo_provider]

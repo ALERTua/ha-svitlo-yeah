@@ -68,7 +68,7 @@
         "dtekjsonprovider_vinnytsia": "DTEK — Vinnytsia and Oblast — VOE",
         "dtekjsonprovider_zhytomyr": "DTEK — Zhytomyr and Oblast — VOE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
-        "esvitloprovider_": "E-Svitlo (Sumy) — Auth Required",
+        "esvitloprovider_sumy": "E-Svitlo (Sumy) — Auth Required",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
       }
