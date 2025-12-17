@@ -2,13 +2,12 @@
 
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from zoneinfo import ZoneInfo
 
 import pytest
 from aiohttp import ClientError
 
 from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
-from custom_components.svitlo_yeah.const import E_SVITLO_ERROR_NOT_LOGGED_IN
+from custom_components.svitlo_yeah.const import E_SVITLO_ERROR_NOT_LOGGED_IN, TZ_UA
 from custom_components.svitlo_yeah.models import ESvitloProvider, PlannedOutageEventType
 
 TEST_USERNAME = "test_user"
@@ -256,26 +255,16 @@ class TestESvitloClientDisconnections:
         assert len(events) == 2
 
         # Event 1: Today 10-12
-        assert events[0].start == datetime(
-            2025, 12, 15, 10, 0, tzinfo=ZoneInfo("Europe/Kyiv")
-        )
-        assert events[0].end == datetime(
-            2025, 12, 15, 12, 0, tzinfo=ZoneInfo("Europe/Kyiv")
-        )
+        assert events[0].start == datetime(2025, 12, 15, 10, 0, tzinfo=TZ_UA)
+        assert events[0].end == datetime(2025, 12, 15, 12, 0, tzinfo=TZ_UA)
 
         # Event 2: Tomorrow 22:00 - Next Day 02:00
-        assert events[1].start == datetime(
-            2025, 12, 16, 22, 0, tzinfo=ZoneInfo("Europe/Kyiv")
-        )
+        assert events[1].start == datetime(2025, 12, 16, 22, 0, tzinfo=TZ_UA)
         # Should be 17th
-        assert events[1].end == datetime(
-            2025, 12, 17, 2, 0, tzinfo=ZoneInfo("Europe/Kyiv")
-        )
+        assert events[1].end == datetime(2025, 12, 17, 2, 0, tzinfo=TZ_UA)
 
         # Check last update parsing
-        assert client.get_updated_on() == datetime(
-            2025, 12, 15, 10, 0, tzinfo=ZoneInfo("Europe/Kyiv")
-        )
+        assert client.get_updated_on() == datetime(2025, 12, 15, 10, 0, tzinfo=TZ_UA)
 
     async def test_get_disconnections_parse_error(self, client, mock_session_post):
         """Test parsing error."""
@@ -298,8 +287,8 @@ class TestESvitloClientDisconnections:
     async def test_get_events_filtering(self, client, mock_session_post):
         """Test get_events and get_current_event using cached data."""
         # Setup cached events
-        dt1 = datetime(2025, 12, 15, 10, 0, tzinfo=ZoneInfo("Europe/Kyiv"))
-        dt2 = datetime(2025, 12, 15, 12, 0, tzinfo=ZoneInfo("Europe/Kyiv"))
+        dt1 = datetime(2025, 12, 15, 10, 0, tzinfo=TZ_UA)
+        dt2 = datetime(2025, 12, 15, 12, 0, tzinfo=TZ_UA)
 
         # Mock get_disconnections to populate cache
         client.is_authenticated = True
@@ -317,7 +306,7 @@ class TestESvitloClientDisconnections:
         await client.get_disconnections()
 
         # Test get_current_event
-        now = datetime(2025, 12, 15, 11, 0, tzinfo=ZoneInfo("Europe/Kyiv"))
+        now = datetime(2025, 12, 15, 11, 0, tzinfo=TZ_UA)
         event = client.get_current_event(now)
         assert event is not None
         assert event.event_type == PlannedOutageEventType.DEFINITE
