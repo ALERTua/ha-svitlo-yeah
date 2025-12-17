@@ -188,7 +188,7 @@ class YasnoCoordinator(IntegrationCoordinator):
         start_date: datetime.datetime,
         end_date: datetime.datetime,
     ) -> list[CalendarEvent]:
-        """Get scheduled events."""
+        """Get scheduled outage events."""
         events = self.api.get_scheduled_events(start_date, end_date)
         return [self._get_scheduled_calendar_event(_, rrule=None) for _ in events]
 
