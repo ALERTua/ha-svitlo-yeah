@@ -11,6 +11,7 @@ class BaseProvider:
     """Base class for provider models."""
 
     region_name: str
+    region_id: int | None = None
 
     @property
     def unique_key(self) -> str:
@@ -33,15 +34,8 @@ class BaseProvider:
         return self.unique_key
 
 
-class AuthAPIProvider(BaseProvider):
-    """Base class for providers that require authentication."""
-
-    user_name: str
-    password: str
-
-
 @dataclass(frozen=True)
-class ESvitloProvider(AuthAPIProvider):
+class ESvitloProvider(BaseProvider):
     """E-Svitlo provider model."""
 
     user_name: str
@@ -71,8 +65,8 @@ class YasnoProvider(BaseProvider):
 
     id: int
     name: str
-    region_id: int
     region_name: str
+    region_id: int | None = None
 
     @property
     def unique_key(self) -> str:
