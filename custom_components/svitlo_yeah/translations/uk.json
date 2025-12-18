@@ -68,6 +68,7 @@
         "dtekjsonprovider_zaporizhzhia": "ДТЕК — Запоріжжя та Область — ЗОЕ",
         "dtekjsonprovider_vinnytsia": "ДТЕК — Вінниця та Область — ВОЕ",
         "dtekjsonprovider_zhytomyr": "ДТЕК — Житомир та Область — ВОЕ",
+        "dtekjsonprovider_poltava": "ДТЕК — Полтава та Область — ПОЕ",
         "yasnoprovider_25_902": "Yasno — Київ — ДТЕК",
         "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
         "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК",
@@ -122,6 +123,8 @@
     "chernihiv": "Чернігів",
     "zaporizhzhia": "Запоріжжя",
     "vinnytsia": "Вінниця",
-    "zhytomyr": "Житомир"
+    "zhytomyr": "Житомир",
+    "sumy": "Суми",
+    "poltava": "Полтава"
   }
 }
