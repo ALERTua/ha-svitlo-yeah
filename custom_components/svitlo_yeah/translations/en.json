@@ -103,6 +103,9 @@
       "next_planned_outage": {
         "name": "Next Planned Outage"
       },
+      "next_scheduled_outage": {
+        "name": "Next Scheduled Outage"
+      },
       "next_connectivity": {
         "name": "Next Connectivity"
       }

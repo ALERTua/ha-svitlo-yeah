@@ -103,6 +103,9 @@
       "next_planned_outage": {
         "name": "Наступне планове відключення"
       },
+      "next_scheduled_outage": {
+        "name": "Наступне графікове відключення"
+      },
       "next_connectivity": {
         "name": "Наступне відновлення"
       }
