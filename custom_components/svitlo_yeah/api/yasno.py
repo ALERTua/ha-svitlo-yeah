@@ -261,6 +261,13 @@ class YasnoApi:
 
     def get_region_by_id(self, region_id: int) -> YasnoRegion | None:
         """Get region data by name."""
+        if not self.regions:
+            LOGGER.debug(
+                f"Yasno API get_region_by_id {region_id}"
+                f" while regions are not yet fetched"
+            )
+            return None
+
         LOGGER.debug("Getting region by id: %s among %s", region_id, self.regions)
         return next((_ for _ in self.regions if _.id == region_id), None)
 
