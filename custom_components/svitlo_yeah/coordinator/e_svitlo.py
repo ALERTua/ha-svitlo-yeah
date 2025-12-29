@@ -53,7 +53,8 @@ class ESvitloCoordinator(IntegrationCoordinator):
     def provider_name(self) -> str:
         """Get the configured provider name."""
         return self.config_entry.data.get(
-            "address_str", f"E-Svitlo ({self.provider.user_name})"
+            "address_str",
+            f"E-Svitlo ({self.provider.user_name})",  # ty:ignore[unresolved-attribute]
         )
 
     @property
@@ -68,7 +69,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:
+    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
         """Fetch data from E-Svitlo API."""
         LOGGER.debug("Updating E-Svitlo data")
 

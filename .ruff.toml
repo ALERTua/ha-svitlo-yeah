@@ -10,12 +10,13 @@ select = [
 ]
 
 ignore = [
-    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
-    "D203", # no-blank-line-before-class (incompatible with formatter)
-    "D212", # multi-line-summary-first-line (incompatible with formatter)
-    "COM812", # incompatible with formatter
-    "ISC001", # incompatible with formatter
-    "TID252", # Prefer absolute imports over relative imports from parent modules
+    "ANN401",
+    "D203",
+    "D212",
+    "COM812",
+    "ISC001",
+    "TID252",
+    "G004",
 ]
 
 [lint.flake8-pytest-style]

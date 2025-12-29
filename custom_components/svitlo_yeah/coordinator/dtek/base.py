@@ -79,7 +79,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:
+    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
         """Fetch data from DTEK API."""
         await self.async_fetch_translations()
 
@@ -102,7 +102,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
                 self.translations,
             )
         key = f"component.svitlo_yeah.common.{self.provider_id}"
-        return self.translations.get(key)
+        return self.translations.get(key, "")
 
     @property
     def provider(self) -> DTEKJsonProvider:
@@ -116,9 +116,10 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     ) -> list[CalendarEvent]:
         """Get scheduled outage events."""
         events = self.api.get_scheduled_events(start_date, end_date)
-        return [
+        output = [
             self._get_scheduled_calendar_event(_, rrule="FREQ=WEEKLY") for _ in events
         ]
+        return [_ for _ in output if _]
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""

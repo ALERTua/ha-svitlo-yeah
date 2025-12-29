@@ -159,7 +159,8 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     ) -> list[CalendarEvent]:
         """Get all events."""
         events = self.api.get_events(start_date, end_date)
-        return [self._get_calendar_event(_) for _ in events]
+        output = [self._get_calendar_event(_) for _ in events]
+        return [_ for _ in output if _]
 
     def get_scheduled_events_between(
         self,
@@ -183,7 +184,12 @@ class IntegrationCoordinator(DataUpdateCoordinator):
                 self.event_name_map,
             )
 
-        summary: str = self.event_name_map.get(event.event_type)
+        summary: str = self.event_name_map.get(event.event_type, "")
+        if not summary:
+            LOGGER.warning(
+                f"Couldn't get {event.event_type} from {self.event_name_map}."
+                f" Please report this."
+            )
 
         if DEBUG:
             summary += (
@@ -216,7 +222,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             )
 
         # Use scheduled outage translation for scheduled events
-        summary: str = self.translations.get(TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE)
+        summary: str = self.translations.get(TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE, "")
 
         if DEBUG:
             summary += (
