@@ -242,7 +242,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             rrule=rrule,  # Configurable recurrence rule
         )
 
-    def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
+    def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""
         raise NotImplementedError
 

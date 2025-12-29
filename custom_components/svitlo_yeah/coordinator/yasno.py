@@ -193,10 +193,11 @@ class YasnoCoordinator(IntegrationCoordinator):
         output = [self._get_scheduled_calendar_event(_, rrule=None) for _ in events]
         return [_ for _ in output if _]
 
-    def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
+    def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""
         if not event:
-            return ConnectivityState.STATE_NORMAL
+            LOGGER.debug("Yasno _event_to_state: no event, setting electricity to None")
+            return None
 
         # Map event types to states using the uid field
         if event.uid == PlannedOutageEventType.DEFINITE.value:
