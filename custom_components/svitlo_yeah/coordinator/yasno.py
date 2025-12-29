@@ -116,7 +116,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:
+    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
         """Fetch data from Svitlo Yeah API."""
         await self.async_fetch_translations()
 
@@ -150,7 +150,7 @@ class YasnoCoordinator(IntegrationCoordinator):
     def region(self) -> YasnoRegion | None:
         """Get the configured region."""
         if not self._region:
-            self._region = self.api.get_region_by_id(self.region_id)
+            self._region = self.api.get_region_by_id(self.region_id)  # ty:ignore[possibly-missing-attribute]
             LOGGER.debug("Caching region to %s", self._region)
         return self._region
 
@@ -190,7 +190,8 @@ class YasnoCoordinator(IntegrationCoordinator):
     ) -> list[CalendarEvent]:
         """Get scheduled outage events."""
         events = self.api.get_scheduled_events(start_date, end_date)
-        return [self._get_scheduled_calendar_event(_, rrule=None) for _ in events]
+        output = [self._get_scheduled_calendar_event(_, rrule=None) for _ in events]
+        return [_ for _ in output if _]
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
         """Map event to connectivity state."""

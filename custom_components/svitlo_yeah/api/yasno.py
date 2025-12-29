@@ -326,6 +326,7 @@ class YasnoApi:
             LOGGER.debug("No planned outage data for group %s", self.group)
             return None
 
+        # noinspection PyTypeChecker
         return self.planned_outage_data[self.group]
 
     def get_updated_on(self) -> datetime | None:
