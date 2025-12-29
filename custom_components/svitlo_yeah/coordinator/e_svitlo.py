@@ -100,10 +100,10 @@ class ESvitloCoordinator(IntegrationCoordinator):
                 LOGGER.warning("Failed to fetch E-Svitlo data")
                 # Keep existing data if fetch fails
 
-    def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState:
+    def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""
-        if not event:
-            return ConnectivityState.STATE_NORMAL
+        LOGGER.debug("Esvitlo _event_to_state: no event, setting electricity to None")
+        return None
 
         # Map event types to states using the uid field
         if event.uid == PlannedOutageEventType.DEFINITE.value:
