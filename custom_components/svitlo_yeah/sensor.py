@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .coordinator.coordinator import IntegrationCoordinator
 from .coordinator.yasno import YasnoCoordinator
 from .entity import IntegrationEntity
 from .models import ConnectivityState
@@ -25,7 +26,7 @@ LOGGER = logging.getLogger(__name__)
 class IntegrationSensorDescription(SensorEntityDescription):
     """Yasno Outages entity description."""
 
-    val_func: Callable[[YasnoCoordinator], Any]
+    val_func: Callable[[IntegrationCoordinator], Any]
 
 
 SENSORS: tuple[IntegrationSensorDescription, ...] = (
