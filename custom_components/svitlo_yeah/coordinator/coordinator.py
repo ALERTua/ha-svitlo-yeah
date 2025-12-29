@@ -123,7 +123,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         return event.end if event else None
 
     @property
-    def current_state(self) -> str:
+    def current_state(self) -> str | None:
         """Get the current state."""
         event = self.get_current_event()
         return self._event_to_state(event)
