@@ -60,6 +60,13 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
         val_func=lambda coordinator: coordinator.next_planned_outage,
     ),
     IntegrationSensorDescription(
+        key="next_scheduled_outage",
+        translation_key="next_scheduled_outage",
+        icon="mdi:calendar-clock",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        val_func=lambda coordinator: coordinator.next_scheduled_outage,
+    ),
+    IntegrationSensorDescription(
         key="next_connectivity",
         translation_key="next_connectivity",
         icon="mdi:calendar-check",
