@@ -123,6 +123,25 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         return event.end if event else None
 
     @property
+    def next_scheduled_outage(self) -> datetime.date | datetime.datetime | None:
+        """Get the next scheduled outage time."""
+        now = dt_utils.as_local(dt_utils.now())
+        # Sort events to handle multi-day spanning events correctly
+        next_events = sorted(
+            self.get_scheduled_events_between(
+                now,
+                now + TIMEFRAME_TO_CHECK,
+            ),
+            key=lambda _: _.start,
+        )
+        for event in next_events:
+            _now = now.date() if event.all_day else now
+            # event.start can be datetime or date (all_day event)
+            if event.start > _now:
+                return event.start
+        return None
+
+    @property
     def current_state(self) -> str | None:
         """Get the current state."""
         event = self.get_current_event()
