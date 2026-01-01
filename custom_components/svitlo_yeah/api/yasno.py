@@ -249,7 +249,9 @@ class YasnoApi:
         )
         LOGGER.debug("Fetching Yasno planned outage data: %s", url)
         async with aiohttp.ClientSession() as session:
-            self.planned_outage_data = await self._get_route_data(session, url)
+            output = await self._get_route_data(session, url)
+            LOGGER.debug("Filling Yasno planned outage data with: %s", output)
+            self.planned_outage_data = output  # ty:ignore[invalid-assignment]
 
         if DEBUG:
             self.planned_outage_data = _debug_data()
@@ -510,8 +512,8 @@ async def _main() -> None:
     _api = YasnoApi()
     await _api.fetch_yasno_regions()
     _regions = _api.regions
-    _api.region_id = _regions[0].id
-    _api.provider_id = _regions[0].dsos[0].id
+    _api.region_id = _regions[0].id  # ty:ignore[not-subscriptable]
+    _api.provider_id = _regions[0].dsos[0].id  # ty:ignore[not-subscriptable]
     await _api.fetch_planned_outage_data()
     _groups = _api.get_yasno_groups()
     _api.group = _groups[0]
