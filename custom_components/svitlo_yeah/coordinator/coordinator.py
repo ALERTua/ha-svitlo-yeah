@@ -75,25 +75,46 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         """Return a mapping of event names to translations."""
         raise NotImplementedError
 
+    def _get_first_future_start(
+        self,
+        events: list[PlannedOutageEvent | CalendarEvent],
+    ) -> datetime.date | datetime.datetime | None:
+        """Get the start time of the first future event."""
+        now = dt_utils.as_local(dt_utils.now())
+        now_date = now.date()
+        for event in sorted(events, key=lambda _: _.start):
+            comparison_time = now_date if event.all_day else now
+            if event.start > comparison_time:
+                return event.start
+        return None
+
+    def _get_earliest_start_time(
+        self,
+        candidates: list[datetime.date | datetime.datetime | None],
+    ) -> datetime.date | datetime.datetime | None:
+        """Get the earliest start time from candidates, ignoring None values."""
+        valid_candidates = [c for c in candidates if c is not None]
+        return min(valid_candidates) if valid_candidates else None
+
     def _get_next_event_of_type(
         self, state_type: ConnectivityState | None = None
     ) -> CalendarEvent | None:
         """Get the next event of a specific type."""
         now = dt_utils.as_local(dt_utils.now())
-        # Sort events to handle multi-day spanning events correctly
-        next_events = sorted(
-            self.get_events_between(
-                now,
-                now + TIMEFRAME_TO_CHECK,
-            ),
-            key=lambda _: _.start,
-        )
-        for event in next_events:
-            _now = now.date() if event.all_day else now
-            # event.start can be datetime or date (all_day event)
-            if event.start > _now and (
-                state_type is None or self._event_to_state(event) == state_type
-            ):
+        events = self.get_events_between(now, now + TIMEFRAME_TO_CHECK)
+
+        # Filter by state type if specified
+        if state_type is not None:
+            events = [_ for _ in events if self._event_to_state(_) == state_type]
+
+        # Find first future event
+        start_time = self._get_first_future_start(events)  # ty:ignore[invalid-argument-type]
+        if start_time is None:
+            return None
+
+        # Return the event with that start time
+        for event in events:
+            if event.start == start_time:
                 return event
         return None
 
@@ -124,22 +145,20 @@ class IntegrationCoordinator(DataUpdateCoordinator):
 
     @property
     def next_scheduled_outage(self) -> datetime.date | datetime.datetime | None:
-        """Get the next scheduled outage time."""
+        """Get the next scheduled or planned outage time, whichever is nearest."""
         now = dt_utils.as_local(dt_utils.now())
-        # Sort events to handle multi-day spanning events correctly
-        next_events = sorted(
-            self.get_scheduled_events_between(
-                now,
-                now + TIMEFRAME_TO_CHECK,
-            ),
-            key=lambda _: _.start,
+
+        # Get next scheduled outage using helper
+        scheduled_events = self.get_scheduled_events_between(
+            now, now + TIMEFRAME_TO_CHECK
         )
-        for event in next_events:
-            _now = now.date() if event.all_day else now
-            # event.start can be datetime or date (all_day event)
-            if event.start > _now:
-                return event.start
-        return None
+        next_scheduled = self._get_first_future_start(scheduled_events)  # ty:ignore[invalid-argument-type]
+
+        # Get next planned outage
+        next_planned = self.next_planned_outage
+
+        # Return the earliest one using helper
+        return self._get_earliest_start_time([next_scheduled, next_planned])
 
     @property
     def current_state(self) -> str | None:

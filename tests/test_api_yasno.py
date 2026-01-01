@@ -223,7 +223,7 @@ class TestYasnoApiScheduleParsing:
         events = _parse_day_schedule(day_data, today)
         assert len(events) == 1
         assert events[0].event_type == PlannedOutageEventType.DEFINITE
-        assert events[0].start.hour == 16  # 960
+        assert events[0].start.hour == 16  # 960  # ty:ignore[unresolved-attribute]
 
     def test_parse_emergency_shutdown(self, api, today, tomorrow):
         """Test parsing emergency shutdown."""
@@ -234,7 +234,7 @@ class TestYasnoApiScheduleParsing:
         }
         date_ = dt_utils.parse_datetime(today.isoformat())
         api.planned_outage_data = {TEST_GROUP: {"today": day_data}}
-        events = api.get_events(date_, date_ + timedelta(days=1))
+        events = api.get_events(date_, date_ + timedelta(days=1))  # ty:ignore[unsupported-operator]
         assert len(events) == 1
         assert events[0].all_day is True
         assert events[0].event_type == PlannedOutageEventType.EMERGENCY
@@ -407,12 +407,12 @@ class TestYasnoApiEventMerging:
 class TestYasnoApiEvents:
     """Test event retrieval methods."""
 
-    def test_get_updated_on(self, api, planned_outage_data):
+    def test_get_updated_on(self, api, planned_outage_data, today):
         """Test getting updated timestamp."""
         api.planned_outage_data = planned_outage_data
         updated = api.get_updated_on()
         assert updated is not None
-        assert updated.year == 2025
+        assert updated.year == today.year
 
     def test_get_updated_on_no_data(self, api):
         """Test getting updated timestamp without data."""

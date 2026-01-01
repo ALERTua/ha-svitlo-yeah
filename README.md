@@ -10,7 +10,8 @@
 
 # 💡 Svitlo Yeah | Світло Є
 
-A [Home Assistant][home-assistant] integration that tracks electricity outage schedules from Ukrainian energy providers, providing outage calendars, countdown timers, and status updates.
+A [Home Assistant][home-assistant] integration that tracks electricity outage schedules from Ukrainian energy providers,
+providing outage calendars, countdown timers, and status updates.
 
 ###### [Цей документ українською](https://github-com.translate.goog/ALERTua/ha-svitlo-yeah/blob/main/README.md?_x_tr_sl=en&_x_tr_tl=uk&_x_tr_hl=en&_x_tr_pto=wapp)
 
@@ -36,7 +37,6 @@ A [Home Assistant][home-assistant] integration that tracks electricity outage sc
 | **Vinnytsia and Oblast**       | VOE      | [olnet93/gpv-voe-vinnytsia](https://github.com/olnet93/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json)        |
 | **Sumy and Oblast**            | SOE      | [E-Svitlo API](https://sm.e-svitlo.com.ua/)                                                                             |
 
-
 ## Installation
 
 The quickest way to install this integration is via [HACS][hacs-url] by clicking the button below:
@@ -53,7 +53,8 @@ If it doesn't work, adding this repository to HACS manually by adding this URL:
 
 ## Usage
 
-This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for **Svitlo Yeah**.
+This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for *
+*Svitlo Yeah**.
 
 ### Select your region and Service Provider (if applicable)
 
@@ -72,8 +73,10 @@ This integration is configurable via UI. On **Devices and Services** page, click
 ![Sensors](/media/5_sensors.png) ![Sensors 2](/media/5_1_sensors.png)
 
 ### Calendar View
+
 Then you can add the integration to your dashboard and see the information about the next planned outages.
-Integration also provides a calendar view of planned outages. You can add it to your dashboard as well via [Calendar card][calendar-card].
+Integration also provides a calendar view of planned outages. You can add it to your dashboard as well
+via [Calendar card][calendar-card].
 
 ![Calendars view](/media/6_calendar.png)
 
@@ -90,13 +93,14 @@ The integration creates the following entities in Home Assistant:
 
 ### Sensors
 
-| Entity                       | Type             | Purpose                                                          | Description                                                                                                                                                                                                                                                                                                                                              |
-|------------------------------|------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Electricity**              | Enum Sensor      | Shows current power connectivity state according to the calendar | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
-| [**Schedule Updated On**](/custom_components/svitlo_yeah/translations/uk.json#L97)      | Timestamp Sensor | Shows when outage schedule was last updated by the provider      | Displays the timestamp when the energy provider last updated the outage schedule on their servers. Reflects server-side data changes, not client fetch times.                                                                                                                                                                                            |
-| [**Schedule Data Changed On**](/custom_components/svitlo_yeah/translations/uk.json#L100) | Timestamp Sensor | Shows when actual outage schedule data changed                   | Tracks the timestamp when the actual data was modified. Useful for notifications when schedules are updated. See examples.                                                                                                                                                                                                                               |
-| [**Next Planned Outage**](/custom_components/svitlo_yeah/translations/uk.json#L104)      | Timestamp Sensor | Shows the start time of the next scheduled blackout              | Displays the timestamp when the next planned power outage is scheduled to begin. Null when no outages are scheduled.                                                                                                                                                                                                                                     |
-| [**Next Connectivity**](/custom_components/svitlo_yeah/translations/uk.json#L106)        | Timestamp Sensor | Shows when power is expected to return                           | Displays the timestamp when power connectivity is expected to be restored after an outage. Null when no outages are active.                                                                                                                                                                                                                              |
+| Entity                                                                                   | Type             | Purpose                                                           | Description                                                                                                                                                                                                                                                                                                                                              |
+|------------------------------------------------------------------------------------------|------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Electricity**                                                                          | Enum Sensor      | Shows current power connectivity state according to the calendar  | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
+| [**Schedule Updated On**](/custom_components/svitlo_yeah/translations/uk.json#L97)       | Timestamp Sensor | Shows when outage schedule was last updated by the provider       | Displays the timestamp when the energy provider last updated the outage schedule on their servers. Reflects server-side data changes, not client fetch times.                                                                                                                                                                                            |
+| [**Schedule Data Changed On**](/custom_components/svitlo_yeah/translations/uk.json#L100) | Timestamp Sensor | Shows when actual outage schedule data changed                    | Tracks the timestamp when the actual data was modified. Useful for notifications when schedules are updated. See examples.                                                                                                                                                                                                                               |
+| [**Next Planned Outage**](/custom_components/svitlo_yeah/translations/uk.json#L104)      | Timestamp Sensor | Shows the start time of the next scheduled blackout               | Displays the timestamp when the next planned power outage is scheduled to begin. Null when no outages are scheduled.                                                                                                                                                                                                                                     |
+| [**Next Scheduled Outage**](/custom_components/svitlo_yeah/translations/uk.json#L107)    | Timestamp Sensor | Shows the start time of the nearest outage (scheduled or planned) | Displays the timestamp of the nearest upcoming outage event, comparing scheduled outages and planned outages to show whichever comes first. Null when no outages are scheduled.                                                                                                                                                                          |
+| [**Next Connectivity**](/custom_components/svitlo_yeah/translations/uk.json#L109)        | Timestamp Sensor | Shows when power is expected to return                            | Displays the timestamp when power connectivity is expected to be restored after an outage. Null when no outages are active.                                                                                                                                                                                                                              |
 
 ### Calendar
 
@@ -122,6 +126,7 @@ data:
   last_data_change: "2025-11-15T14:20:24.627353+02:00"
   config_entry_id: 01KB817HS8R32RSYH5RW01G78Z
 ```
+
 ```yaml
 event_type: svitlo_yeah_data_changed
 data:
@@ -149,14 +154,21 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for information about adding new regions 
 <!-- Badges -->
 
 [gh-release-url]: https://github.com/ALERTua/ha-svitlo-yeah/releases/latest
+
 [gh-release-image]: https://img.shields.io/github/v/release/ALERTua/ha-svitlo-yeah?style=flat-square
+
 [gh-downloads-url]: https://github.com/ALERTua/ha-svitlo-yeah/releases
+
 [hacs-url]: https://github.com/hacs/integration
+
 [hacs-image]: https://img.shields.io/badge/hacs-default-orange.svg?style=flat-square
 
 <!-- References -->
 
 [home-assistant]: https://www.home-assistant.io/
+
 [hasc-install-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=ALERTua&repository=ha-svitlo-yeah&category=integration
+
 [hacs-install-image]: https://my.home-assistant.io/badges/hacs_repository.svg
+
 [calendar-card]: https://www.home-assistant.io/dashboards/calendar/
