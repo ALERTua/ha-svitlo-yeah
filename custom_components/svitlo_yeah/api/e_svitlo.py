@@ -65,121 +65,119 @@ class ESvitloClient:
             LOGGER.exception("Exception during E-Svitlo login")
             return False
 
+    async def _send_post_request(
+        self, endpoint: str, data: dict | None = None
+    ) -> dict | None:
+        """Send POST request to E-Svitlo API with automatic re-login."""
+        if not self.is_authenticated and not await self.login():
+            return None
+
+        url = self.base_url + endpoint
+        try:
+            async with self.session.post(url, data=data) as response:
+                if response.status != 200:  # noqa: PLR2004
+                    LOGGER.error(
+                        "E-Svitlo HTTP error %s for %s", response.status, endpoint
+                    )
+                    return None
+
+                result = await response.json()
+                if self.is_logged_out(result):
+                    LOGGER.debug(
+                        "E-Svitlo session expired for %s, re-authenticating", endpoint
+                    )
+                    self.is_authenticated = False
+                    if await self.login():
+                        # Retry request once
+                        async with self.session.post(url, data=data) as retry_response:
+                            if retry_response.status == 200:  # noqa: PLR2004
+                                return await retry_response.json()
+                    return None
+
+                return result
+        except (aiohttp.ClientError, TimeoutError):
+            LOGGER.exception("Exception during E-Svitlo request to %s", endpoint)
+            return None
+
     async def get_accounts(self) -> list[dict] | None:
         """Get list of available accounts."""
         if not self.is_authenticated and not await self.login():
             return None
 
-        try:
-            async with self.session.post(
-                url=self.base_url + "api_main_reg/short_list_ls_api.json"
-            ) as response:
-                data = await response.json()
-                if response.status == 200:  # noqa: PLR2004
-                    if self.is_logged_out(data):
-                        # Session expired, try to re-authenticate
-                        self.is_authenticated = False
-                        if await self.login():
-                            return await self.get_accounts()
-                        return None
-
-                    return data.get("data", {}).get("lst_ls", [])
-
-                LOGGER.error("E-Svitlo accounts HTTP error: %s", response.status)
-                return None
-        except (aiohttp.ClientError, TimeoutError):
-            LOGGER.exception("Exception getting E-Svitlo accounts")
-            return None
+        # Short list API endpoint
+        data = await self._send_post_request("api_main_reg/short_list_ls_api.json")
+        if data:
+            return data.get("data", {}).get("lst_ls", [])
+        return None
 
     async def get_user_info(self) -> dict | None:
         """Get user information from E-Svitlo API."""
         if not self.is_authenticated and not await self.login():
             return None
 
-        try:
-            # If we don't have a user_id (account_id),
-            # we need to fetch the list and pick one
-            if not self.user_id:
-                start_data = await self.get_accounts()
-                if start_data:
-                    # Default to first account if not specified
-                    self.user_id = start_data[0].get("a")
+        # If we don't have a user_id (account_id),
+        # we need to fetch the list and pick one
+        if not self.user_id:
+            start_data = await self.get_accounts()
+            if start_data:
+                # Default to first account if not specified
+                self.user_id = start_data[0].get("a")
 
-            if not self.user_id:
-                LOGGER.error("No account ID found for E-Svitlo")
-                return None
-
-            async with self.session.post(
-                url=self.base_url + "/api_main_reg/all_details_ls_api.json",
-                data={"a": self.user_id},
-            ) as response_all:
-                data_all = await response_all.json()
-
-                # Check for session expiration in this separate call too just in case
-                if self.is_logged_out(data_all):
-                    self.is_authenticated = False
-                    if await self.login():
-                        return await self.get_user_info()
-                    return None
-
-                identifiers = data_all.get("data", {}).get("lst_cherga")
-                if identifiers:
-                    # ``` "lst_cherga": [
-                    #     "4.1",
-                    #     "\"4 черга 1 підчерга ГПВ\"",
-                    #     "infinity",
-                    #     "infinity"
-                    #  ]```
-                    self.group = identifiers[0]
-                LOGGER.debug("E-Svitlo all_user info: %s", data_all)
-
-                return data_all
-
-        except (aiohttp.ClientError, TimeoutError):
-            LOGGER.exception("Exception getting E-Svitlo user info")
+        if not self.user_id:
+            LOGGER.error("No account ID found for E-Svitlo")
             return None
+
+        data_all = await self._send_post_request(
+            "/api_main_reg/all_details_ls_api.json", {"a": self.user_id}
+        )
+        if data_all:
+            identifiers = data_all.get("data", {}).get("lst_cherga")
+            if identifiers:
+                # ``` "lst_cherga": [
+                #     "4.1",
+                #     "\"4 черга 1 підчерга ГПВ\"",
+                #     "infinity",
+                #     "infinity"
+                #  ]```
+                self.group = identifiers[0]
+            LOGGER.debug("E-Svitlo all_user info: %s", data_all)
+            return data_all
+
+        return None
 
     async def get_disconnections(self) -> list[PlannedOutageEvent] | None:
         """Get user disconnections from E-Svitlo API."""
         if not await self._ensure_connection():
             return None
 
-        try:
-            async with self.session.post(
-                url=self.base_url + "api_main/get_user_disconnections_image_api.json",
-                data={"a": self.user_id, "cherga": self.group, "mobile_v": True},
-            ) as response:
-                if response.status != 200:  # noqa: PLR2004
-                    LOGGER.error(
-                        "E-Svitlo disconnections HTTP error: %s", response.status
-                    )
-                    return None
+        data = await self._send_post_request(
+            "api_main/get_user_disconnections_image_api.json",
+            {"a": self.user_id, "cherga": self.group, "mobile_v": True},
+        )
 
-                data = await response.json()
-                events = self._parse_disconnections(data)
-                self._cached_events = events or []
-                # Store last update timestamp from API response
-                main_data = data.get("data", {})
-                last_update_str = main_data.get("dict_tom", {}).get(
-                    "last_update", ""
-                ) or main_data.get("last_update", "")
-                if last_update_str and "Оновлено:" in last_update_str:
-                    # Parse format: "Оновлено: 13.12.2025 10:59"
-                    try:
-                        date_part = last_update_str.replace("Оновлено:", "").strip()
-                        self._last_update = datetime.strptime(
-                            date_part, "%d.%m.%Y %H:%M"
-                        ).replace(tzinfo=TZ_UA)
-                    except ValueError:
-                        LOGGER.debug("Failed to parse last_update: %s", last_update_str)
-                        self._last_update = datetime.now(TZ_UA)
-                else:
+        if data:
+            events = self._parse_disconnections(data)
+            self._cached_events = events or []
+            # Store last update timestamp from API response
+            main_data = data.get("data", {})
+            last_update_str = main_data.get("dict_tom", {}).get(
+                "last_update", ""
+            ) or main_data.get("last_update", "")
+            if last_update_str and "Оновлено:" in last_update_str:
+                # Parse format: "Оновлено: 13.12.2025 10:59"
+                try:
+                    date_part = last_update_str.replace("Оновлено:", "").strip()
+                    self._last_update = datetime.strptime(
+                        date_part, "%d.%m.%Y %H:%M"
+                    ).replace(tzinfo=TZ_UA)
+                except ValueError:
+                    LOGGER.debug("Failed to parse last_update: %s", last_update_str)
                     self._last_update = datetime.now(TZ_UA)
-                return events
+            else:
+                self._last_update = datetime.now(TZ_UA)
+            return events
 
-        except (aiohttp.ClientError, TimeoutError):
-            LOGGER.exception("Exception getting E-Svitlo disconnections")
-            return None
+        return None
 
     async def _ensure_connection(self) -> bool:
         """Check and ensure connection is authenticated."""
