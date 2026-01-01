@@ -2,13 +2,15 @@ type: grid
 cards:
   - type: entities
     entities:
-    - entity: calendar.kiiv_dtek_3_1_planned_outages
     - entity: sensor.kiiv_dtek_3_1_electricity
+    - entity: calendar.kiiv_dtek_3_1_planned_outages
     - entity: calendar.kiiv_dtek_3_1_scheduled_outages
     - entity: sensor.kiiv_dtek_3_1_next_planned_outage
+    - entity: sensor.kiiv_dtek_3_1_next_scheduled_outage
     - entity: sensor.kiiv_dtek_3_1_next_connectivity
     - entity: sensor.kiiv_dtek_3_1_schedule_data_changed_on
     - entity: sensor.kiiv_dtek_3_1_schedule_updated_on
+
   - type: history-graph
     entities:
       - entity: binary_sensor.power

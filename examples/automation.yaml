@@ -3,24 +3,24 @@
   triggers:
     - event: start
       offset: "-2:0:00"
-      entity_id: calendar.yasno_group_3_1_outages_calendar
+      entity_id: calendar.kiiv_dtek_3_1_planned_outages
       trigger: calendar
       enabled: false
     - event: start
       offset: "-1:0:00"
-      entity_id: calendar.yasno_group_3_1_outages_calendar
+      entity_id: calendar.kiiv_dtek_3_1_planned_outages
       trigger: calendar
     - event: start
       offset: "-0:30:00"
-      entity_id: calendar.yasno_group_3_1_outages_calendar
+      entity_id: calendar.kiiv_dtek_3_1_planned_outages
       trigger: calendar
     - event: start
       offset: "-0:5:00"
-      entity_id: calendar.yasno_group_3_1_outages_calendar
+      entity_id: calendar.kiiv_dtek_3_1_planned_outages
       trigger: calendar
     - event: start
       offset: "-0:0:00"
-      entity_id: calendar.yasno_group_3_1_outages_calendar
+      entity_id: calendar.kiiv_dtek_3_1_planned_outages
       trigger: calendar
   conditions:
     - condition: and
@@ -60,6 +60,10 @@
   trigger:
     - platform: state
       entity_id: sensor.kiiv_dtek_3_1_schedule_data_changed_on
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 5
   action:
     - service: notify.mobile_app
       data:
@@ -70,6 +74,10 @@
     - platform: state
       entity_id: sensor.kiiv_dtek_3_1_schedule_updated_on
       attribute: last_data_change
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 5
   action:
     - service: notify.mobile_app
       data:
