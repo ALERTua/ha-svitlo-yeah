@@ -21,15 +21,18 @@
           "group": "Find your group at: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
         }
       },
-      "auth": {
+      "esvitlo_auth": {
         "title": "E-Svitlo Authentication",
         "description": "Enter your E-Svitlo credentials",
         "data": {
           "username": "Username",
           "password": "Password"
+        },
+        "data_description": {
+          "username": "Use login and password from E-Svitlo personal cabinet: https://sm.e-svitlo.com.ua/"
         }
       },
-      "account": {
+      "esvitlo_account": {
         "title": "Select Account",
         "description": "Select the account (address) to monitor",
         "data": {

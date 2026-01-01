@@ -426,3 +426,40 @@ class TestESvitloClientDisconnections:
         mock_session_post.return_value.__aenter__.return_value = resp_acc
 
         assert await client.get_user_info() is None
+
+    async def test_get_disconnections_relogin(self, client, mock_session_post):
+        """Test get_disconnections re-login on session expiration."""
+        client.is_authenticated = True
+        client.group = "4.1"
+
+        expired = {"error": {"err": E_SVITLO_ERROR_NOT_LOGGED_IN}}
+        login_ok = {"data": {"login": True}}
+
+        response_data = {
+            "data": {
+                "date_today": "15.12.2025",
+                "lst_time_disc": [{"start_time": "10:00", "end_time": "12:00"}],
+            }
+        }
+
+        # 1. get_disconnections -> expired
+        resp_expired = AsyncMock(status=200)
+        resp_expired.json = AsyncMock(return_value=expired)
+
+        # 2. login -> ok
+        resp_login = AsyncMock(status=200)
+        resp_login.json = AsyncMock(return_value=login_ok)
+
+        # 3. get_disconnections -> success
+        resp_data = AsyncMock(status=200)
+        resp_data.json = AsyncMock(return_value=response_data)
+
+        mock_session_post.return_value.__aenter__.side_effect = [
+            resp_expired,
+            resp_login,
+            resp_data,
+        ]
+
+        events = await client.get_disconnections()
+        assert len(events) == 1
+        assert events[0].start == datetime(2025, 12, 15, 10, 0, tzinfo=TZ_UA)
