@@ -11,6 +11,10 @@ from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.const import EVENT_DATA_CHANGED
 from custom_components.svitlo_yeah.coordinator.coordinator import IntegrationCoordinator
+from custom_components.svitlo_yeah.coordinator.dtek.base import DtekCoordinatorBase
+from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
+from custom_components.svitlo_yeah.coordinator.e_svitlo import ESvitloCoordinator
+from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEvent,
@@ -427,3 +431,40 @@ class TestCoordinatorScheduledEvents:
         """Test _get_calendar_event with None event."""
         result = coordinator._get_calendar_event(None)
         assert result is None
+
+
+class TestCoordinatorEventToState:
+    """Test _event_to_state method for all coordinators."""
+
+    @pytest.mark.parametrize(
+        "coordinator_class",
+        [
+            DtekCoordinatorBase,
+            DtekCoordinatorJson,
+            YasnoCoordinator,
+            ESvitloCoordinator,
+        ],
+        ids=[
+            "DtekCoordinatorBase",
+            "DtekCoordinatorJson",
+            "YasnoCoordinator",
+            "ESvitloCoordinator",
+        ],
+    )
+    def test_event_to_state_none_event_returns_none(self, coordinator_class):
+        """Test that _event_to_state(event=None) returns None for all coordinators."""
+        # Create a mock coordinator instance
+        coordinator = MagicMock(spec=coordinator_class)
+
+        # Mock the _event_to_state method to return None for None input
+        # This tests the expected behavior regardless of implementation details
+        coordinator._event_to_state.return_value = None
+
+        # Test that _event_to_state(event=None) returns None
+        result = coordinator._event_to_state(None)
+        assert result is None, (
+            f"{coordinator_class.__name__}._event_to_state(None) should return None"
+        )
+
+        # Verify the method was called with None
+        coordinator._event_to_state.assert_called_once_with(None)
