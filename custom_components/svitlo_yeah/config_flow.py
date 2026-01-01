@@ -195,7 +195,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            LOGGER.debug("async_step_auth: User input received")
+            LOGGER.debug("async_step_esvitlo_auth: User input received")
 
             # Validate credentials by attempting login
             provider = ESvitloProvider(
