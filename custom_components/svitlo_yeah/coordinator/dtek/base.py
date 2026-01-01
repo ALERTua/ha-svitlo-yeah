@@ -124,8 +124,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""
         if not event:
-            LOGGER.debug("_event_to_state: no event, setting electricity to None")
-            return None
+            return ConnectivityState.STATE_NORMAL
 
         if event.uid == PlannedOutageEventType.DEFINITE.value:
             return ConnectivityState.STATE_PLANNED_OUTAGE

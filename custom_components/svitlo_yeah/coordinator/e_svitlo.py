@@ -103,10 +103,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""
         if event is None:
-            LOGGER.debug(
-                "Esvitlo _event_to_state: no event, setting electricity to None"
-            )
-            return None
+            return ConnectivityState.STATE_NORMAL
 
         # Map event types to states using the uid field
         if event.uid == PlannedOutageEventType.DEFINITE.value:

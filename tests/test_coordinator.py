@@ -451,19 +451,19 @@ class TestCoordinatorEventToState:
             "ESvitloCoordinator",
         ],
     )
-    def test_event_to_state_none_event_returns_none(self, coordinator_class):
-        """Test that _event_to_state(event=None) returns None for all coordinators."""
+    def test_event_to_state_none_event_returns_normal(self, coordinator_class):
+        """Test that _event_to_state(event=None) returns STATE_NORMAL for all coordinators."""
         # Create a mock coordinator instance
         coordinator = MagicMock(spec=coordinator_class)
 
-        # Mock the _event_to_state method to return None for None input
+        # Mock the _event_to_state method to return STATE_NORMAL for None input
         # This tests the expected behavior regardless of implementation details
-        coordinator._event_to_state.return_value = None
+        coordinator._event_to_state.return_value = ConnectivityState.STATE_NORMAL
 
-        # Test that _event_to_state(event=None) returns None
+        # Test that _event_to_state(event=None) returns STATE_NORMAL
         result = coordinator._event_to_state(None)
-        assert result is None, (
-            f"{coordinator_class.__name__}._event_to_state(None) should return None"
+        assert result == ConnectivityState.STATE_NORMAL, (
+            f"{coordinator_class.__name__}._event_to_state(None) should return STATE_NORMAL"
         )
 
         # Verify the method was called with None
