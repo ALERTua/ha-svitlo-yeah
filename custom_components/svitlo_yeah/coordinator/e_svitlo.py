@@ -103,7 +103,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""
         if event is None:
-            return ConnectivityState.STATE_NORMAL
+            return None
 
         # Map event types to states using the uid field
         if event.uid == PlannedOutageEventType.DEFINITE.value:
