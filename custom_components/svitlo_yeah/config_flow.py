@@ -91,7 +91,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         LOGGER.debug("async_step_user: No User input yet")
         await self.api_yasno.fetch_yasno_regions()
-        yasno_regions: list[YasnoRegion] = self.api_yasno.regions
+        yasno_regions: list[YasnoRegion] = self.api_yasno.regions  # ty:ignore[invalid-assignment]
         LOGGER.debug("async_step_user: yasno_regions: %s", yasno_regions)
         yasno_providers: list[YasnoProvider] = []
         if yasno_regions:
