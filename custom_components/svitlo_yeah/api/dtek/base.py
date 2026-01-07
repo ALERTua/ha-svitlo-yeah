@@ -14,7 +14,7 @@ from ..common_tools import _merge_adjacent_events, parse_timestamp
 LOGGER = logging.getLogger(__name__)
 
 
-def _parse_group_hours(
+def _parse_group_hours(  # noqa: PLR0912
     group_hours: dict[str, str],
 ) -> list[tuple[datetime.time, datetime.time]]:
     """
@@ -62,28 +62,25 @@ def _parse_group_hours(
         # Get status for this hour slot
         status = group_hours.get(key, "yes")
 
-        # Cut off mfirst and msecond as no
-        if status in ("msecond", "mfirst"):
-            status = "no"
-
         if status == "yes":
             # Power is on - close any open outage period
             if outage_start is not None:
                 ranges.append((outage_start, datetime.time(hour, 0)))
                 outage_start = None
-        else:  # "first", "no", or "second" - all indicate outages
+        else:  # "no", "first", "mfirst", "second", "msecond" - all indicate outages
             # Power is out - start or continue outage period
             if outage_start is None:  # Start new outage at appropriate time
-                outage_start = (
-                    datetime.time(hour, 30)  # Start at half-hour if "second"
-                    if status == "second"
-                    else datetime.time(hour, 0)  # Otherwise start at top of hour
-                )
-            if (
-                status == "first"
-            ):  # If "first", close at hour:30 (next slot will be "yes")
-                ranges.append((outage_start, datetime.time(hour, 30)))
-                outage_start = None
+                if status in ("second", "msecond"):
+                    outage_start = datetime.time(hour, 30)  # Start at half-hour
+                elif status in ("first", "mfirst", "no"):
+                    outage_start = datetime.time(hour, 0)  # Start at top of hour
+
+            # Handle end times for 30-minute slots - but only end if next hour is "yes"
+            if status in ("first", "mfirst"):
+                next_status = group_hours.get(str(n + 1), "yes")
+                if next_status == "yes":  # Only end if next hour is "yes"
+                    ranges.append((outage_start, datetime.time(hour, 30)))
+                    outage_start = None
 
     # Close any remaining open outage period at end of day
     if outage_start is not None:
@@ -341,7 +338,7 @@ def _debug_data() -> dict:
     output = {
         "data": {
             midnight.timestamp(): {
-                "GPV1.1": {
+                "GPV1.2": {
                     "1": "yes",
                     "2": "yes",
                     "3": "yes",
@@ -351,21 +348,21 @@ def _debug_data() -> dict:
                     "7": "yes",
                     "8": "yes",
                     "9": "yes",
-                    "10": "yes",
-                    "11": "yes",
-                    "12": "yes",
-                    "13": "second",
-                    "14": "no",
-                    "15": "no",
-                    "16": "no",
-                    "17": "first",
+                    "10": "msecond",
+                    "11": "no",
+                    "12": "msecond",
+                    "13": "yes",
+                    "14": "yes",
+                    "15": "yes",
+                    "16": "yes",
+                    "17": "yes",
                     "18": "yes",
                     "19": "yes",
-                    "20": "yes",
-                    "21": "yes",
-                    "22": "second",
+                    "20": "mfirst",
+                    "21": "no",
+                    "22": "no",
                     "23": "no",
-                    "24": "no",
+                    "24": "mfirst",
                 },
             },
         },
