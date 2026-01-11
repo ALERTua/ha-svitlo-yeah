@@ -18,7 +18,7 @@ from homeassistant.helpers.selector import (
 
 from .api.dtek.json import DtekAPIJson
 from .api.e_svitlo import ESvitloClient
-from .api.yasno import YasnoApi
+from .api.yasno import YASNO_REGIONS_ENDPOINT, YasnoApi
 from .const import (
     CONF_ACCOUNT_ID,
     CONF_ADDRESS_STR,
@@ -41,6 +41,8 @@ from .models.providers import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from .models import YasnoRegion
 
 
@@ -157,6 +159,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         provider_type = self.data[CONF_PROVIDER_TYPE]
 
         groups = []
+        errors: dict[str, str] | None = None
+        description_placeholders: Mapping[str, str] | None = None
         if provider_type == PROVIDER_TYPE_YASNO:
             if region_id and provider_id:
                 temp_api = YasnoApi(
@@ -165,12 +169,29 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 await temp_api.fetch_planned_outage_data()
                 groups = temp_api.get_yasno_groups()
+                if not groups:
+                    description_placeholders = {"url": YASNO_REGIONS_ENDPOINT}
+                    # noinspection PyTypeChecker
+                    return self.async_abort(
+                        reason="yasno_connection_error",
+                        description_placeholders=description_placeholders,
+                    )
+
         elif provider_type == PROVIDER_TYPE_DTEK_JSON and provider_id:
             urls = DTEK_PROVIDER_URLS.get(provider_id, [])
             if urls:
                 temp_api = DtekAPIJson(urls=urls, group=None)
                 await temp_api.fetch_data()
                 groups = temp_api.get_dtek_region_groups()
+                if not groups:
+                    description_placeholders = {
+                        "urls": urls[0] if len(urls) == 1 else urls
+                    }  # ty:ignore[invalid-assignment]
+                    # noinspection PyTypeChecker
+                    return self.async_abort(
+                        reason="dtek_json_empty_data",
+                        description_placeholders=description_placeholders,
+                    )
 
         data_schema = vol.Schema(
             {
@@ -186,7 +207,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
         # noinspection PyTypeChecker
-        return self.async_show_form(step_id="group", data_schema=data_schema)
+        return self.async_show_form(
+            step_id="group",
+            data_schema=data_schema,
+            errors=errors,
+            description_placeholders=description_placeholders,
+        )
 
     async def async_step_esvitlo_auth(
         self, user_input: dict | None = None
