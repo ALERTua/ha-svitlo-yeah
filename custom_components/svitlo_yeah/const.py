@@ -115,4 +115,7 @@ DTEK_PROVIDER_URLS: dict[str, list[str]] = {
     "poltava": [
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Poltavaoblenergo.json",
     ],
+    "rivne": [
+        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Rivneoblenergo.json",
+    ],
 }
