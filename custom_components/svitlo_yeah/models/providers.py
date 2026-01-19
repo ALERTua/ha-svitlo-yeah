@@ -36,7 +36,7 @@ class BaseProvider:
         return self.unique_key
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ESvitloProvider(BaseProvider):
     """E-Svitlo provider model."""
 
@@ -57,7 +57,7 @@ class ESvitloProvider(BaseProvider):
         return self.user_name
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class YasnoProvider(BaseProvider):
     """Yasno provider model."""
 
@@ -83,7 +83,7 @@ class YasnoProvider(BaseProvider):
         return cls(**data, region_id=region_id, region_name=region_name)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class DTEKJsonProvider(BaseProvider):
     """DTEK provider for DTEK JSON API."""
 
