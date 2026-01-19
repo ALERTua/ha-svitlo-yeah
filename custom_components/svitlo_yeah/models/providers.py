@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Self
 
 from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
 
@@ -77,7 +78,7 @@ class YasnoProvider(BaseProvider):
         return self.id
 
     @classmethod
-    def from_dict(cls, data: dict, region_id: int, region_name: str) -> YasnoProvider:
+    def from_dict(cls, data: dict, region_id: int, region_name: str) -> Self:
         """Create instance from dict data."""
         return cls(**data, region_id=region_id, region_name=region_name)
 
