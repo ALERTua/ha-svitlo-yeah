@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Self
@@ -9,23 +10,27 @@ from typing import Self
 from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
 
 
-class BaseProvider:
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BaseProvider(ABC):
     """Base class for provider models."""
 
     region_name: str
     region_id: int | None = None
 
     @property
+    @abstractmethod
     def unique_key(self) -> str:
         """Subclasses must implement this property."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def provider_id(self) -> str | int:
         """Subclasses must implement this property."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def provider_type(self) -> str:
         """Subclasses must implement this property."""
         raise NotImplementedError
