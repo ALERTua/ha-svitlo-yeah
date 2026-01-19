@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 
 from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
 
@@ -42,21 +43,17 @@ class ESvitloProvider(BaseProvider):
     password: str
     region_name: str = "sumy"
     account_id: int | str | None = None
+    provider_type: str = PROVIDER_TYPE_E_SVITLO
 
-    @property
+    @cached_property
     def unique_key(self) -> str:
         """Generate unique key for this provider."""
         return f"{self.__class__.__name__.lower()}_{self.region_name}"
 
-    @property
+    @cached_property
     def provider_id(self) -> str:
         """Provider ID."""
         return self.user_name
-
-    @property
-    def provider_type(self) -> str:
-        """Provider type."""
-        return PROVIDER_TYPE_E_SVITLO
 
 
 @dataclass(frozen=True)
@@ -67,26 +64,22 @@ class YasnoProvider(BaseProvider):
     name: str
     region_name: str
     region_id: int | None = None
+    provider_type: str = PROVIDER_TYPE_YASNO
 
-    @property
+    @cached_property
     def unique_key(self) -> str:
         """Generate unique key for this provider."""
         return f"{self.__class__.__name__.lower()}_{self.region_id}_{self.id}"
+
+    @cached_property
+    def provider_id(self) -> int:
+        """Provider ID."""
+        return self.id
 
     @classmethod
     def from_dict(cls, data: dict, region_id: int, region_name: str) -> YasnoProvider:
         """Create instance from dict data."""
         return cls(**data, region_id=region_id, region_name=region_name)
-
-    @property
-    def provider_id(self) -> int:
-        """Provider ID."""
-        return self.id
-
-    @property
-    def provider_type(self) -> str:
-        """Provider type."""
-        return PROVIDER_TYPE_YASNO
 
 
 @dataclass(frozen=True)
@@ -94,18 +87,14 @@ class DTEKJsonProvider(BaseProvider):
     """DTEK provider for DTEK JSON API."""
 
     region_name: str
+    provider_type: str = PROVIDER_TYPE_DTEK_JSON
 
-    @property
+    @cached_property
     def unique_key(self) -> str:
         """Generate unique key for this provider."""
         return f"{self.__class__.__name__.lower()}_{self.region_name}"
 
-    @property
+    @cached_property
     def provider_id(self) -> str:
         """Provider ID."""
         return self.region_name
-
-    @property
-    def provider_type(self) -> str:
-        """Provider type."""
-        return PROVIDER_TYPE_DTEK_JSON
