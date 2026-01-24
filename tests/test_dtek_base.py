@@ -5,10 +5,7 @@ import datetime
 import pytest
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.dtek.base import (
-    _parse_group_hours,
-    _parse_preset_group_hours,
-)
+from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
@@ -225,7 +222,7 @@ class TestDtekAPIBaseParseGroupHours:
                     "9": "yes",
                     "10": "msecond",
                     "11": "no",
-                    "12": "msecond",
+                    "12": "msecond",  # msecond!
                     "13": "yes",
                     "14": "yes",
                     "15": "yes",
@@ -233,14 +230,14 @@ class TestDtekAPIBaseParseGroupHours:
                     "17": "yes",
                     "18": "yes",
                     "19": "yes",
-                    "20": "mfirst",
+                    "20": "mfirst",  # mfirst!
                     "21": "no",
                     "22": "no",
                     "23": "no",
                     "24": "mfirst",
                 },
                 [
-                    (datetime.time(9, 30), datetime.time(12, 0)),
+                    (datetime.time(9, 30), datetime.time(12, 00)),
                     (datetime.time(19, 0), datetime.time(23, 30)),
                 ],
             ),
@@ -253,7 +250,7 @@ class TestDtekAPIBaseParseGroupHours:
 
 
 class TestDtekAPIBaseParsePresetGroupHours:
-    """Test _parse_preset_group_hours method."""
+    """Test _parse_group_hours method for preset data (same function as for real data)."""
 
     @pytest.mark.parametrize(
         "group_hours,expected",  # noqa: PT006
@@ -345,11 +342,45 @@ class TestDtekAPIBaseParsePresetGroupHours:
                 },
                 [(datetime.time(23, 0), datetime.time(23, 59, 59))],
             ),
+            # Complex real-world scenario with msecond/mfirst transitions
+            (
+                {
+                    "1": "yes",
+                    "2": "msecond",
+                    "3": "no",
+                    "4": "no",
+                    "5": "no",
+                    "6": "no",
+                    "7": "no",
+                    "8": "msecond",
+                    "9": "yes",
+                    "10": "mfirst",
+                    "11": "no",
+                    "12": "no",
+                    "13": "no",
+                    "14": "no",
+                    "15": "no",
+                    "16": "no",
+                    "17": "mfirst",
+                    "18": "msecond",
+                    "19": "no",
+                    "20": "no",
+                    "21": "no",
+                    "22": "no",
+                    "23": "msecond",
+                    "24": "yes",
+                },
+                [
+                    (datetime.time(1, 30), datetime.time(8, 0)),
+                    (datetime.time(9, 0), datetime.time(16, 30)),
+                    (datetime.time(17, 30), datetime.time(23, 0)),
+                ],
+            ),
         ],
     )
     def test_parse_preset_group_hours(self, group_hours, expected):
-        """Test parsing various preset group hour patterns."""
-        result = _parse_preset_group_hours(group_hours)
+        """Test parsing various preset group hour patterns using the unified function."""
+        result = _parse_group_hours(group_hours)
         assert result == expected
 
 
