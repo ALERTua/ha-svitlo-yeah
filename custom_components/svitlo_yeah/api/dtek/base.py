@@ -17,7 +17,26 @@ LOGGER = logging.getLogger(__name__)
 def _parse_group_hours(
     group_hours: dict[str, str],
 ) -> list[tuple[datetime.time, datetime.time]]:
-    """Parse group hours data into outage time ranges."""
+    """
+    Parse group hours data into a list of outage time ranges.
+
+    'GPV1.1': {
+        '1': 'yes',
+        ...
+        '12': 'yes',
+        '13': 'second',
+        '14': 'no',
+        '15': 'no',
+        '16': 'no',
+        '17': 'first',
+        '18': 'yes',
+        ...
+        '24': 'yes',
+    },
+    Supports two hour formats:
+    - Hours starting from '1' (corresponding to 0:00) up to '24'
+    - Hours starting from '0' (00:00) up to '23'
+    """
     ranges = []
     outage_start = None
 
