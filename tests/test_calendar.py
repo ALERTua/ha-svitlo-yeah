@@ -36,7 +36,7 @@ class TestPlannedOutagesCalendar:
         calendar = PlannedOutagesCalendar(coordinator)
 
         assert calendar.coordinator == coordinator
-        expected_entity_id = "calendar._kyiv_dtek_1_1_planned_outages"
+        expected_entity_id = "calendar.kyiv_dtek_1_1_planned_outages"
         assert calendar.entity_id == expected_entity_id
         assert calendar.entity_description.name == "Calendar"
         assert calendar.entity_description.translation_key == "calendar"
@@ -82,7 +82,7 @@ class TestScheduledOutagesCalendar:
         calendar = ScheduledOutagesCalendar(coordinator)
 
         assert calendar.coordinator == coordinator
-        expected_entity_id = "calendar._kyiv_dtek_1_1_scheduled_outages"
+        expected_entity_id = "calendar.kyiv_dtek_1_1_scheduled_outages"
         assert calendar.entity_id == expected_entity_id
         assert calendar.entity_description.name == "Scheduled Calendar"
         assert calendar.entity_description.translation_key == "scheduled_calendar"
