@@ -14,24 +14,24 @@ from ..common_tools import _merge_adjacent_events, parse_timestamp
 LOGGER = logging.getLogger(__name__)
 
 
-def _parse_group_hours(  # noqa: PLR0912
+def _parse_group_hours(
     group_hours: dict[str, str],
 ) -> list[tuple[datetime.time, datetime.time]]:
     """
     Parse group hours data into a list of outage time ranges.
 
     'GPV1.1': {
-    '1': 'yes',
-    ...
-    '12': 'yes',
-    '13': 'second',
-    '14': 'no',
-    '15': 'no',
-    '16': 'no',
-    '17': 'first',
-    '18': 'yes',
-    ...
-    '24': 'yes',
+        '1': 'yes',
+        ...
+        '12': 'yes',
+        '13': 'second',
+        '14': 'no',
+        '15': 'no',
+        '16': 'no',
+        '17': 'first',
+        '18': 'yes',
+        ...
+        '24': 'yes',
     },
     Supports two hour formats:
     - Hours starting from '1' (corresponding to 0:00) up to '24'
@@ -40,122 +40,101 @@ def _parse_group_hours(  # noqa: PLR0912
     ranges = []
     outage_start = None
 
-    # Check if '0' key is present to determine hour format
-    # If '0' exists, hours are 0-23 (keys '0' to '23')
-    # If no '0', hours are 1-24 (keys '1' to '24')
-    if "0" in group_hours:
-        # Parse 24-hour format starting from 0
-        start_n, end_n = 0, 24
-    else:
-        # Parse 24-hour format starting from 1
-        start_n, end_n = 1, 25
+    hours_range = range(24)
+    get_key = lambda h: str(h + 1)  # noqa: E731
+    if "0" in group_hours:  # 0-23 or 1-24 hour format
+        get_key = str
 
-    for n in range(start_n, end_n):
-        # Calculate actual hour (0-23) from n
-        if "0" in group_hours:
-            hour = n  # '0' key -> hour 0, '1' key -> hour 1, etc.
-            key = str(n)
-        else:
-            hour = n - 1  # '1' key -> hour 0, '2' key -> hour 1, etc.
-            key = str(n)
+    def safe_time(hour: int, minute: int = 0) -> datetime.time:
+        """Create datetime.time handling hour 24 as midnight (0:00)."""
+        if hour >= 24:  # noqa: PLR2004
+            return datetime.time(0, minute)
+        return datetime.time(hour, minute)
 
-        # Get status for this hour slot
+    for hour in hours_range:
+        key = get_key(hour)
         status = group_hours.get(key, "yes")
 
+        prev_key = get_key(hour - 1) if hour > 0 else None
+        next_key = get_key(hour + 1) if hour < 23 else None  # noqa: PLR2004
+
+        prev_status = group_hours.get(prev_key, "yes") if prev_key else "yes"
+        next_status = group_hours.get(next_key, "yes") if next_key else "yes"
+
         if status == "yes":
-            # Power is on - close any open outage period
             if outage_start is not None:
-                ranges.append((outage_start, datetime.time(hour, 0)))
+                ranges.append((outage_start, safe_time(hour)))
                 outage_start = None
-        else:  # "no", "first", "mfirst", "second", "msecond" - all indicate outages
-            # Power is out - start or continue outage period
-            if outage_start is None:  # Start new outage at appropriate time
-                if status in ("second", "msecond"):
-                    outage_start = datetime.time(hour, 30)  # Start at half-hour
-                elif status in ("first", "mfirst", "no"):
-                    outage_start = datetime.time(hour, 0)  # Start at top of hour
+        elif status in ("second", "msecond"):
+            if prev_status == "yes" or (
+                prev_status in ("first", "mfirst") and outage_start is None
+            ):
+                # Start new outage at 30 minutes
+                outage_start = safe_time(hour, 30)
+            elif outage_start is None:
+                # Continue from previous outage, start at beginning of hour
+                outage_start = safe_time(hour)
+        elif status in ("first", "mfirst"):
+            if outage_start is None:
+                outage_start = safe_time(hour)
+            if next_status == "yes" or (next_status in ("second", "msecond")):
+                # End outage at 30 minutes
+                ranges.append((outage_start, safe_time(hour, 30)))
+                outage_start = None
+        elif status in ("no", "maybe") and outage_start is None:
+            outage_start = safe_time(hour)
 
-            # Handle end times for 30-minute slots - but only end if next hour is "yes"
-            if status in ("first", "mfirst"):
-                next_status = group_hours.get(str(n + 1), "yes")
-                if next_status == "yes":  # Only end if next hour is "yes"
-                    ranges.append((outage_start, datetime.time(hour, 30)))
-                    outage_start = None
-
-    # Close any remaining open outage period at end of day
+    # Close any remaining outage at end of day
     if outage_start is not None:
         ranges.append((outage_start, datetime.time(23, 59, 59)))
 
     return ranges
 
 
-def _parse_preset_group_hours(  # noqa: PLR0912
-    group_hours: dict[str, str],
+def _merge_ranges(
+    ranges: list[tuple[datetime.time, datetime.time]],
 ) -> list[tuple[datetime.time, datetime.time]]:
     """
-    Parse preset group hours data into a list of scheduled outage time ranges.
+    Merge adjacent or overlapping time ranges.
 
-    Based on time_type mapping:
-    - "yes": no outage
-    - "maybe", "no", "first", "second", "mfirst", "msecond": scheduled outages
+    Args:
+        ranges: List of time ranges to merge
 
-    Handles 30-minute precision for "first"/"second"/"mfirst"/"msecond".
+    Returns:
+        List of merged time ranges
+
     """
-    ranges = []
-    outage_start = None
+    if not ranges:
+        return []
 
-    # Check if '0' key is present to determine hour format
-    # If '0' exists, hours are 0-23 (keys '0' to '23')
-    # If no '0', hours are 1-24 (keys '1' to '24')
-    if "0" in group_hours:
-        # Parse 24-hour format starting from 0
-        start_n, end_n = 0, 24
-    else:
-        # Parse 24-hour format starting from 1
-        start_n, end_n = 1, 25
+    # Sort ranges by start time
+    sorted_ranges = sorted(ranges, key=lambda x: x[0])
 
-    # Hours are 1-24 (keys '1' to '24')
-    for n in range(start_n, end_n):
-        hour = n - 1  # '1' key -> hour 0, '2' key -> hour 1, etc.
-        key = str(n)
+    merged = []
+    current_start, current_end = sorted_ranges[0]
 
-        # Get status for this hour slot
-        status = group_hours.get(key, "yes")
+    for start, end in sorted_ranges[1:]:
+        # Check if ranges are adjacent or overlapping
+        # For time ranges, we consider them adjacent if start <= current_end
+        if start <= current_end:
+            # Ranges overlap or are adjacent, merge them
+            # If end is 59:59, use the next hour boundary
+            if end.minute == 59 and end.second == 59:  # noqa: PLR2004
+                if end.hour < 23:  # noqa: PLR2004
+                    current_end = datetime.time(end.hour + 1)
+                else:
+                    current_end = datetime.time(23, 59, 59)
+            else:
+                current_end = max(current_end, end)
+        else:
+            # No overlap, add current range and start a new one
+            merged.append((current_start, current_end))
+            current_start, current_end = start, end
 
-        if status == "yes":
-            # Power is on - close any open outage period
-            if outage_start is not None:
-                ranges.append((outage_start, datetime.time(hour, 0)))
-                outage_start = None
-        else:  # All non-"yes" values indicate scheduled outages
-            # Power is scheduled to be out - start or continue outage period
-            if outage_start is None:  # Start new outage at appropriate time
-                if status in ("second", "msecond"):
-                    outage_start = datetime.time(hour, 30)  # Start at half-hour
-                elif status in ("first", "mfirst"):
-                    outage_start = datetime.time(hour, 0)  # Start at top of hour
-                else:  # "maybe", "no"
-                    outage_start = datetime.time(hour, 0)  # Start at top of hour
+    # Add the last range
+    merged.append((current_start, current_end))
 
-            # Handle end times for 30-minute slots
-            if status in ("first", "mfirst"):
-                # End at hour:30
-                ranges.append((outage_start, datetime.time(hour, 30)))
-                outage_start = None
-            elif status in ("second", "msecond"):
-                # End at hour:59:59 (next slot will determine continuation)
-                if outage_start is None:
-                    # This is just the second half - start was previous slot
-                    ranges.append(
-                        (datetime.time(hour, 30), datetime.time(hour, 59, 59))
-                    )
-                # If outage_start was set, continue to next slot
-
-    # Close any remaining open outage period at end of day
-    if outage_start is not None:
-        ranges.append((outage_start, datetime.time(23, 59, 59)))
-
-    return ranges
+    return merged
 
 
 class DtekAPIBase:
@@ -219,7 +198,9 @@ class DtekAPIBase:
                     second=0,
                     microsecond=0,
                 )
-                if end_time.hour == 23 and end_time.minute == 59:  # noqa: PLR2004
+                if (end_time.hour == 23 and end_time.minute == 59) or (  # noqa: PLR2004
+                    end_time.hour == 0 and end_time.minute == 0
+                ):
                     event_end = (day_dt + datetime.timedelta(days=1)).replace(
                         hour=0,
                         minute=0,
@@ -295,7 +276,7 @@ class DtekAPIBase:
                 if not day_data:
                     continue
 
-                time_ranges = _parse_preset_group_hours(day_data)
+                time_ranges = _parse_group_hours(day_data)
 
                 for start_time, end_time in time_ranges:
                     event_start = day_start.replace(
@@ -305,7 +286,9 @@ class DtekAPIBase:
                         microsecond=0,
                     )
 
-                    if end_time.hour == 23 and end_time.minute == 59:  # noqa: PLR2004
+                    if (end_time.hour == 23 and end_time.minute == 59) or (  # noqa: PLR2004
+                        end_time.hour == 0 and end_time.minute == 0
+                    ):
                         event_end = day_end
                     else:
                         event_end = day_start.replace(

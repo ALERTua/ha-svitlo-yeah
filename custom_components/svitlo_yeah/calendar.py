@@ -3,11 +3,15 @@
 import datetime
 import logging
 
-from homeassistant.components.calendar import CalendarEntity, CalendarEvent
+from homeassistant.components.calendar import (
+    CalendarEntity,
+    CalendarEntityDescription,
+    CalendarEvent,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import slugify
 
 from .coordinator.coordinator import IntegrationCoordinator
 from .entity import IntegrationEntity
@@ -41,14 +45,16 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         """Initialize the calendar entity."""
         super().__init__(coordinator)
 
-        self.entity_id = (
-            "calendar."
-            f"_{coordinator.region_name}"
-            f"_{coordinator.provider_name}"
-            f"_{coordinator.group}"
-            "_planned_outages"
-        )
-        self.entity_description = EntityDescription(
+        entity_id_parts = [
+            f"{coordinator.region_name}" if coordinator.region_name else "",
+            f"_{coordinator.provider_name}" if coordinator.provider_name else "",
+            f"_{coordinator.group}",
+            "_planned_outages",
+        ]
+        entity_id_base = "".join(entity_id_parts)
+        entity_id_base = slugify(entity_id_base.strip("_"))
+        self.entity_id = f"calendar.{entity_id_base}"
+        self.entity_description = CalendarEntityDescription(
             key="calendar",
             name="Calendar",
             translation_key="calendar",
@@ -82,14 +88,16 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
         """Initialize the calendar entity."""
         super().__init__(coordinator)
 
-        self.entity_id = (
-            "calendar."
-            f"_{coordinator.region_name}"
-            f"_{coordinator.provider_name}"
-            f"_{coordinator.group}"
-            "_scheduled_outages"
-        )
-        self.entity_description = EntityDescription(
+        entity_id_parts = [
+            f"{coordinator.region_name}" if coordinator.region_name else "",
+            f"_{coordinator.provider_name}" if coordinator.provider_name else "",
+            f"_{coordinator.group}",
+            "_scheduled_outages",
+        ]
+        entity_id_base = "".join(entity_id_parts)
+        entity_id_base = slugify(entity_id_base.strip("_"))
+        self.entity_id = f"calendar.{entity_id_base}"
+        self.entity_description = CalendarEntityDescription(
             key="scheduled_calendar",
             name="Scheduled Calendar",
             translation_key="scheduled_calendar",
