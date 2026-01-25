@@ -1082,7 +1082,7 @@ wheels = [
 
 [[package]]
 name = "ha-svitlo-yeah"
-version = "0.6.25"
+version = "0.6.26"
 source = { virtual = "." }
 
 [package.dev-dependencies]
