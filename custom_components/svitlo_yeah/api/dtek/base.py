@@ -43,7 +43,7 @@ def _parse_group_hours(
     hours_range = range(24)
     get_key = lambda h: str(h + 1)  # noqa: E731
     if "0" in group_hours:  # 0-23 or 1-24 hour format
-        get_key = str  # noqa: E731
+        get_key = str
 
     def safe_time(hour: int, minute: int = 0) -> datetime.time:
         """Create datetime.time handling hour 24 as midnight (0:00)."""
