@@ -150,7 +150,7 @@ data:
 
 ### Caveats
 
-- To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)
+- To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
 
 
 ## Contributing
