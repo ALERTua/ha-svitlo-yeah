@@ -108,11 +108,13 @@ class YasnoCoordinator(IntegrationCoordinator):
         if DEBUG:
             LOGGER.debug("Event names mapped to translations: %s", self.translations)
         return {
-            PlannedOutageEventType.DEFINITE: self.translations.get(
-                TRANSLATION_KEY_EVENT_PLANNED_OUTAGE
+            PlannedOutageEventType.DEFINITE: (
+                f"{self.translations.get(TRANSLATION_KEY_EVENT_PLANNED_OUTAGE)}"
+                f"{self._group_str}"
             ),
-            PlannedOutageEventType.EMERGENCY: self.translations.get(
-                TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE
+            PlannedOutageEventType.EMERGENCY: (
+                f"{self.translations.get(TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE)}"
+                f"{self._group_str}"
             ),
         }
 

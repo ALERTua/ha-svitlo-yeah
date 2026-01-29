@@ -260,7 +260,11 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             )
 
         # Use scheduled outage translation for scheduled events
-        summary: str = self.translations.get(TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE, "")
+        summary: str = (
+            f"{self.translations.get(TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE, '')}"
+            f"{self._group_str}"
+        )
+        summary = summary.strip()
 
         if DEBUG:
             summary += (
@@ -340,3 +344,12 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             return True
 
         return False
+
+    @property
+    def _group_str(self) -> str:
+        """
+        Postfix for CalendarEvent summaries.
+
+        e.g. Scheduled Outage 3.1
+        """
+        return f" {self.group}"

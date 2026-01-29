@@ -113,3 +113,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
         LOGGER.debug("Unknown event type: %s", event.uid)
         return ConnectivityState.STATE_NORMAL
+
+    @property
+    def _group_str(self) -> str:
+        return ""

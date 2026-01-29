@@ -357,6 +357,7 @@ class TestCoordinatorScheduledEvents:
             )
         ]
         coordinator.api.get_scheduled_events = MagicMock(return_value=scheduled_events)
+        coordinator.group = "1.1"  # Set group for _group_str
 
         start_date = dt_utils.now()
         end_date = start_date + timedelta(days=1)
@@ -369,7 +370,7 @@ class TestCoordinatorScheduledEvents:
         events = coordinator.get_scheduled_events_between(start_date, end_date)
 
         assert len(events) == 1
-        assert events[0].summary == "Scheduled Outage"
+        assert events[0].summary == f"Scheduled Outage {coordinator.group}"
         assert events[0].rrule is None  # Base coordinator uses default None
         coordinator.api.get_scheduled_events.assert_called_once_with(
             start_date, end_date
@@ -394,10 +395,11 @@ class TestCoordinatorScheduledEvents:
             end=dt_utils.now() + timedelta(hours=2),
             all_day=False,
         )
+        coordinator.group = "1.1"  # Set group for _group_str
 
         # Mock the event_name_map property
         type(coordinator).event_name_map = {
-            PlannedOutageEventType.DEFINITE: "Planned Outage"
+            PlannedOutageEventType.DEFINITE: f"Planned Outage {coordinator.group}"
         }
         coordinator.translations = {
             "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
@@ -405,12 +407,12 @@ class TestCoordinatorScheduledEvents:
 
         # Test regular calendar event
         calendar_event = coordinator._get_calendar_event(event)
-        assert calendar_event.summary == "Planned Outage"
+        assert calendar_event.summary == f"Planned Outage {coordinator.group}"
         assert calendar_event.rrule is None
 
         # Test scheduled calendar event with default rrule (None)
         scheduled_event = coordinator._get_scheduled_calendar_event(event)
-        assert scheduled_event.summary == "Scheduled Outage"
+        assert scheduled_event.summary == f"Scheduled Outage {coordinator.group}"
         assert scheduled_event.description == "Scheduled"
         assert scheduled_event.uid == "Scheduled"
         assert scheduled_event.rrule is None
@@ -419,12 +421,12 @@ class TestCoordinatorScheduledEvents:
         custom_rrule_event = coordinator._get_scheduled_calendar_event(
             event, rrule="FREQ=DAILY"
         )
-        assert custom_rrule_event.summary == "Scheduled Outage"
+        assert custom_rrule_event.summary == f"Scheduled Outage {coordinator.group}"
         assert custom_rrule_event.rrule == "FREQ=DAILY"
 
         # Test scheduled calendar event with no rrule
         no_rrule_event = coordinator._get_scheduled_calendar_event(event, rrule=None)
-        assert no_rrule_event.summary == "Scheduled Outage"
+        assert no_rrule_event.summary == f"Scheduled Outage {coordinator.group}"
         assert no_rrule_event.rrule is None
 
     def test_get_calendar_event_none_event(self, coordinator):

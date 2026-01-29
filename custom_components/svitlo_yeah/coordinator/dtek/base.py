@@ -74,8 +74,9 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     def event_name_map(self) -> dict:
         """Return a mapping of event names to translations."""
         return {
-            PlannedOutageEventType.DEFINITE: self.translations.get(
-                TRANSLATION_KEY_EVENT_PLANNED_OUTAGE
+            PlannedOutageEventType.DEFINITE: (
+                f"{self.translations.get(TRANSLATION_KEY_EVENT_PLANNED_OUTAGE)}"
+                f"{self._group_str}"
             ),
         }
 
