@@ -148,6 +148,11 @@ data:
 - Use the **Planned Outages Calendar** with calendar triggers for advance warnings before outages
 - Monitor **Next Planned Outage** and **Next Connectivity** timestamps for countdown displays
 
+### Caveats
+
+- To get your Yasno group, you can use this [video example](/media/yasno_group.mp4)
+
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for information about adding new regions and contributing to the project.
