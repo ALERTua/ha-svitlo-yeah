@@ -3,7 +3,6 @@
   "config": {
     "abort": {
       "no_accounts_found": "No accounts found",
-      "dtek_scraping_fail": "Error accessing the DTEK website\nIf you are sure the site is working, the reason is the site's protection against data collection (anti-bot system Incapsula Imperva).\nCollecting data on DTEK outages is a complex process because the site uses an anti-bot system.\nI can try to bypass the anti-bot system only through third-party specialized services.\nSuch a service costs about 2.5 EUR for 1000 requests (for example https://hypersolutions.co/pricing).\nIf the page on my cache server updates every 30 minutes, the maximum cost will be about ~2.5 EUR for ~20 days.\nOne obtained cookie can possibly be used multiple times, so the real cost may be lower (or significantly lower).\nIf someone is interested in this, I could implement everything myself, I just need the API key of the appropriate service.\nTelegram @ALERTua",
       "yasno_connection_error": "Failed to fetch Yasno groups.\nPlease check your connection to Yasno API.\n{url}",
       "dtek_json_empty_data": "Failed to fetch groups.\nPlease check your connection to the data source.\n`fact.data` field should exist and not be empty.\nThis can happen if there are no scheduled outages for today.\nPlease try to add the integration configuration later when the source contains the schedule data.\n{urls}"
     },
