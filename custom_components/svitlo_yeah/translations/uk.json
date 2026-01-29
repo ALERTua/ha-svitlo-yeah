@@ -20,7 +20,7 @@
           "group": "Оберіть свою групу:"
         },
         "data_description": {
-          "group": "Знайдіть свою групу на: https://static.yasno.ua/kyiv/outages / https://www.dtek-krem.com.ua/ua/shutdowns"
+          "group": "Знайдіть свою групу на: {yasno_url} / {dtek_url}"
         }
       },
       "esvitlo_auth": {
@@ -31,7 +31,7 @@
           "password": "Пароль"
         },
         "data_description": {
-          "username": "Використовуйте логін та пароль від особистого кабінету E-Svitlo: https://sm.e-svitlo.com.ua/"
+          "username": "Використовуйте логін та пароль від особистого кабінету E-Svitlo: {esvitlo_url}"
         }
       },
       "esvitlo_account": {

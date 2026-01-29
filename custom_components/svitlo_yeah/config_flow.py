@@ -206,6 +206,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             },
         )
+
+        # Add description placeholders with URLs
+        if not description_placeholders:
+            description_placeholders = {
+                "yasno_url": "https://static.yasno.ua/kyiv/outages",
+                "dtek_url": "https://www.dtek-krem.com.ua/ua/shutdowns",
+            }
+
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="group",
@@ -250,9 +258,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
+        description_placeholders = {"esvitlo_url": "https://sm.e-svitlo.com.ua/"}
+
         # noinspection PyTypeChecker
         return self.async_show_form(
-            step_id="esvitlo_auth", data_schema=data_schema, errors=errors
+            step_id="esvitlo_auth",
+            data_schema=data_schema,
+            errors=errors,
+            description_placeholders=description_placeholders,
         )
 
     async def async_step_esvitlo_account(
