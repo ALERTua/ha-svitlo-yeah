@@ -99,7 +99,7 @@ def _parse_day_schedule(day_data: dict, dt: datetime) -> list[PlannedOutageEvent
         slot_type = slot["type"]
 
         # parse only outages
-        if slot_type not in [PlannedOutageEventType.DEFINITE.value]:
+        if slot_type != PlannedOutageEventType.DEFINITE.value:
             continue
 
         event_start = _minutes_to_time(start_minutes, dt)
