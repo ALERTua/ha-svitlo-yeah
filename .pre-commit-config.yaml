@@ -17,7 +17,7 @@ repos:
     - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.14
+    rev: v0.15.0
     hooks:
       - id: ruff
         args: [--fix]
@@ -25,7 +25,7 @@ repos:
 
   # https://docs.astral.sh/uv/guides/integration/pre-commit/
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.9.26
+    rev: 0.9.30
     hooks:
       - id: uv-lock
 
@@ -44,7 +44,7 @@ repos:
       - id: todo-md
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.24.1
+    rev: v0.25
     hooks:
       - id: validate-pyproject
         # Optional extra validations from SchemaStore:
