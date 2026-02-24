@@ -125,7 +125,7 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
             # timestamp when outage data actually changed
             "last_data_change": self.coordinator.outage_data_last_changed,
         }
-        if self.entity_description.key not in ["electricity"]:
+        if self.entity_description.key != "electricity":
             return attrs
 
         return {
