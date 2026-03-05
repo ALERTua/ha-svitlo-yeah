@@ -17,7 +17,7 @@ repos:
     - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.2
+    rev: v0.15.4
     hooks:
       - id: ruff
         args: [--fix]
@@ -25,7 +25,7 @@ repos:
 
   # https://docs.astral.sh/uv/guides/integration/pre-commit/
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.10.5
+    rev: 0.10.8
     hooks:
       - id: uv-lock
 
