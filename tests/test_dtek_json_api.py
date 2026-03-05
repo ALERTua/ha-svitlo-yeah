@@ -113,7 +113,7 @@ class TestJsonDtekAPIFetchData:
             # Should not crash, data remains None
             assert api.data is None
 
-    @pytest.mark.skip(reason="Manual test only - requires real network access")
+    @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
     async def test_fetch_data_real_endpoints(self):
         """Test fetching real data from DTEK JSON endpoints."""
         for provider_key in DTEK_PROVIDER_URLS:
