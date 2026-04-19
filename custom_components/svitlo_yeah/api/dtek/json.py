@@ -13,27 +13,31 @@ from .base import DtekAPIBase
 
 LOGGER = logging.getLogger(__name__)
 
+_UPDATE_DATE_FORMATS = (
+    "%d.%m.%Y %H:%M",  # DD.MM.YYYY HH:MM
+    "%H:%M %d.%m.%Y",  # HH:MM DD.MM.YYYY
+)
+
+
+def _parse_update_dt(update_dt: str | None) -> datetime | None:
+    """Parse the `update` field into an aware datetime, or return None."""
+    if not update_dt:
+        return None
+    for fmt in _UPDATE_DATE_FORMATS:
+        try:
+            return datetime.strptime(update_dt, fmt).astimezone(UTC)
+        except ValueError:
+            continue
+    return None
+
 
 def _is_data_sufficiently_fresh(json_data: dict) -> bool:
     """Check if update_dt is within DTEK_FRESH_DATA_DAYS days."""
-    update_dt = json_data.get("update")
-    if not update_dt:
+    parsed_dt = _parse_update_dt(json_data.get("update"))
+    if parsed_dt is None:
         return False
-
-    date_formats = [
-        "%d.%m.%Y %H:%M",  # DD.MM.YYYY HH:MM
-        "%H:%M %d.%m.%Y",  # HH:MM DD.MM.YYYY
-    ]
-
-    for fmt in date_formats:
-        try:
-            parsed_dt = datetime.strptime(update_dt, fmt).astimezone(UTC)
-            age_days = (datetime.now(UTC) - parsed_dt).days
-            return age_days <= DTEK_FRESH_DATA_DAYS  # noqa: TRY300
-        except ValueError:
-            continue
-
-    return False
+    age_days = (datetime.now(UTC) - parsed_dt).days
+    return age_days <= DTEK_FRESH_DATA_DAYS
 
 
 class DtekAPIJson(DtekAPIBase):
@@ -45,8 +49,27 @@ class DtekAPIJson(DtekAPIBase):
         self.urls = urls
         self.preset_data = None
 
-    async def fetch_data(self) -> None:
-        """Fetch from JSON sources with freshness checking."""
+    async def fetch_data(
+        self,
+        *,
+        allow_stale_data: bool = False,
+    ) -> tuple[bool, bool]:
+        """
+        Fetch from JSON sources with freshness checking.
+
+        Returns (success, is_stale):
+        - success: whether self.data was populated.
+        - is_stale: True only when success is True and the data came
+          from a stale source (only possible with allow_stale_data=True).
+
+        When allow_stale_data is False, behavior matches the historical
+        contract: stale data is rejected and self.data stays unchanged
+        if no fresh source is found.
+        """
+        stale_fact: dict | None = None
+        stale_preset: dict | None = None
+        stale_update_dt: datetime | None = None
+
         for url in self.urls:
             try:
                 async with aiohttp.ClientSession() as session:
@@ -61,20 +84,39 @@ class DtekAPIJson(DtekAPIBase):
                         self.data = fact
                         self.preset_data = preset
                         LOGGER.debug("Successfully fetched fresh data from %s", url)
-                        return
+                        return True, False
 
+                    candidate_dt = _parse_update_dt(fact.get("update"))
+                    if candidate_dt is not None and (
+                        stale_update_dt is None or candidate_dt > stale_update_dt
+                    ):
+                        stale_fact = fact
+                        stale_preset = preset
+                        stale_update_dt = candidate_dt
                     LOGGER.debug(
-                        "Data from %s is stale (>2 days), trying next source", url
+                        "Data from %s is stale (>%d days), trying next source",
+                        url,
+                        DTEK_FRESH_DATA_DAYS,
                     )
 
             except Exception as e:  # noqa: BLE001
                 LOGGER.debug("Failed to fetch from %s: %s", url, e)
                 continue
 
-        # All sources failed/stale - use most recent data if available
-        if self.data is None:
-            LOGGER.debug("All JSON sources failed or returned stale data")
-        else:
+        if stale_fact is None:
+            LOGGER.debug("All JSON sources failed; no data available")
+            return False, False
+
+        if not allow_stale_data:
             LOGGER.debug(
-                "Using stale data as fallback since no fresh sources available"
+                "All JSON sources returned stale data; "
+                "allow_stale_data is False, discarding"
             )
+            return False, False
+
+        self.data = stale_fact
+        self.preset_data = stale_preset
+        LOGGER.debug(
+            "Using stale data (updated %s) as explicit fallback", stale_update_dt
+        )
+        return True, True

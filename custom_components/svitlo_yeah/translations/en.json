@@ -40,6 +40,13 @@
         "data": {
           "account_id": "Account"
         }
+      },
+      "stale_confirm": {
+        "title": "Outdated schedule data",
+        "description": "No fresh outage data is available right now.\n\nYou can pick a group from this outdated schedule, but once outages resume please double-check that your group assignment has not changed.",
+        "data": {
+          "acknowledge": "I understand and accept the risk"
+        }
       }
     },
     "error": {
