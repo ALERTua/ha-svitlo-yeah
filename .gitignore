@@ -26,3 +26,5 @@ config/*
 
 # IDE
 .vscode
+.rag_cache/
+plans/
