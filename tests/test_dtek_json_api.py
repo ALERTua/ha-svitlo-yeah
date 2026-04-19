@@ -1,5 +1,6 @@
 """Tests for JSON DTEK API (alternative data sources)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,6 +14,42 @@ from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
 TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
+
+
+def _build_json_payload(update_dt: datetime) -> dict:
+    """Build a `{fact, preset}` payload with the given update datetime."""
+    fact = create_sample_json_data(update_dt)
+    preset = {"data": {f"GPV{TEST_GROUP}": {}}}
+    return {"fact": fact, "preset": preset}
+
+
+def _make_mock_session(payloads_by_url: dict[str, str | Exception]):
+    """
+    Build a mock aiohttp.ClientSession driven by per-URL payloads.
+
+    Each value is either a JSON string to be returned as response text,
+    or an Exception to raise from `raise_for_status()`.
+    """
+
+    def _session_factory():
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        async def _get(url: str, *_args: object, **_kwargs: object):
+            payload = payloads_by_url[url]
+            mock_response = AsyncMock()
+            if isinstance(payload, Exception):
+                mock_response.raise_for_status = MagicMock(side_effect=payload)
+            else:
+                mock_response.raise_for_status = MagicMock()
+                mock_response.text = AsyncMock(return_value=payload)
+            return mock_response
+
+        mock_session.get = _get
+        return mock_session
+
+    return MagicMock(side_effect=_session_factory)
 
 
 @pytest.fixture(name="api")
@@ -162,3 +199,90 @@ class TestJsonDtekAPIFreshness:
             },
         }
         assert not _is_data_sufficiently_fresh(data_bad_timestamp)
+
+
+class TestFetchDataAllowStale:
+    """Exercise the allow_stale_data flag of DtekAPIJson.fetch_data."""
+
+    @staticmethod
+    def _patch_session(payloads: dict[str, str | Exception]) -> object:
+        return patch(
+            "custom_components.svitlo_yeah.api.dtek.json.aiohttp.ClientSession",
+            new=_make_mock_session(payloads),
+        )
+
+    async def test_stale_without_allow_stale_returns_false_false(self, api):
+        """Default flag keeps historical behavior: stale is discarded."""
+        stale_dt = datetime.now(UTC) - timedelta(days=10)
+        payload = json.dumps(_build_json_payload(stale_dt))
+        payloads = dict.fromkeys(TEST_URLS, payload)
+
+        with self._patch_session(payloads):
+            success, is_stale = await api.fetch_data()
+
+        assert success is False
+        assert is_stale is False
+        assert api.data is None
+
+    async def test_stale_with_allow_stale_returns_true_true(self, api):
+        """allow_stale_data=True accepts the freshest stale source."""
+        stale_dt = datetime.now(UTC) - timedelta(days=10)
+        payload = json.dumps(_build_json_payload(stale_dt))
+        payloads = dict.fromkeys(TEST_URLS, payload)
+
+        with self._patch_session(payloads):
+            success, is_stale = await api.fetch_data(allow_stale_data=True)
+
+        assert success is True
+        assert is_stale is True
+        assert api.data is not None
+        assert api.data.get("update")
+        assert api.get_dtek_region_groups() == [TEST_GROUP]
+
+    @pytest.mark.parametrize("allow_stale_data", [False, True])
+    async def test_fresh_returns_true_false_regardless_of_flag(
+        self, api, allow_stale_data
+    ):
+        """Fresh data short-circuits; is_stale is always False."""
+        fresh_dt = datetime.now(UTC) - timedelta(hours=1)
+        payload = json.dumps(_build_json_payload(fresh_dt))
+        payloads = dict.fromkeys(TEST_URLS, payload)
+
+        with self._patch_session(payloads):
+            success, is_stale = await api.fetch_data(
+                allow_stale_data=allow_stale_data,
+            )
+
+        assert success is True
+        assert is_stale is False
+        assert api.data is not None
+
+    @pytest.mark.parametrize("allow_stale_data", [False, True])
+    async def test_no_sources_returns_false_false(self, api, allow_stale_data):
+        """All URLs failing → (False, False) under either flag value."""
+        payloads = dict.fromkeys(TEST_URLS, RuntimeError("boom"))
+
+        with self._patch_session(payloads):
+            success, is_stale = await api.fetch_data(
+                allow_stale_data=allow_stale_data,
+            )
+
+        assert success is False
+        assert is_stale is False
+        assert api.data is None
+
+    async def test_picks_freshest_stale(self, api):
+        """With multiple stale sources, the newest one wins."""
+        older = datetime.now(UTC) - timedelta(days=30)
+        newer = datetime.now(UTC) - timedelta(days=5)
+        payloads = {
+            TEST_URLS[0]: json.dumps(_build_json_payload(older)),
+            TEST_URLS[1]: json.dumps(_build_json_payload(newer)),
+        }
+
+        with self._patch_session(payloads):
+            success, is_stale = await api.fetch_data(allow_stale_data=True)
+
+        assert success is True
+        assert is_stale is True
+        assert api.data["update"] == newer.strftime("%d.%m.%Y %H:%M")

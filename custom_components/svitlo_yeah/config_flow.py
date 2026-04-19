@@ -147,6 +147,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             LOGGER.debug("async_step_group: User input: %s", user_input)
             self.data.update(user_input)  # add group to the config
+            self.data.pop("_stale_ack", None)
 
             LOGGER.info("async_step_group: Done. Creating entry from %s", self.data)
             # noinspection PyTypeChecker
@@ -181,9 +182,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             urls = DTEK_PROVIDER_URLS.get(provider_id, [])
             if urls:
                 temp_api = DtekAPIJson(urls=urls, group=None)
-                await temp_api.fetch_data()
+                success, is_stale = await temp_api.fetch_data(
+                    allow_stale_data=True,
+                )
                 groups = temp_api.get_dtek_region_groups()
-                if not groups:
+                if not success or not groups:
                     description_placeholders = {
                         "urls": urls[0] if len(urls) == 1 else urls
                     }  # ty:ignore[invalid-assignment]
@@ -192,6 +195,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                         reason="dtek_json_empty_data",
                         description_placeholders=description_placeholders,
                     )
+                if is_stale and not self.data.get("_stale_ack"):
+                    # noinspection PyTypeChecker
+                    return await self.async_step_stale_confirm()
 
         data_schema = vol.Schema(
             {
@@ -220,6 +226,28 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=data_schema,
             errors=errors,
             description_placeholders=description_placeholders,
+        )
+
+    async def async_step_stale_confirm(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Warn about stale DTEK JSON data and require acknowledgement."""
+        if user_input is not None:
+            if not user_input.get("acknowledge"):
+                # noinspection PyTypeChecker
+                return await self.async_step_stale_confirm()
+            self.data["_stale_ack"] = True
+            # noinspection PyTypeChecker
+            return await self.async_step_group()
+
+        data_schema = vol.Schema(
+            {vol.Required("acknowledge", default=False): bool},
+        )
+
+        # noinspection PyTypeChecker
+        return self.async_show_form(
+            step_id="stale_confirm",
+            data_schema=data_schema,
         )
 
     async def async_step_esvitlo_auth(
