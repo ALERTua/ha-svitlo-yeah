@@ -881,7 +881,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "freezegun" },
-    { name = "homeassistant", specifier = ">=2026.4.3" },
+    { name = "homeassistant", specifier = ">=2026.6.4" },
     { name = "pre-commit-uv" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
