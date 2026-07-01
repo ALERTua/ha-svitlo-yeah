@@ -25,7 +25,7 @@ upgrade:
     uv sync --dev --upgrade
 
 version VERSION:
-    uv run python script/update_version.py {{VERSION}}
+    uv run script/update_version.py {{VERSION}}
     uv lock
 
 # Show available commands
