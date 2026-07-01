@@ -9,7 +9,8 @@ import json
 import os
 from pathlib import Path
 
-import typer
+# noinspection PyUnresolvedReferences,PyPackageRequirements
+import typer  # ty:ignore[unresolved-import]
 
 app = typer.Typer()
 
