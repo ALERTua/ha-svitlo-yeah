@@ -1,20 +1,25 @@
 """Calendar platform for Svitlo Yeah integration."""
 
-import datetime
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.calendar import (
     CalendarEntity,
     CalendarEntityDescription,
     CalendarEvent,
 )
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .coordinator.coordinator import IntegrationCoordinator
 from .entity import IntegrationEntity
+
+if TYPE_CHECKING:
+    import datetime
+
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .coordinator.coordinator import IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
 

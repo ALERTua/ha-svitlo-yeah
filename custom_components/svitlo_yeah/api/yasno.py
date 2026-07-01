@@ -265,8 +265,8 @@ class YasnoApi:
         """Get region data by name."""
         if not self.regions:
             LOGGER.debug(
-                f"Yasno API get_region_by_id {region_id}"
-                f" while regions are not yet fetched"
+                "Yasno API get_region_by_id %s while regions are not yet fetched",
+                region_id,
             )
             return None
 

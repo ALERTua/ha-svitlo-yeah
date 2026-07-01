@@ -225,8 +225,9 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         summary: str = self.event_name_map.get(event.event_type, "")
         if not summary:
             LOGGER.warning(
-                f"Couldn't get {event.event_type} from {self.event_name_map}."
-                f" Please report this."
+                "Couldn't get %s from %s. Please report this.",
+                event.event_type,
+                self.event_name_map,
             )
 
         if DEBUG:

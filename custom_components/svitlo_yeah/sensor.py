@@ -1,23 +1,27 @@
 """Sensor platform for Svitlo Yeah integration."""
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
 from homeassistant.components.sensor.const import SensorDeviceClass
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .coordinator.coordinator import IntegrationCoordinator
-from .coordinator.yasno import YasnoCoordinator
 from .entity import IntegrationEntity
 from .models import ConnectivityState
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .coordinator.coordinator import IntegrationCoordinator
+    from .coordinator.yasno import YasnoCoordinator
 
 LOGGER = logging.getLogger(__name__)
 
