@@ -82,6 +82,11 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh": {
+        "name": "Примусово оновити зараз"
+      }
+    },
     "calendar": {
       "calendar": {
         "name": "Планові відключення"

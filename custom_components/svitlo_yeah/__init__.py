@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
+PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

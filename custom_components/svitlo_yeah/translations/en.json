@@ -82,6 +82,11 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh": {
+        "name": "Force refresh now"
+      }
+    },
     "calendar": {
       "calendar": {
         "name": "Planned Outages"
