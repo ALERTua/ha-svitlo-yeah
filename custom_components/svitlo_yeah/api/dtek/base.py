@@ -154,7 +154,7 @@ class DtekAPIBase:
         self.group = group
         self.data = None
 
-    async def fetch_data(self) -> FetchResult:
+    async def fetch_data(self, *, allow_stale_data: bool = False) -> FetchResult:
         """Fetch outage data. To be implemented by subclasses."""
         raise NotImplementedError
 

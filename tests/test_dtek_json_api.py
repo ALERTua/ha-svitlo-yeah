@@ -1,5 +1,6 @@
 """Tests for JSON DTEK API (alternative data sources)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,6 +21,36 @@ TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
 def _api():
     """Create a JSON DTEK API instance."""
     return DtekAPIJson(urls=TEST_URLS, group=TEST_GROUP)
+
+
+def _make_response(payload: dict | None = None, *, raise_error: bool = False):
+    """Build a mocked aiohttp response yielding `payload` from .text()."""
+    resp = AsyncMock()
+    if raise_error:
+        resp.raise_for_status = MagicMock(side_effect=Exception("Connection failed"))
+    else:
+        resp.raise_for_status = MagicMock()
+    resp.text = AsyncMock(
+        return_value=json.dumps(payload) if payload is not None else ""
+    )
+    return resp
+
+
+def _patch_session(responses: list):
+    """Patch aiohttp.ClientSession so each URL fetch yields the next response."""
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(side_effect=responses)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    return patch(
+        "custom_components.svitlo_yeah.api.dtek.json.aiohttp.ClientSession",
+        return_value=mock_session,
+    )
+
+
+def _payload(update_dt: datetime, preset: dict | None = None) -> dict:
+    """Wrap sample fact data in the real `{fact, preset}` source envelope."""
+    return {"fact": create_sample_json_data(update_dt), "preset": preset or {}}
 
 
 def create_sample_json_data(update_dt: datetime | None = None):
@@ -141,6 +172,64 @@ class TestJsonDtekAPIFetchData:
         api.group = groups[0]
         updated_on = api.get_updated_on()
         assert updated_on, f"no updated_on while getting info for {provider_key}"
+
+
+class TestJsonDtekAPIStaleData:
+    """Test the FetchResult contract and stale-data adoption."""
+
+    async def test_fresh_returns_fresh_regardless_of_flag(self, api):
+        """A fresh source yields FRESH and populated data under either flag."""
+        fresh = _payload(datetime.now(UTC) - timedelta(hours=1))
+
+        for allow in (False, True):
+            api.data = None
+            with _patch_session([_make_response(fresh)]):
+                result = await api.fetch_data(allow_stale_data=allow)
+            assert result is FetchResult.FRESH
+            assert api.data is not None
+
+    async def test_stale_without_allow_keeps_data_none(self, api):
+        """All-stale sources yield STALE but do not populate data by default."""
+        stale = _payload(datetime.now(UTC) - timedelta(days=1000))
+
+        with _patch_session([_make_response(stale), _make_response(stale)]):
+            result = await api.fetch_data()
+
+        assert result is FetchResult.STALE
+        assert api.data is None
+
+    async def test_stale_with_allow_adopts_data(self, api):
+        """With consent, the freshest stale source is adopted into data."""
+        stale = _payload(datetime.now(UTC) - timedelta(days=1000))
+
+        with _patch_session([_make_response(stale)]):
+            result = await api.fetch_data(allow_stale_data=True)
+
+        assert result is FetchResult.STALE
+        assert api.data is not None
+        assert api.get_dtek_region_groups() == ["1.1"]
+
+    async def test_stale_with_allow_picks_freshest(self, api):
+        """When several stale sources exist, the newest one wins."""
+        older = _payload(datetime.now(UTC) - timedelta(days=1000))
+        newer = _payload(datetime.now(UTC) - timedelta(days=10))
+
+        with _patch_session([_make_response(older), _make_response(newer)]):
+            result = await api.fetch_data(allow_stale_data=True)
+
+        assert result is FetchResult.STALE
+        assert api.data["update"] == newer["fact"]["update"]
+
+    async def test_no_sources_returns_unavailable(self, api):
+        """When every source errors, the result is UNAVAILABLE under any flag."""
+        for allow in (False, True):
+            api.data = None
+            with _patch_session(
+                [_make_response(raise_error=True), _make_response(raise_error=True)]
+            ):
+                result = await api.fetch_data(allow_stale_data=allow)
+            assert result is FetchResult.UNAVAILABLE
+            assert api.data is None
 
 
 class TestJsonDtekAPIFreshness:
