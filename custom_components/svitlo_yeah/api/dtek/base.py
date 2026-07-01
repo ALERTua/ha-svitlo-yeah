@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+from enum import Enum
 
 from homeassistant.util import dt as dt_utils
 
@@ -12,6 +13,14 @@ from ...models import PlannedOutageEvent, PlannedOutageEventType
 from ..common_tools import _merge_adjacent_events, parse_timestamp
 
 LOGGER = logging.getLogger(__name__)
+
+
+class FetchResult(Enum):
+    """Outcome of a DTEK data fetch attempt."""
+
+    FRESH = "fresh"  # a source returned data within the freshness window
+    STALE = "stale"  # sources responded, but all data is older than allowed
+    UNAVAILABLE = "unavailable"  # no source could be fetched/parsed at all
 
 
 def _parse_group_hours(
@@ -145,7 +154,7 @@ class DtekAPIBase:
         self.group = group
         self.data = None
 
-    async def fetch_data(self) -> None:
+    async def fetch_data(self) -> FetchResult:
         """Fetch outage data. To be implemented by subclasses."""
         raise NotImplementedError
 

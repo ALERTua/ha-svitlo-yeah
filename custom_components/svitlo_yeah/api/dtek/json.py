@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 import aiohttp
 
 from ...const import DTEK_FRESH_DATA_DAYS
-from .base import DtekAPIBase
+from .base import DtekAPIBase, FetchResult
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,8 +45,21 @@ class DtekAPIJson(DtekAPIBase):
         self.urls = urls
         self.preset_data = None
 
-    async def fetch_data(self) -> None:
-        """Fetch from JSON sources with freshness checking."""
+    async def fetch_data(self) -> FetchResult:
+        """
+        Fetch from JSON sources with freshness checking.
+
+        Returns the outcome so callers can tell apart three cases that would
+        otherwise all look like ``data is None``:
+
+        - ``FRESH``: a source returned data within the freshness window; it is
+          stored in ``self.data``.
+        - ``STALE``: at least one source responded, but all of it is too old.
+          ``self.data`` is left untouched (any previously cached fresh data is
+          kept) - we deliberately do not adopt stale data automatically.
+        - ``UNAVAILABLE``: no source could be fetched/parsed at all.
+        """
+        saw_stale = False
         for url in self.urls:
             try:
                 async with aiohttp.ClientSession() as session:
@@ -61,8 +74,9 @@ class DtekAPIJson(DtekAPIBase):
                         self.data = fact
                         self.preset_data = preset
                         LOGGER.debug("Successfully fetched fresh data from %s", url)
-                        return
+                        return FetchResult.FRESH
 
+                    saw_stale = True
                     LOGGER.debug(
                         "Data from %s is stale (>2 days), trying next source", url
                     )
@@ -71,10 +85,9 @@ class DtekAPIJson(DtekAPIBase):
                 LOGGER.debug("Failed to fetch from %s: %s", url, e)
                 continue
 
-        # All sources failed/stale - use most recent data if available
-        if self.data is None:
-            LOGGER.debug("All JSON sources failed or returned stale data")
-        else:
-            LOGGER.debug(
-                "Using stale data as fallback since no fresh sources available"
-            )
+        if saw_stale:
+            LOGGER.debug("All JSON sources responded but returned stale data")
+            return FetchResult.STALE
+
+        LOGGER.debug("All JSON sources failed or were unreachable")
+        return FetchResult.UNAVAILABLE

@@ -7,6 +7,7 @@ import pytest
 
 from custom_components.svitlo_yeah.api.dtek.json import (
     DtekAPIJson,
+    FetchResult,
     _is_data_sufficiently_fresh,
 )
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
@@ -114,22 +115,32 @@ class TestJsonDtekAPIFetchData:
             assert api.data is None
 
     @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
-    async def test_fetch_data_real_endpoints(self):
-        """Test fetching real data from DTEK JSON endpoints."""
-        for provider_key in DTEK_PROVIDER_URLS:
-            urls = DTEK_PROVIDER_URLS[provider_key]
-            api = DtekAPIJson(urls=urls)
-            await api.fetch_data()
-            assert api.data is not None, f"error getting data for {provider_key}"
-            groups = api.get_dtek_region_groups()
-            assert isinstance(groups, list), (
-                f"wrong data type for groups while getting info for {provider_key}"
-            )
-            assert len(groups), f"no groups while getting info for {provider_key}"
+    @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
+    async def test_fetch_data_real_endpoints(self, provider_key):
+        """
+        Test fetching real data from a DTEK JSON endpoint.
 
-            api.group = groups[0]
-            updated_on = api.get_updated_on()
-            assert updated_on, f"no updated_on while getting info for {provider_key}"
+        Stale upstream data is not our bug, so those providers are skipped
+        rather than failed; a genuinely unreachable/broken source still fails.
+        """
+        urls = DTEK_PROVIDER_URLS[provider_key]
+        api = DtekAPIJson(urls=urls)
+        result = await api.fetch_data()
+        if result is FetchResult.STALE:
+            pytest.skip(f"{provider_key}: upstream data is stale {urls}")
+        assert result is FetchResult.FRESH, (
+            f"failed to fetch fresh data for {provider_key} {urls} (result={result})"
+        )
+
+        groups = api.get_dtek_region_groups()
+        assert isinstance(groups, list), (
+            f"wrong data type for groups while getting info for {provider_key}"
+        )
+        assert len(groups), f"no groups while getting info for {provider_key}"
+
+        api.group = groups[0]
+        updated_on = api.get_updated_on()
+        assert updated_on, f"no updated_on while getting info for {provider_key}"
 
 
 class TestJsonDtekAPIFreshness:
