@@ -65,6 +65,15 @@ This integration is configurable via UI. On **Devices and Services** page, click
 
 ![Group Selection](/media/3_group.png)
 
+### Outdated schedule data (DTEK JSON)
+
+When there are no outages for a while, DTEK JSON sources may stop publishing and
+all data becomes outdated. In that case setup shows a confirmation step: you can
+still pick your group from the last-known schedule after acknowledging the risk.
+Once outages resume, double-check that your group hasn't changed. This affects
+setup only — at runtime outdated data is never shown, and the
+**Schedule Updated On** sensor always reflects the real last-update time.
+
 ### Here's how the devices look
 
 ![Devices page](/media/4_devices.png)
@@ -113,6 +122,12 @@ The integration creates the following entities in Home Assistant:
 |--------------------------------|-----------------|---------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Planned Outages Calendar**   | Calendar Entity | Provides calendar integration for planned outages | Shows all planned power outages as calendar events. Can be used with Home Assistant's calendar cards, automations, and triggers. Events include "Definite" planned outages and "Emergency" unscheduled blackouts. The calendar state is `on` during any event. |
 | **Scheduled Outages Calendar** | Calendar Entity | Provides calendar integration for outage schedule | Shows the power outages schedule.                                                                                                                                                                                                                              |
+
+### Button
+
+| Entity                | Type          | Purpose                                            | Description                                                                                                                                                                                 |
+|-----------------------|---------------|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Force refresh now** | Button Entity | Forces an immediate refresh of the outage schedule | Triggers a data refresh right away, ignoring the regular update interval. Useful to pull a freshly published schedule without waiting. Data still refreshes automatically on its own timer. |
 
 ### Events
 
