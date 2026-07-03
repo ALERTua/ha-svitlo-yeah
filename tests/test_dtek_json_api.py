@@ -37,6 +37,7 @@ async def _make_api_real(**kwargs: object) -> DtekAPIJson:
 
     # Create API instance manually to bypass async_get_clientsession
     api = object.__new__(DtekAPIJson)
+    # noinspection PyTypeChecker
     DtekAPIBase.__init__(api, kwargs.get("group"))
     api.hass = hass
     api.session = session
