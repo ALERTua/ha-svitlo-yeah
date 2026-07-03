@@ -170,6 +170,7 @@ data:
 ### Caveats
 
 - To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
+- This project is intended to be used as a Home Assistant / HACS integration, not as a standalone Python library — the API classes require a Home Assistant instance. If you'd like the code to be usable outside the HACS integration as a plain Python library, let me know and I'll consider adding support for that.
 
 
 ## Contributing

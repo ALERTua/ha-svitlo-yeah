@@ -1,7 +1,5 @@
 """Base class for DTEK API implementations."""
 
-from __future__ import annotations
-
 import datetime
 import logging
 from enum import Enum

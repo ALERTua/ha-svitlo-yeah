@@ -1,7 +1,5 @@
 """Common tools for API clients."""
 
-from __future__ import annotations
-
 import datetime
 import logging
 
@@ -33,7 +31,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
     try:
         utc_dt = dt_utils.utc_from_timestamp(float(timestamp_str))
         return dt_utils.as_local(utc_dt)
-    except ValueError, TypeError, OverflowError:
+    except (ValueError, TypeError, OverflowError):  # fmt: skip  # remove in 2027
         pass
 
     # Try parsing with Home Assistant's datetime parser (handles ISO 8601)
@@ -41,7 +39,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
         dt = dt_utils.parse_datetime(timestamp_str)
         if dt:
             return dt_utils.as_local(dt)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):  # fmt: skip  # remove in 2027
         pass
 
     # Try parsing custom DD.MM.YYYY formats (treat as Europe/Kyiv)
@@ -55,7 +53,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
             naive_dt = datetime.datetime.strptime(timestamp_str, fmt)  # noqa: DTZ007
             utc_dt = naive_dt.replace(tzinfo=TZ_UA)
             return dt_utils.as_local(utc_dt)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):  # fmt: skip  # remove in 2027
             continue
 
     LOGGER.debug("Failed to parse timestamp: %s", timestamp_str)

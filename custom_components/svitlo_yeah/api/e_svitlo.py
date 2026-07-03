@@ -1,7 +1,5 @@
 """E-Svitlo API client."""
 
-from __future__ import annotations
-
 import logging
 from datetime import date, datetime, time
 from typing import TYPE_CHECKING
@@ -61,7 +59,7 @@ class ESvitloClient:
 
                 LOGGER.error("E-Svitlo login HTTP error: %s", response.status)
                 return False
-        except aiohttp.ClientError, TimeoutError:
+        except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
             LOGGER.exception("Exception during E-Svitlo login")
             return False
 
@@ -95,7 +93,7 @@ class ESvitloClient:
                     return None
 
                 return result
-        except aiohttp.ClientError, TimeoutError:
+        except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
             LOGGER.exception("Exception during E-Svitlo request to %s", endpoint)
             return None
 
@@ -260,7 +258,7 @@ class ESvitloClient:
                 event_type=PlannedOutageEventType.DEFINITE,
             )
 
-        except ValueError, TypeError:
+        except (ValueError, TypeError):  # fmt: skip  # remove in 2027
             LOGGER.exception("Failed to parse disconnection period %s", period)
             return None
 

@@ -1,7 +1,5 @@
 """Base class for DTEK JSON oordinator implementations."""
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING
 
@@ -22,4 +20,4 @@ class DtekCoordinatorJson(DtekCoordinatorBase):
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the DtekCoordinatorBase class."""
         super().__init__(hass=hass, config_entry=config_entry)
-        self.api = DtekAPIJson(DTEK_PROVIDER_URLS[self.provider_id], self.group)
+        self.api = DtekAPIJson(hass, DTEK_PROVIDER_URLS[self.provider_id], self.group)

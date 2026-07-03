@@ -4,11 +4,13 @@ version = "0.7.0"  # Remember to change this in the manifest.json
 description = "A Home Assistant integration that provides power outage schedules for Ukraine"
 readme = "README.md"
 requires-python = ">=3.14.2"  # Follows https://github.com/home-assistant/core/blob/dev/pyproject.toml
-dependencies = []
+dependencies = [
+    "aiohttp",
+]
 
 [dependency-groups]
 dev = [
-    "homeassistant>=2026.6.4",
+    "homeassistant>=2026.7.0",
     "pre-commit-uv",
     "pytest",
     "freezegun",
