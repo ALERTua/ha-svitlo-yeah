@@ -1,4 +1,3 @@
-# Windows local testing commands for Public Dashboard
 # https://github.com/casey/just
 set dotenv-load
 
