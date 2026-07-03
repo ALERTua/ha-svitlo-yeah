@@ -23,6 +23,12 @@ install:
 upgrade:
     uv sync --dev --upgrade
 
+test:
+    uv run pytest
+
+test_e2e:
+    uv run pytest -m e2e
+
 version VERSION:
     uv run script/update_version.py {{VERSION}}
     uv lock
