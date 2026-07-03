@@ -73,6 +73,13 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
         self._update_active_state()
         self._schedule_next_boundary()
 
+    async def async_will_remove_from_hass(self) -> None:
+        """Cancel the scheduled boundary callback when the entity is removed."""
+        if self._unsubscribe_boundary:
+            self._unsubscribe_boundary()
+            self._unsubscribe_boundary = None
+        await super().async_will_remove_from_hass()
+
     def _update_active_state(self) -> None:
         """Recalculate active state from events."""
         if (event := self.coordinator.get_current_event()) != self._event:
