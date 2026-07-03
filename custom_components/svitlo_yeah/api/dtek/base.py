@@ -165,7 +165,7 @@ class DtekAPIBase:
             '1761688800': {
                 'GPV1.1': {
         """
-        if not self.data or "data" not in self.data:
+        if not self.data or not isinstance(self.data.get("data"), dict):
             return []
 
         first_timestamp = next(iter(self.data["data"].values()), {})
@@ -183,7 +183,11 @@ class DtekAPIBase:
         self, start_date: datetime.datetime, end_date: datetime.datetime
     ) -> list[PlannedOutageEvent]:
         """Get all events within the date range."""
-        if not self.data or "data" not in self.data or not self.group:
+        if (
+            not self.data
+            or not isinstance(self.data.get("data"), dict)
+            or not self.group
+        ):
             return []
 
         events = []

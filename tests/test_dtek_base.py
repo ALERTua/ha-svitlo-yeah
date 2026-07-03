@@ -116,6 +116,26 @@ class TestDtekAPIBaseGroups:
         api.data = {"data": {}}
         assert api.get_dtek_region_groups() == []
 
+    def test_get_groups_list_shaped_data(self, api):
+        """Empty schedules arrive as a list ("data": []) — must not crash."""
+        api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
+        assert api.get_dtek_region_groups() == []
+
+
+class TestDtekAPIBaseEventsListShapedData:
+    """Regression: upstream feed serializes an empty schedule as "data": []."""
+
+    def test_get_events_list_shaped_data(self, api):
+        """get_events must return [] instead of raising AttributeError."""
+        api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
+        now = dt_utils.now()
+        assert api.get_events(now, now + datetime.timedelta(hours=24)) == []
+
+    def test_get_current_event_list_shaped_data(self, api):
+        """get_current_event must return None on list-shaped data."""
+        api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
+        assert api.get_current_event(dt_utils.now()) is None
+
 
 class TestDtekAPIBaseParseGroupHours:
     """Test _parse_group_hours method."""
