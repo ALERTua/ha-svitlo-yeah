@@ -1,7 +1,5 @@
 """Coordinator for Svitlo Yeah integration."""
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING
 
@@ -100,7 +98,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             raise ValueError(group_error)
 
         self._region: YasnoRegion | None = None
-        self.api = YasnoApi()
+        self.api = YasnoApi(hass)
 
     @property
     def event_name_map(self) -> dict:
@@ -123,6 +121,7 @@ class YasnoCoordinator(IntegrationCoordinator):
         await self.async_fetch_translations()
 
         self.api = YasnoApi(
+            self.hass,
             region_id=self.region_id,
             provider_id=self.provider_id,
             group=self.group,

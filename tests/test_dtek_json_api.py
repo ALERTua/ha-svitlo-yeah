@@ -17,10 +17,19 @@ TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
 
 
+def _make_api(**kwargs: object) -> DtekAPIJson:
+    """Create a DtekAPIJson with the HA shared session mocked out."""
+    with patch(
+        "custom_components.svitlo_yeah.api.dtek.json.async_get_clientsession",
+        return_value=MagicMock(),
+    ):
+        return DtekAPIJson(MagicMock(), **kwargs)
+
+
 @pytest.fixture(name="api")
 def _api():
     """Create a JSON DTEK API instance."""
-    return DtekAPIJson(urls=TEST_URLS, group=TEST_GROUP)
+    return _make_api(urls=TEST_URLS, group=TEST_GROUP)
 
 
 def _make_response(payload: dict | None = None, *, raise_error: bool = False):
@@ -36,16 +45,17 @@ def _make_response(payload: dict | None = None, *, raise_error: bool = False):
     return resp
 
 
-def _patch_session(responses: list):
-    """Patch aiohttp.ClientSession so each URL fetch yields the next response."""
-    mock_session = AsyncMock()
-    mock_session.get = AsyncMock(side_effect=responses)
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=None)
-    return patch(
-        "custom_components.svitlo_yeah.api.dtek.json.aiohttp.ClientSession",
-        return_value=mock_session,
-    )
+def _get_cm(response):
+    """Wrap a response in an async context manager (as ``session.get`` returns)."""
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=response)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
+def _set_session_responses(api: DtekAPIJson, responses: list) -> None:
+    """Configure ``api.session.get`` so each URL fetch yields the next response."""
+    api.session.get = MagicMock(side_effect=[_get_cm(r) for r in responses])
 
 
 def _payload(update_dt: datetime, preset: dict | None = None) -> dict:
@@ -84,14 +94,14 @@ class TestJsonDtekAPIInit:
 
     def test_init_with_group_and_urls(self):
         """Test initialization with group and URLs."""
-        api = DtekAPIJson(urls=TEST_URLS, group=TEST_GROUP)
+        api = _make_api(urls=TEST_URLS, group=TEST_GROUP)
         assert api.group == TEST_GROUP
         assert api.urls == TEST_URLS
         assert api.data is None
 
     def test_init_without_group(self):
         """Test initialization without group."""
-        api = DtekAPIJson(urls=TEST_URLS)
+        api = _make_api(urls=TEST_URLS)
         assert api.group is None
 
 
@@ -103,47 +113,26 @@ class TestJsonDtekAPIFetchData:
         stale_data = create_sample_json_data(
             datetime.now(UTC) - timedelta(days=1000)
         )  # 2+ days old
+        stale_payload = {"fact": stale_data, "preset": {}}
 
-        with patch(
-            "custom_components.svitlo_yeah.api.dtek.json.aiohttp.ClientSession"
-        ) as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.json = AsyncMock(return_value=stale_data)
-            mock_response.raise_for_status = MagicMock()
+        # First call - all sources stale, so data remains None
+        _set_session_responses(api, [_make_response(stale_payload) for _ in TEST_URLS])
+        await api.fetch_data()
+        assert api.data is None
 
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
-
-            # First call - all sources stale, so data remains None
-            await api.fetch_data()
-            assert api.data is None
-
-            # Second call - still None (no caching of stale data)
-            await api.fetch_data()
-            assert api.data is None
+        # Second call - still None (no caching of stale data)
+        _set_session_responses(api, [_make_response(stale_payload) for _ in TEST_URLS])
+        await api.fetch_data()
+        assert api.data is None
 
     async def test_fetch_data_all_fail(self, api):
         """Test when all URLs fail."""
-        with patch(
-            "custom_components.svitlo_yeah.api.dtek.json.aiohttp.ClientSession"
-        ) as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.raise_for_status = MagicMock(
-                side_effect=Exception("Connection failed")
-            )
-
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
-
-            await api.fetch_data()
-            # Should not crash, data remains None
-            assert api.data is None
+        _set_session_responses(
+            api, [_make_response(raise_error=True) for _ in TEST_URLS]
+        )
+        await api.fetch_data()
+        # Should not crash, data remains None
+        assert api.data is None
 
     @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
     @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
@@ -155,7 +144,7 @@ class TestJsonDtekAPIFetchData:
         rather than failed; a genuinely unreachable/broken source still fails.
         """
         urls = DTEK_PROVIDER_URLS[provider_key]
-        api = DtekAPIJson(urls=urls)
+        api = _make_api(urls=urls)
         result = await api.fetch_data()
         if result is FetchResult.STALE:
             pytest.skip(f"{provider_key}: upstream data is stale {urls}")
@@ -183,8 +172,8 @@ class TestJsonDtekAPIStaleData:
 
         for allow in (False, True):
             api.data = None
-            with _patch_session([_make_response(fresh)]):
-                result = await api.fetch_data(allow_stale_data=allow)
+            _set_session_responses(api, [_make_response(fresh)])
+            result = await api.fetch_data(allow_stale_data=allow)
             assert result is FetchResult.FRESH
             assert api.data is not None
 
@@ -192,8 +181,8 @@ class TestJsonDtekAPIStaleData:
         """All-stale sources yield STALE but do not populate data by default."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
 
-        with _patch_session([_make_response(stale), _make_response(stale)]):
-            result = await api.fetch_data()
+        _set_session_responses(api, [_make_response(stale), _make_response(stale)])
+        result = await api.fetch_data()
 
         assert result is FetchResult.STALE
         assert api.data is None
@@ -202,8 +191,8 @@ class TestJsonDtekAPIStaleData:
         """With consent, the freshest stale source is adopted into data."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
 
-        with _patch_session([_make_response(stale)]):
-            result = await api.fetch_data(allow_stale_data=True)
+        _set_session_responses(api, [_make_response(stale)])
+        result = await api.fetch_data(allow_stale_data=True)
 
         assert result is FetchResult.STALE
         assert api.data is not None
@@ -214,8 +203,8 @@ class TestJsonDtekAPIStaleData:
         older = _payload(datetime.now(UTC) - timedelta(days=1000))
         newer = _payload(datetime.now(UTC) - timedelta(days=10))
 
-        with _patch_session([_make_response(older), _make_response(newer)]):
-            result = await api.fetch_data(allow_stale_data=True)
+        _set_session_responses(api, [_make_response(older), _make_response(newer)])
+        result = await api.fetch_data(allow_stale_data=True)
 
         assert result is FetchResult.STALE
         assert api.data["update"] == newer["fact"]["update"]
@@ -224,10 +213,11 @@ class TestJsonDtekAPIStaleData:
         """When every source errors, the result is UNAVAILABLE under any flag."""
         for allow in (False, True):
             api.data = None
-            with _patch_session(
-                [_make_response(raise_error=True), _make_response(raise_error=True)]
-            ):
-                result = await api.fetch_data(allow_stale_data=allow)
+            _set_session_responses(
+                api,
+                [_make_response(raise_error=True), _make_response(raise_error=True)],
+            )
+            result = await api.fetch_data(allow_stale_data=allow)
             assert result is FetchResult.UNAVAILABLE
             assert api.data is None
 

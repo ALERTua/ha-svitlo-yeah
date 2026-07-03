@@ -1,12 +1,15 @@
 """Yasno API client for Svitlo Yeah integration."""
 
-from __future__ import annotations
-
 import logging
 from datetime import UTC, date, datetime, time, timedelta
+from typing import TYPE_CHECKING
 
 import aiohttp
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_utils
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 from ..const import (
     BLOCK_KEY_STATUS,
@@ -191,11 +194,14 @@ class YasnoApi:
 
     def __init__(
         self,
+        hass: HomeAssistant,
         region_id: int | None = None,
         provider_id: int | None = None,
         group: str | None = None,
     ) -> None:
         """Initialize the Yasno API."""
+        self.hass = hass
+        self.session: aiohttp.ClientSession = async_get_clientsession(hass)
         self.region_id: int | None = region_id
         self.provider_id: int | None = provider_id
         self.group: str | None = group
@@ -203,13 +209,12 @@ class YasnoApi:
 
     async def _get_route_data(
         self,
-        session: aiohttp.ClientSession,
         url: str,
         timeout_secs: int = 60,
     ) -> list[dict] | None:
         """Fetch data from the given URL."""
         try:
-            async with session.get(
+            async with self.session.get(
                 url,
                 timeout=aiohttp.ClientTimeout(total=timeout_secs),
             ) as response:
@@ -225,8 +230,7 @@ class YasnoApi:
         if YasnoApi._regions:
             return
 
-        async with aiohttp.ClientSession() as session:
-            result = await self._get_route_data(session, YASNO_REGIONS_ENDPOINT)
+        result = await self._get_route_data(YASNO_REGIONS_ENDPOINT)
 
         if result:
             YasnoApi._regions = [YasnoRegion.from_dict(_) for _ in result]
@@ -248,10 +252,9 @@ class YasnoApi:
             dso_id=self.provider_id,
         )
         LOGGER.debug("Fetching Yasno planned outage data: %s", url)
-        async with aiohttp.ClientSession() as session:
-            output = await self._get_route_data(session, url)
-            LOGGER.debug("Filling Yasno planned outage data with: %s", output)
-            self.planned_outage_data = output  # ty:ignore[invalid-assignment]
+        output = await self._get_route_data(url)
+        LOGGER.debug("Filling Yasno planned outage data with: %s", output)
+        self.planned_outage_data = output  # ty:ignore[invalid-assignment]
 
         if DEBUG:
             self.planned_outage_data = _debug_data()
@@ -505,21 +508,3 @@ class YasnoApi:
         """Fetch all required data."""
         await self.fetch_yasno_regions()
         await self.fetch_planned_outage_data()
-
-
-async def _main() -> None:
-    """Test the API functionality."""
-    _api = YasnoApi()
-    await _api.fetch_yasno_regions()
-    _regions = _api.regions
-    _api.region_id = _regions[0].id  # ty:ignore[not-subscriptable]
-    _api.provider_id = _regions[0].dsos[0].id  # ty:ignore[not-subscriptable]
-    await _api.fetch_planned_outage_data()
-    _groups = _api.get_yasno_groups()
-    _api.group = _groups[0]
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(_main())

@@ -1,6 +1,7 @@
 """Tests for DTEK base API functionality."""
 
 import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.util import dt as dt_utils
@@ -16,7 +17,13 @@ TEST_TIMESTAMP = "1761688800"
 @pytest.fixture(name="api")
 def _api():
     """Create a DTEK API instance for testing base functionality."""
-    return DtekAPIJson(urls=next(iter(DTEK_PROVIDER_URLS.values())), group=TEST_GROUP)
+    with patch(
+        "custom_components.svitlo_yeah.api.dtek.json.async_get_clientsession",
+        return_value=MagicMock(),
+    ):
+        return DtekAPIJson(
+            MagicMock(), urls=next(iter(DTEK_PROVIDER_URLS.values())), group=TEST_GROUP
+        )
 
 
 @pytest.fixture

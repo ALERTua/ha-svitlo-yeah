@@ -25,10 +25,19 @@ TEST_PROVIDER_ID = 902
 TEST_GROUP = "3.1"
 
 
+def _make_api(**kwargs: object) -> YasnoApi:
+    """Create a YasnoApi with the HA shared session mocked out."""
+    with patch(
+        "custom_components.svitlo_yeah.api.yasno.async_get_clientsession",
+        return_value=MagicMock(),
+    ):
+        return YasnoApi(MagicMock(), **kwargs)
+
+
 @pytest.fixture(name="api")
 def _api():
     """Create an API instance."""
-    return YasnoApi(
+    return _make_api(
         region_id=TEST_REGION_ID, provider_id=TEST_PROVIDER_ID, group=TEST_GROUP
     )
 
@@ -107,7 +116,7 @@ class TestYasnoApiInit:
 
     def test_init_with_params(self):
         """Test initialization with parameters."""
-        api = YasnoApi(
+        api = _make_api(
             region_id=TEST_REGION_ID, provider_id=TEST_PROVIDER_ID, group=TEST_GROUP
         )
         assert api.region_id == TEST_REGION_ID
@@ -118,7 +127,7 @@ class TestYasnoApiInit:
 
     def test_init_without_params(self):
         """Test initialization without parameters."""
-        api = YasnoApi()
+        api = _make_api()
         assert api.region_id is None
         assert api.provider_id is None
         assert api.group is None
@@ -129,35 +138,32 @@ class TestYasnoApiFetchData:
 
     async def test_fetch_regions_success(self, api, regions_data):
         """Test successful regions fetch."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
-            mock_response = AsyncMock()
-            mock_response.json = AsyncMock(return_value=regions_data)
-            mock_response.raise_for_status = MagicMock()
-            mock_get.return_value.__aenter__.return_value = mock_response
+        mock_response = AsyncMock()
+        mock_response.json = AsyncMock(return_value=regions_data)
+        mock_response.raise_for_status = MagicMock()
+        api.session.get.return_value.__aenter__.return_value = mock_response
 
-            await api.fetch_yasno_regions()
-            assert api.__class__._regions == [
-                YasnoRegion.from_dict(_) for _ in regions_data
-            ]
+        await api.fetch_yasno_regions()
+        assert api.__class__._regions == [
+            YasnoRegion.from_dict(_) for _ in regions_data
+        ]
 
     async def test_fetch_regions_error(self, api):
         """Test regions fetch with error."""
         YasnoApi._regions = None
-        with patch("aiohttp.ClientSession.get") as mock_get:
-            mock_get.return_value.__aenter__.side_effect = aiohttp.ClientError()
-            await api.fetch_yasno_regions()
-            assert api.regions is None
+        api.session.get.return_value.__aenter__.side_effect = aiohttp.ClientError()
+        await api.fetch_yasno_regions()
+        assert api.regions is None
 
     async def test_fetch_planned_outage_success(self, api, planned_outage_data):
         """Test successful planned outage fetch."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
-            mock_response = AsyncMock()
-            mock_response.json = AsyncMock(return_value=planned_outage_data)
-            mock_response.raise_for_status = MagicMock()
-            mock_get.return_value.__aenter__.return_value = mock_response
+        mock_response = AsyncMock()
+        mock_response.json = AsyncMock(return_value=planned_outage_data)
+        mock_response.raise_for_status = MagicMock()
+        api.session.get.return_value.__aenter__.return_value = mock_response
 
-            await api.fetch_planned_outage_data()
-            assert api.planned_outage_data == planned_outage_data
+        await api.fetch_planned_outage_data()
+        assert api.planned_outage_data == planned_outage_data
 
     async def test_fetch_planned_outage_no_config(self, api):
         """Test planned outage fetch without region/provider."""

@@ -66,7 +66,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize config flow."""
-        self.api_yasno = YasnoApi()
         self.available_providers: dict[str, BaseProvider] = {}
         self.data: dict[str, Any] = {}
 
@@ -93,8 +92,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_group()
 
         LOGGER.debug("async_step_user: No User input yet")
-        await self.api_yasno.fetch_yasno_regions()
-        yasno_regions: list[YasnoRegion] = self.api_yasno.regions  # ty:ignore[invalid-assignment]
+        api_yasno = YasnoApi(self.hass)
+        await api_yasno.fetch_yasno_regions()
+        yasno_regions: list[YasnoRegion] = api_yasno.regions  # ty:ignore[invalid-assignment]
         LOGGER.debug("async_step_user: yasno_regions: %s", yasno_regions)
         yasno_providers: list[YasnoProvider] = []
         if yasno_regions:
@@ -166,6 +166,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if provider_type == PROVIDER_TYPE_YASNO:
             if region_id and provider_id:
                 temp_api = YasnoApi(
+                    self.hass,
                     region_id=region_id,
                     provider_id=provider_id,
                 )
@@ -182,7 +183,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         elif provider_type == PROVIDER_TYPE_DTEK_JSON and provider_id:
             urls = DTEK_PROVIDER_URLS.get(provider_id, [])
             if urls:
-                temp_api = DtekAPIJson(urls=urls, group=None)
+                temp_api = DtekAPIJson(self.hass, urls=urls, group=None)
                 result = await temp_api.fetch_data(allow_stale_data=True)
                 groups = temp_api.get_dtek_region_groups()
                 if result is FetchResult.UNAVAILABLE or not groups:
