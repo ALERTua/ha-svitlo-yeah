@@ -1,2 +1,0 @@
-- run precommit using "pre-commit run --all-files"
-- do not change folders before running the commands
