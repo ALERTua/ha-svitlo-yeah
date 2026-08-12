@@ -11,7 +11,7 @@ from custom_components.svitlo_yeah.const import E_SVITLO_ERROR_NOT_LOGGED_IN, TZ
 from custom_components.svitlo_yeah.models import ESvitloProvider, PlannedOutageEventType
 
 TEST_USERNAME = "test_user"
-TEST_PWD = "test_password"  # noqa: S105
+TEST_PWD = "test_password"
 TEST_ACCOUNT_ID = "12345"
 TEST_REGION = "Sumy"
 

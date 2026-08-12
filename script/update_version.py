@@ -21,7 +21,7 @@ def update_version(
 ) -> None:
     """Update version in project files and run uv lock."""
     # Update pyproject.toml via uv
-    os.system(f"uv version {version}")  # noqa: S605
+    os.system(f"uv version {version}")
 
     # Update manifest.json
     manifest_path = Path("custom_components/svitlo_yeah/manifest.json")

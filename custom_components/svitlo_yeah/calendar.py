@@ -26,7 +26,7 @@ LOGGER = logging.getLogger(__name__)
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,  # noqa: ARG001
+    hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
@@ -75,7 +75,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
 
     async def async_get_events(
         self,
-        hass: HomeAssistant,  # noqa: ARG002
+        hass: HomeAssistant,
         start_date: datetime.datetime,
         end_date: datetime.datetime,
     ) -> list[CalendarEvent]:
@@ -119,7 +119,7 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
 
     async def async_get_events(
         self,
-        hass: HomeAssistant,  # noqa: ARG002
+        hass: HomeAssistant,
         start_date: datetime.datetime,
         end_date: datetime.datetime,
     ) -> list[CalendarEvent]:

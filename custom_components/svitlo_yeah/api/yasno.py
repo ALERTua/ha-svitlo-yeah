@@ -34,7 +34,7 @@ def _minutes_to_time(minutes: int, dt: datetime) -> datetime:
     mins = minutes % 60
 
     # Handle end of day (24:00) as 00:00 of the next day
-    if hours == 24:  # noqa: PLR2004
+    if hours == 24:
         dt = dt + timedelta(days=1)
         return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -184,7 +184,7 @@ def _debug_data() -> dict:
             "updatedOn": now.isoformat(timespec="seconds"),
         }
     }
-    return output  # noqa: RET504
+    return output
 
 
 class YasnoApi:

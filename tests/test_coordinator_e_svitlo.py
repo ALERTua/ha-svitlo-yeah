@@ -34,7 +34,7 @@ def mock_provider():
     """Mock Provider."""
     return ESvitloProvider(
         user_name="user",
-        password="pass",  # noqa: S106
+        password="pass",
         region_name="Sumy",
         account_id="123",
     )

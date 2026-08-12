@@ -30,7 +30,7 @@ REFRESH_BUTTON = ButtonEntityDescription(
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,  # noqa: ARG001
+    hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:

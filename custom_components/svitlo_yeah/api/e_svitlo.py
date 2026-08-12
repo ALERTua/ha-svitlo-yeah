@@ -45,7 +45,7 @@ class ESvitloClient:
                     "pass_name": self.pwd,
                 },
             ) as response:
-                if response.status == 200:  # noqa: PLR2004
+                if response.status == 200:
                     result = await response.json()
                     # Check if login was successful based on response
                     if result.get("data", {}).get("login", False) is True:
@@ -73,7 +73,7 @@ class ESvitloClient:
         url = self.base_url + endpoint
         try:
             async with self.session.post(url, data=data) as response:
-                if response.status != 200:  # noqa: PLR2004
+                if response.status != 200:
                     LOGGER.error(
                         "E-Svitlo HTTP error %s for %s", response.status, endpoint
                     )
@@ -88,7 +88,7 @@ class ESvitloClient:
                     if await self.login():
                         # Retry request once
                         async with self.session.post(url, data=data) as retry_response:
-                            if retry_response.status == 200:  # noqa: PLR2004
+                            if retry_response.status == 200:
                                 return await retry_response.json()
                     return None
 

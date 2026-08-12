@@ -200,8 +200,8 @@ class IntegrationCoordinator(DataUpdateCoordinator):
 
     def get_scheduled_events_between(
         self,
-        start_date: datetime.datetime,  # noqa: ARG002
-        end_date: datetime.datetime,  # noqa: ARG002
+        start_date: datetime.datetime,
+        end_date: datetime.datetime,
     ) -> list[CalendarEvent]:
         """Get scheduled outage events."""
         return []

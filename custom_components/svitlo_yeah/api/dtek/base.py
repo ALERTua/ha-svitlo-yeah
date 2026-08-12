@@ -48,13 +48,13 @@ def _parse_group_hours(
     outage_start = None
 
     hours_range = range(24)
-    get_key = lambda h: str(h + 1)  # noqa: E731
+    get_key = lambda h: str(h + 1)
     if "0" in group_hours:  # 0-23 or 1-24 hour format
         get_key = str
 
     def safe_time(hour: int, minute: int = 0) -> datetime.time:
         """Create datetime.time handling hour 24 as midnight (0:00)."""
-        if hour >= 24:  # noqa: PLR2004
+        if hour >= 24:
             return datetime.time(0, minute)
         return datetime.time(hour, minute)
 
@@ -63,7 +63,7 @@ def _parse_group_hours(
         status = group_hours.get(key, "yes")
 
         prev_key = get_key(hour - 1) if hour > 0 else None
-        next_key = get_key(hour + 1) if hour < 23 else None  # noqa: PLR2004
+        next_key = get_key(hour + 1) if hour < 23 else None
 
         prev_status = group_hours.get(prev_key, "yes") if prev_key else "yes"
         next_status = group_hours.get(next_key, "yes") if next_key else "yes"
@@ -126,8 +126,8 @@ def _merge_ranges(
         if start <= current_end:
             # Ranges overlap or are adjacent, merge them
             # If end is 59:59, use the next hour boundary
-            if end.minute == 59 and end.second == 59:  # noqa: PLR2004
-                if end.hour < 23:  # noqa: PLR2004
+            if end.minute == 59 and end.second == 59:
+                if end.hour < 23:
                     current_end = datetime.time(end.hour + 1)
                 else:
                     current_end = datetime.time(23, 59, 59)
@@ -209,7 +209,7 @@ class DtekAPIBase:
                     second=0,
                     microsecond=0,
                 )
-                if (end_time.hour == 23 and end_time.minute == 59) or (  # noqa: PLR2004
+                if (end_time.hour == 23 and end_time.minute == 59) or (
                     end_time.hour == 0 and end_time.minute == 0
                 ):
                     event_end = (day_dt + datetime.timedelta(days=1)).replace(
@@ -297,7 +297,7 @@ class DtekAPIBase:
                         microsecond=0,
                     )
 
-                    if (end_time.hour == 23 and end_time.minute == 59) or (  # noqa: PLR2004
+                    if (end_time.hour == 23 and end_time.minute == 59) or (
                         end_time.hour == 0 and end_time.minute == 0
                     ):
                         event_end = day_end
@@ -363,4 +363,4 @@ def _debug_data() -> dict:
         "update": midnight.strftime("%d.%m.%Y %H:%M"),
         "today": midnight.timestamp(),
     }
-    return output  # noqa: RET504
+    return output

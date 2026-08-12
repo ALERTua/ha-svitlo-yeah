@@ -141,7 +141,7 @@ class TestDtekAPIBaseParseGroupHours:
     """Test _parse_group_hours method."""
 
     @pytest.mark.parametrize(
-        "group_hours,expected",  # noqa: PT006
+        "group_hours,expected",
         [
             # 0 All yes - no outages
             ({str(i): "yes" for i in range(1, 25)}, []),
@@ -280,7 +280,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
     """Test _parse_group_hours method for preset data (same function as for real data)."""
 
     @pytest.mark.parametrize(
-        "group_hours,expected",  # noqa: PT006
+        "group_hours,expected",
         [
             # Test hour format detection - "0" key present (0-23 format)
             (
