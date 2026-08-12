@@ -1,6 +1,31 @@
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
+registries:
+  # auth for the private ALERTua/script submodule; the token lives in
+  # Settings -> Secrets and variables -> Dependabot (NOT Actions)
+  github-alertua:
+    type: git
+    url: https://github.com
+    username: x-access-token
+    password: ${{ secrets.SCRIPT_SUBMODULE_TOKEN }}
 updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    registries: "*"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: gitsubmodule
+    directory: "/"
+    registries: "*"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
