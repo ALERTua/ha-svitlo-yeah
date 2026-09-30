@@ -30,3 +30,4 @@ config/*
 .vscode
 .rag_cache/
 plans/
+.env
