@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.util import dt as dt_utils
 
+from ...api.dtek.base import FetchResult
 from ...const import (
     CONF_GROUP,
     CONF_PROVIDER,
@@ -84,8 +85,12 @@ class DtekCoordinatorBase(IntegrationCoordinator):
 
         # Coordinator-level caching (per provider)
         now = dt_utils.now()
-        await self.api.fetch_data()
-        LOGGER.debug("Fetched fresh data for %s", self)
+        result = await self.api.fetch_data()
+        LOGGER.debug("Fetched %s data for %s", result, self)
+
+        # Only fresh data can tell whether the source still lists the group.
+        if result is FetchResult.FRESH:
+            self._update_group_listed(self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)
         current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))

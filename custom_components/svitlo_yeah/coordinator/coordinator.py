@@ -58,6 +58,34 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         self._previous_outage_events: list[PlannedOutageEvent] | None = None
         self.outage_data_last_changed: datetime.datetime | None = None
         self.group: str | None = None
+        # Whether the source lists the configured group, from the last data
+        # that could tell. None until such data arrives.
+        self.group_listed: bool | None = None
+
+    def _update_group_listed(self, listed: bool | None) -> None:
+        """
+        Keep the last known answer whether the source lists the group.
+
+        None means that the data says nothing about the group, so the last
+        known answer stays. A change is logged once: a warning when the group
+        disappears from the source, and an info when it comes back.
+        """
+        if listed is None or listed == self.group_listed:
+            return
+
+        provider = getattr(self, "provider_id", None)
+        if listed is False:
+            LOGGER.warning(
+                "The source of provider %s has no schedule for group %s, "
+                "so the integration shows no outages for this group",
+                provider,
+                self.group,
+            )
+        elif self.group_listed is False:
+            LOGGER.info(
+                "The source of provider %s lists group %s again", provider, self.group
+            )
+        self.group_listed = listed
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
