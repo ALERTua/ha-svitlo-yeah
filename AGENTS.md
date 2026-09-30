@@ -75,6 +75,18 @@ The MCP server gives only the Assist tools of Home Assistant, for example `GetLi
 
 Home Assistant loads a code change only after a restart. If the local Home Assistant runs `python -m homeassistant` without a loop that starts it again, the `homeassistant.restart` service stops the server. In that case, ask the user to restart Home Assistant.
 
+### UI checks with Playwright MCP (optional)
+
+The Home Assistant frontend is built from Lit web components with open shadow roots. A browser tool that reads only the light DOM finds an empty page there. The [Playwright MCP](https://github.com/microsoft/playwright-mcp) server gives an accessibility snapshot that includes the shadow DOM, with a `ref` for each element. Thus an agent can walk a check scenario step by step, for example a config flow or a Reconfigure, and click and type by `ref`, without a script and without screenshots.
+
+To set it up:
+
+1. Add a stdio MCP server to your MCP client that runs `npx -y @playwright/mcp@latest --browser firefox --headless --user-data-dir <profile folder> --output-dir <output folder>`. Give both folders a place outside the repository where the server can write. Some MCP hubs start a server in a folder without write access, and then each call fails with `EPERM`.
+2. If a call fails with `Browser "firefox" is not installed`, run `npx -y @playwright/mcp@latest install-browser firefox`. A new release of the package can need a new browser build.
+3. Sign in to the local Home Assistant once. Start the same server without `--headless`, open `http://127.0.0.1:8123` in its window, and sign in yourself. The profile folder keeps the sign-in for the headless server. Do not let an agent type the password.
+
+Keep `--headless` for the checks. A browser with a window draws no frames while the window is minimized or covered, and then each click waits until it times out. Two browsers cannot use one profile folder at the same time, so close the headless browser before you start the one with a window.
+
 ## Code style & conventions
 
 - **Python 3.14+ only.** `requires-python = ">=3.14.2"` (tracking Home Assistant
