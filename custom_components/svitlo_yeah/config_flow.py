@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.config_entries import (
+    SOURCE_RECONFIGURE,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
@@ -150,6 +151,17 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self.data.update(user_input)  # add group to the config
             self.data.pop("_stale_ack", None)  # flow-local flag, do not persist
 
+            if self.source == SOURCE_RECONFIGURE:
+                # The update listener of the entry reloads it with the new group.
+                # An explicit reason keeps the text of this integration: without
+                # it, newer cores show the text from the core translations.
+                # noinspection PyTypeChecker
+                return self.async_update_and_abort(
+                    self._get_reconfigure_entry(),
+                    data_updates={CONF_GROUP: self.data[CONF_GROUP]},
+                    reason="reconfigure_successful",
+                )
+
             LOGGER.info("async_step_group: Done. Creating entry from %s", self.data)
             # noinspection PyTypeChecker
             return self.async_create_entry(title=NAME, data=self.data)
@@ -199,11 +211,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     # noinspection PyTypeChecker
                     return await self.async_step_stale_confirm()
 
+        # On reconfigure, preselect the current group while the source lists it
+        current_group = self.data.get(CONF_GROUP)
         data_schema = vol.Schema(
             {
                 vol.Required(
                     CONF_GROUP,
-                    default=get_config_value(None, CONF_GROUP),
+                    default=current_group if current_group in groups else None,
                 ): SelectSelector(
                     SelectSelectorConfig(
                         options=groups,
@@ -227,6 +241,19 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders=description_placeholders,
         )
+
+    async def async_step_reconfigure(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Let the user pick another group for an existing entry."""
+        entry = self._get_reconfigure_entry()
+        self.data = {**entry.data, **entry.options}
+        if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_E_SVITLO:
+            # E-Svitlo takes the group from the account, so it has no group list
+            # noinspection PyTypeChecker
+            return self.async_abort(reason="reconfigure_e_svitlo")
+        # noinspection PyTypeChecker
+        return await self.async_step_group()
 
     async def async_step_stale_confirm(
         self, user_input: dict | None = None

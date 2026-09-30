@@ -4,17 +4,20 @@ from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.config_entries import SOURCE_RECONFIGURE
 
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.config_flow import IntegrationConfigFlow
 from custom_components.svitlo_yeah.const import (
+    CONF_ACCOUNT_ID,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
     DTEK_PROVIDER_URLS,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
@@ -191,6 +194,11 @@ def _select_options(result: dict, field: str) -> list:
     return result["data_schema"].schema[field].config["options"]
 
 
+def _default(result: dict, field: str):
+    """Return the default value of a field in a form result."""
+    return next(k for k in result["data_schema"].schema if k == field).default()
+
+
 @pytest.fixture(name="new_flow")
 def _new_flow(monkeypatch):
     """Build a config flow at its first step, with an empty Yasno region cache."""
@@ -277,3 +285,88 @@ class TestSetupWithRealProviderApis:
 
         assert result["type"] == "abort"
         assert result["reason"] == "yasno_connection_error"
+
+
+def _reconfigure_flow(data: dict) -> IntegrationConfigFlow:
+    """Build a reconfigure flow for an entry with the given data."""
+    flow = _stub_results(IntegrationConfigFlow())
+    flow.hass = MagicMock()
+    flow.context = {"source": SOURCE_RECONFIGURE, "entry_id": "test_entry"}
+    entry = MagicMock()
+    entry.data = data
+    entry.options = {}
+    flow._get_reconfigure_entry = MagicMock(return_value=entry)
+    flow.async_update_and_abort = MagicMock(
+        side_effect=lambda entry, **kwargs: {"type": "abort", "entry": entry, **kwargs}
+    )
+    return flow
+
+
+class TestReconfigureGroup:
+    """Reconfigure lets the user pick another group for an existing entry."""
+
+    async def test_dtek_kyiv_region(self):
+        """The group form preselects the current group and saves the new one."""
+        flow = _reconfigure_flow(
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
+                CONF_PROVIDER: "kyiv_region",
+                CONF_GROUP: "1.1",
+            }
+        )
+        routes = {KYIV_REGION_URL: _kyiv_region_feed(with_preset=True)}
+        with _serve(routes):
+            result = await flow.async_step_reconfigure()
+            assert result["step_id"] == "stale_confirm"
+
+            result = await flow.async_step_stale_confirm({"acknowledge": True})
+            assert result["step_id"] == "group"
+            assert _select_options(result, CONF_GROUP) == KYIV_GROUPS
+            assert _default(result, CONF_GROUP) == "1.1"
+
+            result = await flow.async_step_group({CONF_GROUP: "2.2"})
+
+        flow.async_update_and_abort.assert_called_once_with(
+            flow._get_reconfigure_entry(),
+            data_updates={CONF_GROUP: "2.2"},
+            reason="reconfigure_successful",
+        )
+        flow.async_create_entry.assert_not_called()
+
+    async def test_yasno_group_that_the_source_lacks(self, monkeypatch):
+        """A group that the source lacks is not preselected."""
+        monkeypatch.setattr(YasnoApi, "_regions", None)
+        flow = _reconfigure_flow(
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+                CONF_PROVIDER: YASNO_DSO_ID,
+                CONF_REGION: YASNO_REGION_ID,
+                CONF_GROUP: "1.2",
+            }
+        )
+        routes = {YASNO_PLANNED_URL: {"1.1": {}, "3.1": {}}}
+        with _serve(routes):
+            result = await flow.async_step_reconfigure()
+            assert result["step_id"] == "group"
+            assert _select_options(result, CONF_GROUP) == ["1.1", "3.1"]
+            assert _default(result, CONF_GROUP) is None
+
+            result = await flow.async_step_group({CONF_GROUP: "3.1"})
+
+        flow.async_update_and_abort.assert_called_once_with(
+            flow._get_reconfigure_entry(),
+            data_updates={CONF_GROUP: "3.1"},
+            reason="reconfigure_successful",
+        )
+
+    async def test_e_svitlo_stops_at_once(self):
+        """E-Svitlo takes the group from the account, so reconfigure stops."""
+        flow = _reconfigure_flow(
+            {CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO, CONF_ACCOUNT_ID: "1"}
+        )
+
+        result = await flow.async_step_reconfigure()
+
+        assert result["type"] == "abort"
+        assert result["reason"] == "reconfigure_e_svitlo"
+        flow.async_update_and_abort.assert_not_called()
