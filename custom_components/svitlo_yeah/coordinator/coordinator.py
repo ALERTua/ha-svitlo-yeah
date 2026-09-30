@@ -229,8 +229,13 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         """
         Get the current state.
 
-        None (unknown) while the source has no schedule for the group: without
-        a schedule, "normal" would claim that the power is on.
+        None (unknown) while the source lists other groups but not this one:
+        without a schedule, "normal" would claim that the power is on.
+
+        Only data that lists groups tells that the group is missing, and for
+        DTEK only fresh data does. Without such data, for example after a
+        restart while the DTEK source is stale, there are no events, and the
+        state is "normal".
         """
         if self.group_listed is False:
             return None
