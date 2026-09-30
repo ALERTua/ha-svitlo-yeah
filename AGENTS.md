@@ -27,8 +27,9 @@ require a running Home Assistant instance (`hass`).
   - `entity.py`, `sensor.py`, `calendar.py`, `button.py` — HA entity platforms.
   - `config_flow.py` — UI setup/options flow.
   - `models/`, `const.py`, `manifest.json`, `translations/`.
-- `tests/` — pytest suite (`pytest-asyncio`, `freezegun`).
+- `tests/` — pytest suite (`pytest-asyncio`, `freezegun`, `pytest-homeassistant-custom-component`).
   - `tests/e2e/` — e2e tests with real network access (see "Testing").
+- `conftest.py` — loads the Home Assistant test plugin, also on Windows (see "Testing").
 - `script/update_version.py` — bumps the version (see gotcha below).
 - `justfile` — canonical task runner. `.ruff.toml`, `.pre-commit-config.yaml`,
   `pyproject.toml` — tooling config.
@@ -116,10 +117,13 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
 
 - A test with the `e2e` marker runs only with `just test_e2e`, not with `just test`.
 - Put each test that needs real network access into `tests/e2e/`. `tests/e2e/conftest.py` adds the `e2e` marker to each test in that folder, so a test there needs no marker of its own.
+- The tests run with [pytest-homeassistant-custom-component](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component). It gives the fixtures of the Home Assistant core tests, for example `hass` and `aioclient_mock`. For a test that runs the config flow or sets up the integration, use the `hass` fixture.
+- The plugin blocks sockets and DNS in each test. `tests/e2e/conftest.py` gives the tests in that folder the real network back.
+- Home Assistant does not run on Windows, and the plugin does not load there on its own. The root `conftest.py` makes it load. Its docstring tells why `addopts` in `pyproject.toml` has `-p no:homeassistant`, and a comment in `pyproject.toml` tells why each test gets a new event loop. Read both before you change these settings.
 - **Tests work around the code, not the reverse.** Do **not** compromise or add
   logic to production code merely to satisfy tests. When the test/non-production
   environment differs, absorb that difference inside the test code.
-- Async tests use `asyncio_mode = "auto"` with a session-scoped loop; time is
+- Async tests use `asyncio_mode = "auto"` with a new event loop for each test; time is
   controlled with `freezegun`.
 
 ## Domain knowledge
