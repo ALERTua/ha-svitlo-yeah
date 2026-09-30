@@ -29,6 +29,9 @@ test:
 test_e2e:
     uv run pytest -m e2e
 
+cov:
+    uv run pytest --cov=custom_components/svitlo_yeah --cov-report=term-missing
+
 version VERSION:
     uv run script/update_version.py {{VERSION}}
     uv lock

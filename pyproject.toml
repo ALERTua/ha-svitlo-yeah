@@ -18,6 +18,7 @@ dev = [
     "ruff",
     "rust-just",
     "pytest-homeassistant-custom-component",
+    "pytest-cov",
 ]
 
 [tool.pytest.ini_options]
