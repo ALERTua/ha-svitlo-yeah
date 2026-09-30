@@ -28,6 +28,7 @@ require a running Home Assistant instance (`hass`).
   - `config_flow.py` — UI setup/options flow.
   - `models/`, `const.py`, `manifest.json`, `translations/`.
 - `tests/` — pytest suite (`pytest-asyncio`, `freezegun`).
+  - `tests/e2e/` — e2e tests with real network access (see "Testing").
 - `script/update_version.py` — bumps the version (see gotcha below).
 - `justfile` — canonical task runner. `.ruff.toml`, `.pre-commit-config.yaml`,
   `pyproject.toml` — tooling config.
@@ -103,6 +104,7 @@ Home Assistant loads a code change only after a restart. If the local Home Assis
 
 - Run with `just test` (`uv run pytest`). e2e tests are marked `e2e` and excluded
   by default (`-m 'not e2e'`); run them explicitly with `just test_e2e`.
+- Put each test that needs real network access into `tests/e2e/`. `tests/e2e/conftest.py` adds the `e2e` marker to each test in that folder, so a test there needs no marker of its own.
 - **Tests work around the code, not the reverse.** Do **not** compromise or add
   logic to production code merely to satisfy tests. When the test/non-production
   environment differs, absorb that difference inside the test code.

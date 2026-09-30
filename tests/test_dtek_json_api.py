@@ -4,10 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import aiohttp
 import pytest
-
-from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
 
 # noinspection PyProtectedMember
 from custom_components.svitlo_yeah.api.dtek.json import (
@@ -15,7 +12,6 @@ from custom_components.svitlo_yeah.api.dtek.json import (
     FetchResult,
     _is_data_sufficiently_fresh,
 )
-from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
 TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
@@ -28,23 +24,6 @@ def _make_api(**kwargs: object) -> DtekAPIJson:
         return_value=MagicMock(),
     ):
         return DtekAPIJson(MagicMock(), **kwargs)
-
-
-async def _make_api_real(**kwargs: object) -> DtekAPIJson:
-    """Create a DtekAPIJson with a real aiohttp session for e2e tests."""
-    session = aiohttp.ClientSession()
-    hass = MagicMock()
-
-    # Create API instance manually to bypass async_get_clientsession
-    api = object.__new__(DtekAPIJson)
-    # noinspection PyTypeChecker
-    DtekAPIBase.__init__(api, kwargs.get("group"))
-    api.hass = hass
-    api.session = session
-    api.urls = kwargs.get("urls", [])
-    api.preset_data = None
-
-    return api
 
 
 @pytest.fixture(name="api")
@@ -154,59 +133,6 @@ class TestJsonDtekAPIFetchData:
         await api.fetch_data()
         # Should not crash, data remains None
         assert api.data is None
-
-    @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
-    @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
-    async def test_fetch_data_real_endpoints(self, provider_key):
-        """
-        Test fetching real data from a DTEK JSON endpoint.
-
-        Stale upstream data is not our bug, so those providers are skipped
-        rather than failed; a genuinely unreachable/broken source still fails.
-        """
-        urls = DTEK_PROVIDER_URLS[provider_key]
-        api = await _make_api_real(urls=urls)
-        try:
-            result = await api.fetch_data()
-            if result is FetchResult.STALE:
-                pytest.skip(f"{provider_key}: upstream data is stale {urls}")
-            assert result is FetchResult.FRESH, (
-                f"failed to fetch fresh data for {provider_key} {urls} (result={result})"
-            )
-
-            groups = api.get_dtek_region_groups()
-            assert isinstance(groups, list), (
-                f"wrong data type for groups while getting info for {provider_key}"
-            )
-            assert len(groups), f"no groups while getting info for {provider_key}"
-
-            api.group = groups[0]
-            updated_on = api.get_updated_on()
-            assert updated_on, f"no updated_on while getting info for {provider_key}"
-        finally:
-            await api.session.close()
-
-    @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
-    @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
-    async def test_setup_groups_real_endpoints(self, provider_key):
-        """
-        Every provider must offer groups on setup, as the config flow asks for them.
-
-        The config flow accepts stale data with consent, so stale upstream data
-        must still give groups, from the fact or from the preset schedule.
-        """
-        urls = DTEK_PROVIDER_URLS[provider_key]
-        api = await _make_api_real(urls=urls)
-        try:
-            result = await api.fetch_data(allow_stale_data=True)
-            assert result is not FetchResult.UNAVAILABLE, (
-                f"no source could be fetched for {provider_key} {urls}"
-            )
-            assert api.get_dtek_region_groups(), (
-                f"no groups on setup for {provider_key} {urls} (result={result})"
-            )
-        finally:
-            await api.session.close()
 
 
 class TestJsonDtekAPIStaleData:
