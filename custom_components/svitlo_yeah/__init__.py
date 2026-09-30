@@ -4,13 +4,16 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
+from homeassistant.helpers import issue_registry as ir
 
 from .const import (
     CONF_PROVIDER_TYPE,
+    DOMAIN,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
 )
+from .coordinator.coordinator import group_not_listed_issue_id
 from .coordinator.dtek.json import DtekCoordinatorJson
 from .coordinator.e_svitlo import ESvitloCoordinator
 from .coordinator.yasno import YasnoCoordinator
@@ -63,4 +66,8 @@ async def async_unload_entry(
     """Handle removal of an entry."""
     LOGGER.info("Unload entry: %s", entry)
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        # The next setup asks the source again and creates the issue if needed.
+        ir.async_delete_issue(hass, DOMAIN, group_not_listed_issue_id(entry.entry_id))
+    return unload_ok

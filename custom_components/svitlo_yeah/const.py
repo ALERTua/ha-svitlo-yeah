@@ -63,6 +63,8 @@ TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = (
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
     "component.svitlo_yeah.common.event_name_emergency_outage"
 )
+# Repair issue: the translation key, and the prefix of the issue id
+ISSUE_GROUP_NOT_LISTED: Final = "group_not_listed"
 
 # E-Svitlo Constants
 E_SVITLO_SUMY_BASE_URL: Final = (

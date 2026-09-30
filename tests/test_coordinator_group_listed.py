@@ -1,26 +1,62 @@
 """Tests for group_listed of the DTEK and Yasno coordinators and its effects."""
 
+import json
 import logging
+import string
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_utils
 
+from custom_components.svitlo_yeah import async_unload_entry
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
-from custom_components.svitlo_yeah.const import CONF_GROUP, CONF_PROVIDER, CONF_REGION
+from custom_components.svitlo_yeah.const import (
+    CONF_GROUP,
+    CONF_PROVIDER,
+    CONF_REGION,
+    DOMAIN,
+)
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
 from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEventType,
+    YasnoRegion,
 )
 from custom_components.svitlo_yeah.sensor import SENSORS, IntegrationSensor
 
 LOGGER_NAME = "custom_components.svitlo_yeah.coordinator.coordinator"
 ELECTRICITY = next(s for s in SENSORS if s.key == "electricity")
+ISSUE_ID = "group_not_listed_test_entry"
+TRANSLATIONS = Path(__file__).parent.parent / (
+    "custom_components/svitlo_yeah/translations"
+)
+YASNO_KYIV = YasnoRegion.from_dict(
+    {
+        "id": 25,
+        "value": "Київ",
+        "dsos": [{"id": 902, "name": "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"}],
+    }
+)
+
+
+@pytest.fixture(autouse=True, name="create_issue")
+def _create_issue():
+    """Replace async_create_issue, which needs a real Home Assistant."""
+    with patch.object(ir, "async_create_issue") as create_issue:
+        yield create_issue
+
+
+@pytest.fixture(autouse=True, name="delete_issue")
+def _delete_issue():
+    """Replace async_delete_issue, which needs a real Home Assistant."""
+    with patch.object(ir, "async_delete_issue") as delete_issue:
+        yield delete_issue
 
 
 def _entry(data: dict) -> MagicMock:
@@ -143,6 +179,7 @@ async def _update_yasno(coordinator, listed: bool | None):
     api.fetch_data = AsyncMock()
     api.is_group_listed = MagicMock(return_value=listed)
     api.get_events = MagicMock(return_value=[])
+    api.get_region_by_id = MagicMock(return_value=YASNO_KYIV)
     with patch(
         "custom_components.svitlo_yeah.coordinator.yasno.YasnoApi",
         return_value=api,
@@ -217,3 +254,98 @@ class TestElectricityWithoutGroupSchedule:
         dtek.get_current_event = MagicMock(return_value=None)
         sensor = IntegrationSensor(dtek, ELECTRICITY)
         assert sensor.native_value == ConnectivityState.STATE_NORMAL
+
+
+class TestGroupNotListedIssue:
+    """A repair issue exists while the source has no schedule for the group."""
+
+    async def test_missing_group_creates_the_issue(self, dtek, create_issue):
+        """A missing group creates a warning issue that names group and source."""
+        dtek.translations = {"component.svitlo_yeah.common.kyiv_region": "Kyiv Region"}
+
+        await _update_dtek(dtek, FetchResult.FRESH, listed=False)
+
+        create_issue.assert_called_once_with(
+            dtek.hass,
+            DOMAIN,
+            ISSUE_ID,
+            is_fixable=False,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="group_not_listed",
+            translation_placeholders={"group": "3.1", "provider": "Kyiv Region"},
+        )
+
+    async def test_yasno_issue_names_region_and_provider(self, yasno, create_issue):
+        """The issue of a Yasno entry names the region and the provider."""
+        await _update_yasno(yasno, listed=False)
+
+        placeholders = create_issue.call_args.kwargs["translation_placeholders"]
+        assert placeholders == {"group": "1.2", "provider": "Київ ДТЕК"}
+
+    async def test_missing_twice_creates_the_issue_once(self, dtek, create_issue):
+        """A group that stays missing does not create the issue again."""
+        await _update_dtek(dtek, FetchResult.FRESH, listed=False)
+        await _update_dtek(dtek, FetchResult.FRESH, listed=False)
+
+        create_issue.assert_called_once()
+
+    async def test_group_comes_back(self, dtek, create_issue, delete_issue):
+        """A group that comes back deletes the issue."""
+        await _update_dtek(dtek, FetchResult.FRESH, listed=False)
+        await _update_dtek(dtek, FetchResult.FRESH, listed=True)
+
+        create_issue.assert_called_once()
+        delete_issue.assert_called_once_with(dtek.hass, DOMAIN, ISSUE_ID)
+
+    async def test_listed_group_touches_no_issue(
+        self, dtek, create_issue, delete_issue
+    ):
+        """A group that the source lists from the start needs no issue."""
+        await _update_dtek(dtek, FetchResult.FRESH, listed=True)
+
+        create_issue.assert_not_called()
+        delete_issue.assert_not_called()
+
+    async def test_no_answer_keeps_the_issue(self, dtek, create_issue, delete_issue):
+        """Data that says nothing about the group keeps the issue."""
+        dtek.group_listed = False
+
+        await _update_dtek(dtek, FetchResult.FRESH, listed=None)
+
+        create_issue.assert_not_called()
+        delete_issue.assert_not_called()
+
+    async def test_unload_deletes_the_issue(self, delete_issue):
+        """Unloading the entry deletes its issue."""
+        hass = MagicMock()
+        hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+
+        assert await async_unload_entry(hass, _entry({}))
+
+        delete_issue.assert_called_once_with(hass, DOMAIN, ISSUE_ID)
+
+    async def test_failed_unload_keeps_the_issue(self, delete_issue):
+        """An entry that fails to unload keeps its issue."""
+        hass = MagicMock()
+        hass.config_entries.async_unload_platforms = AsyncMock(return_value=False)
+
+        assert not await async_unload_entry(hass, _entry({}))
+
+        delete_issue.assert_not_called()
+
+    @pytest.mark.parametrize("language", ["en", "uk"])
+    def test_translation_uses_the_sent_placeholders(self, language):
+        """The title names the group, and the description the group and source."""
+        translations = json.loads(
+            (TRANSLATIONS / f"{language}.json").read_text(encoding="utf-8")
+        )
+        issue = translations["issues"]["group_not_listed"]
+
+        assert _placeholders(issue["title"]) == {"group"}
+        assert _placeholders(issue["description"]) == {"group", "provider"}
+
+
+def _placeholders(text: str) -> set[str]:
+    """Return the names of the placeholders in a translation text."""
+    return {name for _, name, _, _ in string.Formatter().parse(text) if name}
