@@ -31,6 +31,7 @@ require a running Home Assistant instance (`hass`).
 - `script/update_version.py` — bumps the version (see gotcha below).
 - `justfile` — canonical task runner. `.ruff.toml`, `.pre-commit-config.yaml`,
   `pyproject.toml` — tooling config.
+- `.mcp.json`, `.claude/ha_test_mcp_headers.py` — the `ha-test` MCP server for a local test Home Assistant (see "Local test Home Assistant").
 
 ## Dev environment & commands
 
@@ -52,6 +53,26 @@ Run any ad-hoc Python via `uv run python ...`.
 Pre-commit hooks include ruff + ruff-format, `uv-lock`, `validate-pyproject`,
 `todo-md`, standard whitespace/EOF fixers, and **pytest** (the full test suite
 runs as a local hook). Before finishing a change, ensure `just pre` passes.
+
+## Local test Home Assistant (optional)
+
+The `ha-test` server in `.mcp.json` connects an agent to the [Model Context Protocol Server](https://www.home-assistant.io/integrations/mcp_server/) integration of a local Home Assistant at `http://127.0.0.1:8123/api/mcp`. You need it only to see the integration work in a real Home Assistant. The test suite does not use it.
+
+To set it up:
+
+1. Link `custom_components/svitlo_yeah` into the `custom_components` folder of the local Home Assistant configuration.
+2. In the local Home Assistant, add the Model Context Protocol Server integration.
+3. In the local Home Assistant, open your user profile, open the Security tab, and create a long-lived access token.
+4. Put the token into the `.env` file in the repository root, on its own line: `HA_TEST_TOKEN=<token>`. Git ignores `.env`.
+5. Start a new Claude Code session in the repository, and approve the `ha-test` server when Claude Code asks.
+
+Do not put the token into `.mcp.json` or into an environment variable. The `headersHelper` of `ha-test` runs `.claude/ha_test_mcp_headers.py`, and this script reads `HA_TEST_TOKEN` from `.env`. Claude Code removes each variable with `TOKEN` in its name from the environment of the helper, so an environment variable does not get to the script. If `.env` has no token, the script stops with an error and `ha-test` does not connect.
+
+OAuth does not work with this server yet. Home Assistant core checks PKCE, but the released frontend does not forward `code_challenge` to the login flow (home-assistant/frontend#54389). When a frontend release with that change is on the server, `ha-test` can use OAuth instead of the token. To do that, set `"oauth": {"clientId": "http://localhost:8765/", "callbackPort": 8765}` in `.mcp.json` and remove `headersHelper`. Home Assistant compares the redirect URI of the default Claude Code client together with its port, so the default client fails with `Invalid redirect URI`.
+
+The MCP server gives only the Assist tools of Home Assistant, for example `GetLiveContext`, `HassTurnOn` and `HassTurnOff`. It sees only the entities that you expose to Assist. It cannot add, reconfigure or remove a config entry, and it cannot restart Home Assistant. For these actions, use the Home Assistant REST API with the same token in the `Authorization: Bearer` header. For example, `POST /api/config/config_entries/flow` starts a config flow. Read the token from `.env` inside the script, and never put the token on a command line or into output.
+
+Home Assistant loads a code change only after a restart. If the local Home Assistant runs `python -m homeassistant` without a loop that starts it again, the `homeassistant.restart` service stops the server. In that case, ask the user to restart Home Assistant.
 
 ## Code style & conventions
 
