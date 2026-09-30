@@ -1,8 +1,7 @@
 """Tests for JSON DTEK API (alternative data sources)."""
 
-import json
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,6 +11,7 @@ from custom_components.svitlo_yeah.api.dtek.json import (
     FetchResult,
     _is_data_sufficiently_fresh,
 )
+from tests.helpers import make_response, set_session_responses
 
 TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
@@ -30,32 +30,6 @@ def _make_api(**kwargs: object) -> DtekAPIJson:
 def _api():
     """Create a JSON DTEK API instance."""
     return _make_api(urls=TEST_URLS, group=TEST_GROUP)
-
-
-def _make_response(payload: dict | None = None, *, raise_error: bool = False):
-    """Build a mocked aiohttp response yielding `payload` from .text()."""
-    resp = AsyncMock()
-    if raise_error:
-        resp.raise_for_status = MagicMock(side_effect=Exception("Connection failed"))
-    else:
-        resp.raise_for_status = MagicMock()
-    resp.text = AsyncMock(
-        return_value=json.dumps(payload) if payload is not None else ""
-    )
-    return resp
-
-
-def _get_cm(response):
-    """Wrap a response in an async context manager (as ``session.get`` returns)."""
-    cm = MagicMock()
-    cm.__aenter__ = AsyncMock(return_value=response)
-    cm.__aexit__ = AsyncMock(return_value=None)
-    return cm
-
-
-def _set_session_responses(api: DtekAPIJson, responses: list) -> None:
-    """Configure ``api.session.get`` so each URL fetch yields the next response."""
-    api.session.get = MagicMock(side_effect=[_get_cm(r) for r in responses])
 
 
 def _payload(update_dt: datetime, preset: dict | None = None) -> dict:
@@ -116,20 +90,18 @@ class TestJsonDtekAPIFetchData:
         stale_payload = {"fact": stale_data, "preset": {}}
 
         # First call - all sources stale, so data remains None
-        _set_session_responses(api, [_make_response(stale_payload) for _ in TEST_URLS])
+        set_session_responses(api, [make_response(stale_payload) for _ in TEST_URLS])
         await api.fetch_data()
         assert api.data is None
 
         # Second call - still None (no caching of stale data)
-        _set_session_responses(api, [_make_response(stale_payload) for _ in TEST_URLS])
+        set_session_responses(api, [make_response(stale_payload) for _ in TEST_URLS])
         await api.fetch_data()
         assert api.data is None
 
     async def test_fetch_data_all_fail(self, api):
         """Test when all URLs fail."""
-        _set_session_responses(
-            api, [_make_response(raise_error=True) for _ in TEST_URLS]
-        )
+        set_session_responses(api, [make_response(raise_error=True) for _ in TEST_URLS])
         await api.fetch_data()
         # Should not crash, data remains None
         assert api.data is None
@@ -144,7 +116,7 @@ class TestJsonDtekAPIStaleData:
 
         for allow in (False, True):
             api.data = None
-            _set_session_responses(api, [_make_response(fresh)])
+            set_session_responses(api, [make_response(fresh)])
             result = await api.fetch_data(allow_stale_data=allow)
             assert result is FetchResult.FRESH
             assert api.data is not None
@@ -153,7 +125,7 @@ class TestJsonDtekAPIStaleData:
         """All-stale sources yield STALE but do not populate data by default."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
 
-        _set_session_responses(api, [_make_response(stale), _make_response(stale)])
+        set_session_responses(api, [make_response(stale), make_response(stale)])
         result = await api.fetch_data()
 
         assert result is FetchResult.STALE
@@ -163,7 +135,7 @@ class TestJsonDtekAPIStaleData:
         """With consent, the freshest stale source is adopted into data."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
 
-        _set_session_responses(api, [_make_response(stale)])
+        set_session_responses(api, [make_response(stale)])
         result = await api.fetch_data(allow_stale_data=True)
 
         assert result is FetchResult.STALE
@@ -175,7 +147,7 @@ class TestJsonDtekAPIStaleData:
         older = _payload(datetime.now(UTC) - timedelta(days=1000))
         newer = _payload(datetime.now(UTC) - timedelta(days=10))
 
-        _set_session_responses(api, [_make_response(older), _make_response(newer)])
+        set_session_responses(api, [make_response(older), make_response(newer)])
         result = await api.fetch_data(allow_stale_data=True)
 
         assert result is FetchResult.STALE
@@ -185,9 +157,9 @@ class TestJsonDtekAPIStaleData:
         """When every source errors, the result is UNAVAILABLE under any flag."""
         for allow in (False, True):
             api.data = None
-            _set_session_responses(
+            set_session_responses(
                 api,
-                [_make_response(raise_error=True), _make_response(raise_error=True)],
+                [make_response(raise_error=True), make_response(raise_error=True)],
             )
             result = await api.fetch_data(allow_stale_data=allow)
             assert result is FetchResult.UNAVAILABLE
