@@ -3,6 +3,7 @@
 import datetime
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -77,6 +78,13 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
             self._unsubscribe_boundary()
             self._unsubscribe_boundary = None
         await super().async_will_remove_from_hass()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Write the new state, and plan the next boundary from the new data."""
+        self._event = self.coordinator.get_current_event()
+        self._schedule_next_boundary()
+        super()._handle_coordinator_update()
 
     def _update_active_state(self) -> None:
         """Recalculate active state from events."""
