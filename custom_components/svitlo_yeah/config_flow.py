@@ -173,6 +173,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         provider_type = self.data[CONF_PROVIDER_TYPE]
 
         groups = []
+        group_labels: dict[str, str] = {}
         errors: dict[str, str] | None = None
         description_placeholders: Mapping[str, str] | None = None
         if provider_type == PROVIDER_TYPE_YASNO:
@@ -210,6 +211,15 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 if result is FetchResult.STALE and not self.data.get("_stale_ack"):
                     # noinspection PyTypeChecker
                     return await self.async_step_stale_confirm()
+                group_labels = temp_api.get_dtek_region_group_labels()
+
+        # A select takes plain values or labeled options, not a mix of both
+        group_options: list[str] | list[SelectOptionDict] = groups
+        if group_labels:
+            group_options = [
+                SelectOptionDict(value=group, label=group_labels.get(group, group))
+                for group in groups
+            ]
 
         # On reconfigure, preselect the current group while the source lists it
         current_group = self.data.get(CONF_GROUP)
@@ -220,7 +230,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     default=current_group if current_group in groups else None,
                 ): SelectSelector(
                     SelectSelectorConfig(
-                        options=groups,
+                        options=group_options,
                         translation_key="group",
                     ),
                 ),

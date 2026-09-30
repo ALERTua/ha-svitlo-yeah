@@ -58,6 +58,7 @@ def _dtek_api_mock(*, result: FetchResult, groups: list[str]):
     api = MagicMock()
     api.fetch_data = AsyncMock(return_value=result)
     api.get_dtek_region_groups = MagicMock(return_value=groups)
+    api.get_dtek_region_group_labels = MagicMock(return_value={})
     return api
 
 
@@ -237,6 +238,35 @@ class TestSetupWithRealProviderApis:
             CONF_PROVIDER: "kyiv_region",
             CONF_GROUP: "1.1",
         }
+
+    async def test_dtek_dnipro_labels_the_cek_groups(self, new_flow):
+        """A group that the source names without its number gets a label."""
+        feed = {
+            "fact": {"data": [], "update": "19.02.2026 15:04", "today": 1790715600},
+            "preset": {
+                "data": {
+                    "GPV1.1": {"1": {"1": "yes"}},
+                    "GPV1001.1": {"1": {"1": "yes"}},
+                },
+                "sch_names": {"GPV1.1": "Черга 1.1", "GPV1001.1": "ЦЕК 1.1"},
+            },
+        }
+        routes = {
+            YASNO_REGIONS_ENDPOINT: YASNO_REGIONS,
+            DTEK_PROVIDER_URLS["dnipro"][0]: feed,
+        }
+        with _serve(routes):
+            await new_flow.async_step_user()
+            await new_flow.async_step_user({CONF_PROVIDER: "dtekjsonprovider_dnipro"})
+            result = await new_flow.async_step_stale_confirm({"acknowledge": True})
+            assert _select_options(result, CONF_GROUP) == [
+                {"value": "1.1", "label": "1.1"},
+                {"value": "1001.1", "label": "ЦЕК 1.1 (1001.1)"},
+            ]
+
+            result = await new_flow.async_step_group({CONF_GROUP: "1001.1"})
+
+        assert result["data"][CONF_GROUP] == "1001.1"
 
     async def test_dtek_source_without_groups_aborts(self, new_flow):
         """An empty fact schedule without a preset schedule has no groups."""

@@ -151,6 +151,34 @@ class TestDtekAPIBaseGroups:
         assert api.get_dtek_region_groups() == []
 
 
+class TestDtekAPIBaseGroupLabels:
+    """Test get_dtek_region_group_labels method."""
+
+    def test_name_without_the_group_gets_a_label(self, api):
+        """A name that does not show the group gets the group in parentheses."""
+        api.preset_data = {"sch_names": {"GPV1001.1": "ЦЕК 1.1"}}
+        assert api.get_dtek_region_group_labels() == {"1001.1": "ЦЕК 1.1 (1001.1)"}
+
+    def test_name_with_the_group_gets_no_label(self, api):
+        """A name that already shows the group gets no label."""
+        api.preset_data = {"sch_names": {"GPV1.1": "Черга 1.1"}}
+        assert api.get_dtek_region_group_labels() == {}
+
+    def test_group_inside_a_longer_number_gets_a_label(self, api):
+        """Group 1.1 is not shown by the name of queue 11.1."""
+        api.preset_data = {"sch_names": {"GPV1.1": "Черга 11.1"}}
+        assert api.get_dtek_region_group_labels() == {"1.1": "Черга 11.1 (1.1)"}
+
+    @pytest.mark.parametrize(
+        "preset_data",
+        [None, {}, {"sch_names": []}, {"sch_names": {"GPV1.1": None}}],
+    )
+    def test_no_usable_names_give_no_labels(self, api, preset_data):
+        """Missing or malformed names give no labels."""
+        api.preset_data = preset_data
+        assert api.get_dtek_region_group_labels() == {}
+
+
 class TestDtekAPIBaseIsGroupListed:
     """is_group_listed tells whether the source has the configured group."""
 
