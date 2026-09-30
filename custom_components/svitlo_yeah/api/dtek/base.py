@@ -234,6 +234,27 @@ class DtekAPIBase:
 
         return []
 
+    def get_dtek_region_group_labels(self) -> dict[str, str]:
+        """
+        Get labels for the groups whose name in the source does not show the group.
+
+        The weekly preset schedule names each group in ``sch_names``, for example
+        ``"GPV1001.1": "ЦЕК 1.1"``. Such a name gets a label with the group in
+        parentheses: ``"ЦЕК 1.1 (1001.1)"``. A name that already shows the group,
+        such as ``"Черга 1.1"``, gets no label.
+        """
+        preset_data = getattr(self, "preset_data", None)
+        names = preset_data.get("sch_names") if isinstance(preset_data, dict) else None
+        if not isinstance(names, dict):
+            return {}
+
+        labels = {}
+        for key, name in names.items():
+            group = key.replace("GPV", "")
+            if isinstance(name, str) and group not in name.split():
+                labels[group] = f"{name} ({group})"
+        return labels
+
     def is_group_listed(self) -> bool | None:
         """
         Tell whether the source has a schedule for the configured group.
