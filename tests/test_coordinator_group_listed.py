@@ -1,17 +1,26 @@
-"""Tests for the group_listed state of the DTEK and Yasno coordinators."""
+"""Tests for group_listed of the DTEK and Yasno coordinators and its effects."""
 
 import logging
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.components.calendar import CalendarEvent
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
 from custom_components.svitlo_yeah.const import CONF_GROUP, CONF_PROVIDER, CONF_REGION
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
 from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
+from custom_components.svitlo_yeah.models import (
+    ConnectivityState,
+    PlannedOutageEventType,
+)
+from custom_components.svitlo_yeah.sensor import SENSORS, IntegrationSensor
 
 LOGGER_NAME = "custom_components.svitlo_yeah.coordinator.coordinator"
+ELECTRICITY = next(s for s in SENSORS if s.key == "electricity")
 
 
 def _entry(data: dict) -> MagicMock:
@@ -164,3 +173,47 @@ class TestYasnoCoordinatorGroupListed:
         await _update_yasno(yasno, listed=None)
 
         assert yasno.group_listed is False
+
+
+def _planned_outage_now() -> CalendarEvent:
+    """Build a planned outage that is in progress now."""
+    now = dt_utils.now()
+    return CalendarEvent(
+        summary="Planned outage",
+        start=now - timedelta(minutes=5),
+        end=now + timedelta(hours=1),
+        description=PlannedOutageEventType.DEFINITE.value,
+        uid=PlannedOutageEventType.DEFINITE.value,
+    )
+
+
+class TestElectricityWithoutGroupSchedule:
+    """Electricity is unknown while the source has no schedule for the group."""
+
+    @pytest.mark.parametrize("group_listed", [True, None])
+    def test_listed_or_unknown_group_keeps_the_event_state(self, dtek, group_listed):
+        """A listed group, or no answer yet, keeps the state of the event."""
+        dtek.group_listed = group_listed
+        dtek.get_current_event = MagicMock(return_value=_planned_outage_now())
+        assert dtek.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+
+    @pytest.mark.parametrize("coordinator_name", ["dtek", "yasno"])
+    def test_missing_group_gives_unknown(self, request, coordinator_name):
+        """A missing group gives None, even when an event is in progress."""
+        coordinator = request.getfixturevalue(coordinator_name)
+        coordinator.group_listed = False
+        coordinator.get_current_event = MagicMock(return_value=_planned_outage_now())
+        assert coordinator.current_state is None
+
+    def test_electricity_sensor_is_unknown_for_a_missing_group(self, dtek):
+        """The Electricity sensor gives no value, which Home Assistant shows as unknown."""
+        dtek.group_listed = False
+        dtek.get_current_event = MagicMock(return_value=None)
+        assert IntegrationSensor(dtek, ELECTRICITY).native_value is None
+
+    def test_electricity_sensor_is_normal_for_a_listed_group(self, dtek):
+        """The Electricity sensor shows normal for a listed group without events."""
+        dtek.group_listed = True
+        dtek.get_current_event = MagicMock(return_value=None)
+        sensor = IntegrationSensor(dtek, ELECTRICITY)
+        assert sensor.native_value == ConnectivityState.STATE_NORMAL
