@@ -7,9 +7,9 @@
       "reconfigure_unchanged": "The entry already uses this group. Nothing changed.",
       "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
       "no_accounts_found": "No accounts found",
-      "yasno_connection_error": "Failed to fetch Yasno groups.\nPlease check your connection to Yasno API.\n{url}",
-      "dtek_json_unavailable": "Failed to get the outage schedule from the data source.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
-      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry to add the integration again later.\n{urls}"
+      "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
+      "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
+      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}"
     },
     "step": {
       "user": {
