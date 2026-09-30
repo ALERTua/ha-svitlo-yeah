@@ -151,6 +151,54 @@ class TestDtekAPIBaseGroups:
         assert api.get_dtek_region_groups() == []
 
 
+class TestDtekAPIBaseIsGroupListed:
+    """is_group_listed tells whether the source has the configured group."""
+
+    def test_group_in_fact(self, api, sample_data):
+        """The group is in the fact schedule."""
+        api.data = sample_data
+        assert api.is_group_listed() is True
+
+    def test_group_missing_from_fact_without_preset(self, api):
+        """The fact schedule lists other groups only, as Zaporizhzhia did in 2026-03."""
+        api.data = {"data": {TEST_TIMESTAMP: {"GPV1.1": {}, "GPV1.2": {}}}}
+        api.group = "3.1"
+        assert api.is_group_listed() is False
+
+    def test_group_in_preset_with_empty_fact(self, api):
+        """An empty fact schedule, but the preset schedule has the group."""
+        api.data = {"data": [], "update": "19.02.2026 15:04"}
+        api.preset_data = {"data": {"GPV1.1": {}, "GPV1.2": {}}}
+        assert api.is_group_listed() is True
+
+    def test_group_missing_from_preset_with_empty_fact(self, api):
+        """An empty fact schedule, and the preset schedule lists other groups."""
+        api.data = {"data": [], "update": "19.02.2026 15:04"}
+        api.preset_data = {"data": {"GPV1.1": {}, "GPV1.2": {}}}
+        api.group = "3.1"
+        assert api.is_group_listed() is False
+
+    def test_group_only_in_second_fact_day(self, api):
+        """A group that only the second day lists is still listed."""
+        api.data = {"data": {"1": {"GPV1.2": {}}, "2": {"GPV1.1": {}}}}
+        assert api.is_group_listed() is True
+
+    def test_nothing_listed_gives_none(self, api):
+        """An empty fact schedule without a preset schedule says nothing."""
+        api.data = {"data": [], "update": "19.02.2026 15:04"}
+        assert api.is_group_listed() is None
+
+    def test_no_data_gives_none(self, api):
+        """Without data the answer is unknown."""
+        assert api.is_group_listed() is None
+
+    def test_no_group_gives_none(self, api, sample_data):
+        """Without a configured group the answer is unknown."""
+        api.data = sample_data
+        api.group = None
+        assert api.is_group_listed() is None
+
+
 class TestDtekAPIBaseEventsListShapedData:
     """Regression: upstream feed serializes an empty schedule as "data": []."""
 

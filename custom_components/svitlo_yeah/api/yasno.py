@@ -284,6 +284,21 @@ class YasnoApi:
 
         return list(self.planned_outage_data.keys())
 
+    def is_group_listed(self) -> bool | None:
+        """
+        Tell whether the planned outage data has the configured group.
+
+        None: there is no data or no configured group, so the source says
+        nothing about the group.
+        """
+        if (
+            not self.group
+            or not isinstance(self.planned_outage_data, dict)
+            or not self.planned_outage_data
+        ):
+            return None
+        return self.group in self.planned_outage_data
+
     def _get_group_data(self) -> dict | None:
         """
         Get data for the configured group.

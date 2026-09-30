@@ -75,8 +75,14 @@ class TestJsonDtekAPIRealEndpoints:
             assert result is not FetchResult.UNAVAILABLE, (
                 f"no source could be fetched for {provider_key} {urls}"
             )
-            assert api.get_dtek_region_groups(), (
+            groups = api.get_dtek_region_groups()
+            assert groups, (
                 f"no groups on setup for {provider_key} {urls} (result={result})"
             )
+            for group in groups:
+                api.group = group
+                assert api.is_group_listed() is True, (
+                    f"{provider_key}: offered group {group} is not listed {urls}"
+                )
         finally:
             await api.session.close()
