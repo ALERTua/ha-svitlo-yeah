@@ -1,4 +1,4 @@
-"""Shared helpers that fake the aiohttp responses of the DTEK JSON sources."""
+"""Shared helpers that fake the aiohttp responses of the provider sources."""
 
 import json
 from typing import TYPE_CHECKING
@@ -8,8 +8,13 @@ if TYPE_CHECKING:
     from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
 
 
-def make_response(payload: dict | None = None, *, raise_error: bool = False):
-    """Build a mocked aiohttp response yielding `payload` from .text()."""
+def make_response(payload: dict | list | None = None, *, raise_error: bool = False):
+    """
+    Build a mocked aiohttp response that yields `payload`.
+
+    DTEK JSON sources read the payload with ``.text()``, and Yasno reads it with
+    ``.json()``, so the response answers both.
+    """
     resp = AsyncMock()
     if raise_error:
         resp.raise_for_status = MagicMock(side_effect=Exception("Connection failed"))
@@ -18,6 +23,7 @@ def make_response(payload: dict | None = None, *, raise_error: bool = False):
     resp.text = AsyncMock(
         return_value=json.dumps(payload) if payload is not None else ""
     )
+    resp.json = AsyncMock(return_value=payload)
     return resp
 
 
@@ -32,3 +38,17 @@ def get_cm(response):
 def set_session_responses(api: DtekAPIJson, responses: list) -> None:
     """Configure ``api.session.get`` so each URL fetch yields the next response."""
     api.session.get = MagicMock(side_effect=[get_cm(r) for r in responses])
+
+
+def fake_session(routes: dict[str, dict | list]) -> MagicMock:
+    """
+    Build a session whose ``get(url)`` answers with ``routes[url]``.
+
+    A URL that is not in ``routes`` raises KeyError, so a test fails loudly
+    when the code under test fetches an unexpected URL.
+    """
+    session = MagicMock()
+    session.get = MagicMock(
+        side_effect=lambda url, **_: get_cm(make_response(routes[url]))
+    )
+    return session
