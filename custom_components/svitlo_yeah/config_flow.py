@@ -219,7 +219,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     }  # ty:ignore[invalid-assignment]
                     # noinspection PyTypeChecker
                     return self.async_abort(
-                        reason="dtek_json_empty_data",
+                        reason=(
+                            "dtek_json_unavailable"
+                            if result is FetchResult.UNAVAILABLE
+                            else "dtek_json_empty_data"
+                        ),
                         description_placeholders=description_placeholders,
                     )
                 if result is FetchResult.STALE and not self.data.get("_stale_ack"):

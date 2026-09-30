@@ -95,8 +95,22 @@ class TestStaleConfirmRouting:
         assert result["step_id"] == "group"
 
     async def test_unavailable_data_aborts(self, flow):
-        """With no usable data, the flow aborts as before."""
+        """With no source that answered, the flow aborts as unavailable."""
         api = _dtek_api_mock(result=FetchResult.UNAVAILABLE, groups=[])
+
+        with patch(
+            "custom_components.svitlo_yeah.config_flow.DtekAPIJson",
+            return_value=api,
+        ):
+            result = await flow.async_step_group()
+
+        assert result["type"] == "abort"
+        assert result["reason"] == "dtek_json_unavailable"
+
+    @pytest.mark.parametrize("fetch_result", [FetchResult.FRESH, FetchResult.STALE])
+    async def test_data_without_groups_aborts_as_empty(self, flow, fetch_result):
+        """A source that answered without groups is not a connection problem."""
+        api = _dtek_api_mock(result=fetch_result, groups=[])
 
         with patch(
             "custom_components.svitlo_yeah.config_flow.DtekAPIJson",
