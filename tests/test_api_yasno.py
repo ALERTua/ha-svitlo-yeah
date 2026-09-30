@@ -165,6 +165,17 @@ class TestYasnoApiFetchData:
         await api.fetch_planned_outage_data()
         assert api.planned_outage_data == planned_outage_data
 
+    async def test_failed_planned_outage_fetch_keeps_the_last_data(
+        self, api, planned_outage_data
+    ):
+        """A failed request keeps the planned outages of the last one."""
+        api.planned_outage_data = planned_outage_data
+        api.session.get.return_value.__aenter__.side_effect = aiohttp.ClientError()
+
+        await api.fetch_planned_outage_data()
+
+        assert api.planned_outage_data == planned_outage_data
+
     async def test_fetch_planned_outage_no_config(self, api):
         """Test planned outage fetch without region/provider."""
         # Save original values

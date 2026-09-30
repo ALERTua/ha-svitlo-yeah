@@ -192,17 +192,14 @@ def _yasno():
 
 
 async def _update_yasno(coordinator, listed: bool | None):
-    """Run one update where the new YasnoApi answers `listed`."""
+    """Run one update where the API of the coordinator answers `listed`."""
     api = MagicMock()
     api.fetch_data = AsyncMock()
     api.is_group_listed = MagicMock(return_value=listed)
     api.get_events = MagicMock(return_value=[])
     api.get_region_by_id = MagicMock(return_value=YASNO_KYIV)
-    with patch(
-        "custom_components.svitlo_yeah.coordinator.yasno.YasnoApi",
-        return_value=api,
-    ):
-        await coordinator._async_update_data()
+    coordinator.api = api
+    await coordinator._async_update_data()
 
 
 class TestYasnoCoordinatorGroupListed:

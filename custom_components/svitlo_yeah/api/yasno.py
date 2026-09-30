@@ -253,6 +253,10 @@ class YasnoApi:
         )
         LOGGER.debug("Fetching Yasno planned outage data: %s", url)
         output = await self._get_route_data(url)
+        if output is None:
+            # A failed request says nothing new, so the last planned outages stay
+            LOGGER.debug("Keeping the last Yasno planned outage data")
+            return
         LOGGER.debug("Filling Yasno planned outage data with: %s", output)
         self.planned_outage_data = output  # ty:ignore[invalid-assignment]
 
