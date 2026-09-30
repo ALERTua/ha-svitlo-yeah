@@ -90,7 +90,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
 
         # Only fresh data can tell whether the source still lists the group.
         if result is FetchResult.FRESH:
-            self._update_group_listed(self.api.is_group_listed())
+            await self._async_update_group_listed(self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)
         current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))

@@ -129,7 +129,7 @@ class YasnoCoordinator(IntegrationCoordinator):
 
         # Fetch outages data (now async with aiohttp, not blocking)
         await self.api.fetch_data()
-        self._update_group_listed(self.api.is_group_listed())
+        await self._async_update_group_listed(self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)
         now = dt_utils.now()

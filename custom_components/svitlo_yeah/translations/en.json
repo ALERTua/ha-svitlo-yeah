@@ -133,7 +133,7 @@
   "issues": {
     "group_not_listed": {
       "title": "No outage schedule for group {group}",
-      "description": "The source {provider} has no outage schedule for group {group}. Until the source has it, the Electricity sensor shows Unknown, and the calendars show no outages for this group.\n\nThe provider can renumber or remove groups. Find your group on the website of the provider. To change the group, delete this integration entry and add it again.\n\nThis message disappears when the source has group {group} again."
+      "description": "The source {provider} has no outage schedule for group {group}. Until the source has it, the Electricity sensor shows Unknown, and the calendars show no outages for this group.\n\nThe provider can renumber or remove groups. Find your group on the website of the provider. To change the group, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Reconfigure.\n\nThis message disappears when the source has group {group} again."
     }
   },
   "common": {

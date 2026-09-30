@@ -19,6 +19,7 @@ from ..const import (
     DOMAIN,
     EVENT_DATA_CHANGED,
     ISSUE_GROUP_NOT_LISTED,
+    NAME,
     TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
     UPDATE_INTERVAL,
 )
@@ -69,7 +70,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         # that could tell. None until such data arrives.
         self.group_listed: bool | None = None
 
-    def _update_group_listed(self, listed: bool | None) -> None:
+    async def _async_update_group_listed(self, listed: bool | None) -> None:
         """
         Keep the last known answer whether the source lists the group.
 
@@ -103,6 +104,8 @@ class IntegrationCoordinator(DataUpdateCoordinator):
                     "provider": " ".join(
                         filter(None, (self.region_name, self.provider_name))
                     ),
+                    # The way to Reconfigure goes through the list of integrations
+                    "integration": await self._async_integration_title(),
                 },
             )
         elif self.group_listed is False:
@@ -111,6 +114,16 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             )
             ir.async_delete_issue(self.hass, DOMAIN, issue_id)
         self.group_listed = listed
+
+    async def _async_integration_title(self) -> str:
+        """Return the integration name that the list of integrations shows."""
+        titles = await async_get_translations(
+            self.hass,
+            self.hass.config.language,
+            "title",
+            [DOMAIN],
+        )
+        return titles.get(f"component.{DOMAIN}.title", NAME)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
