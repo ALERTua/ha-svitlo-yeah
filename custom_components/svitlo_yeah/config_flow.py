@@ -174,7 +174,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             if self.source == SOURCE_RECONFIGURE:
                 # The update listener of the entry reloads it with the new group.
                 # An explicit reason keeps the text of this integration: without
-                # it, newer cores show the text from the core translations.
+                # it, the 2026.10 development core shows the core translation.
                 # noinspection PyTypeChecker
                 return self.async_update_and_abort(
                     self._get_reconfigure_entry(),
