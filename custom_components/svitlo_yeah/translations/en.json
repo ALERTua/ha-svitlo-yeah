@@ -2,7 +2,7 @@
   "title": "Svitlo Yeah!",
   "config": {
     "abort": {
-      "reconfigure_successful": "The entry now uses the new group.",
+      "reconfigure_successful": "The entry now uses the new group. To update the entity IDs, open the device and select Recreate entity IDs.",
       "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
       "no_accounts_found": "No accounts found",
       "yasno_connection_error": "Failed to fetch Yasno groups.\nPlease check your connection to Yasno API.\n{url}",
