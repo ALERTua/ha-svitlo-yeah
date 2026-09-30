@@ -188,7 +188,14 @@ class IntegrationCoordinator(DataUpdateCoordinator):
 
     @property
     def current_state(self) -> str | None:
-        """Get the current state."""
+        """
+        Get the current state.
+
+        None (unknown) while the source has no schedule for the group: without
+        a schedule, "normal" would claim that the power is on.
+        """
+        if self.group_listed is False:
+            return None
         event = self.get_current_event()
         return self._event_to_state(event)
 
