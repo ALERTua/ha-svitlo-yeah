@@ -40,20 +40,20 @@ The project uses **[uv](https://docs.astral.sh/uv/)**. Run everything through
 `uv run` so the project virtualenv is used. Do **not** `cd` into subdirectories
 before running commands — run them from the repo root.
 
-Prefer the `just` recipes (from `justfile`):
+Use the `just` recipes. The `justfile` shows what each recipe runs.
 
-- `just install` → `uv sync --dev` — install deps.
-- `just test` → `uv run pytest` — run the test suite (e2e tests excluded by default).
-- `just test_e2e` → `uv run pytest -m e2e` — run e2e tests (real network access).
-- `just lint` → `uv run ruff format .` then `uv run ruff check --fix`.
-- `just pre` → `uv run pre-commit run --all-files` — run all pre-commit hooks.
-- `just version X.Y.Z` → runs `script/update_version.py` then `uv lock`.
+- `just install`: after a clone, and after a change of the dependencies.
+- `just upgrade`: when you upgrade all dependencies.
+- `just lint`: after each code change.
+- `just test`: after each change.
+- `just test_e2e`: after a change of the code that reads a real source, and before a release. It needs network access.
+- `just pre`: before you finish a change.
+- `just pre-update`: when you update the versions of the pre-commit hooks.
+- `just version X.Y.Z`: when you change the version.
 
 Run any ad-hoc Python via `uv run python ...`.
 
-Pre-commit hooks include ruff + ruff-format, `uv-lock`, `validate-pyproject`,
-`todo-md`, standard whitespace/EOF fixers, and **pytest** (the full test suite
-runs as a local hook). Before finishing a change, ensure `just pre` passes.
+The pre-commit hooks also run the full test suite, so each commit runs it.
 
 ## Local test Home Assistant (optional)
 
@@ -114,8 +114,7 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
 
 ## Testing
 
-- Run with `just test` (`uv run pytest`). e2e tests are marked `e2e` and excluded
-  by default (`-m 'not e2e'`); run them explicitly with `just test_e2e`.
+- A test with the `e2e` marker runs only with `just test_e2e`, not with `just test`.
 - Put each test that needs real network access into `tests/e2e/`. `tests/e2e/conftest.py` adds the `e2e` marker to each test in that folder, so a test there needs no marker of its own.
 - **Tests work around the code, not the reverse.** Do **not** compromise or add
   logic to production code merely to satisfy tests. When the test/non-production
@@ -170,7 +169,4 @@ range `12:30`–`16:30`. Consult `base.py` for the exact merging logic and the
 - **Never touch git history or the index.** You are **not** allowed to run
   `git add`, `git commit`, `git rm`, or anything that stages or commits. Producing
   a diff or a commit message does not imply permission to commit.
-- **Version-sync gotcha:** the version lives in **both** `pyproject.toml`
-  (`version = "..."`) and `custom_components/svitlo_yeah/manifest.json`
-  (`"version"`). They must match. Use `just version X.Y.Z`
-  (`script/update_version.py` + `uv lock`) rather than editing either by hand.
+- **Version-sync gotcha:** the version lives in **both** `pyproject.toml` (`version = "..."`) and `custom_components/svitlo_yeah/manifest.json` (`"version"`). They must match. Use `just version X.Y.Z` rather than editing either by hand.

@@ -44,8 +44,9 @@ def fake_session(routes: dict[str, dict | list]) -> MagicMock:
     """
     Build a session whose ``get(url)`` answers with ``routes[url]``.
 
-    A URL that is not in ``routes`` raises KeyError, so a test fails loudly
-    when the code under test fetches an unexpected URL.
+    A URL that is not in ``routes`` raises KeyError. A caller that does not
+    catch it fails the test. ``DtekAPIJson.fetch_data`` catches each error of
+    a source, so for DTEK a missing route becomes ``FetchResult.UNAVAILABLE``.
     """
     session = MagicMock()
     session.get = MagicMock(
