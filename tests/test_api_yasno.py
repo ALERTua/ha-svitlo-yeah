@@ -195,6 +195,36 @@ class TestYasnoApiGroups:
         assert api.get_yasno_groups() == []
 
 
+class TestYasnoApiIsGroupListed:
+    """is_group_listed tells whether the planned outages have the group."""
+
+    def test_group_listed(self, api, planned_outage_data):
+        """The planned outage data has the configured group."""
+        api.planned_outage_data = planned_outage_data
+        assert api.is_group_listed() is True
+
+    def test_group_not_listed(self, api, planned_outage_data):
+        """The planned outage data lists other groups only."""
+        api.planned_outage_data = planned_outage_data
+        api.group = "9.9"
+        assert api.is_group_listed() is False
+
+    def test_no_data_gives_none(self, api):
+        """Without data the answer is unknown."""
+        assert api.is_group_listed() is None
+
+    def test_empty_data_gives_none(self, api):
+        """Planned outage data without groups says nothing."""
+        api.planned_outage_data = {}
+        assert api.is_group_listed() is None
+
+    def test_no_group_gives_none(self, api, planned_outage_data):
+        """Without a configured group the answer is unknown."""
+        api.planned_outage_data = planned_outage_data
+        api.group = None
+        assert api.is_group_listed() is None
+
+
 class TestYasnoApiTimeConversion:
     """Test time conversion methods."""
 

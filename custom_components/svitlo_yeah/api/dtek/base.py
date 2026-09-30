@@ -188,6 +188,36 @@ class DtekAPIBase:
 
         return []
 
+    def is_group_listed(self) -> bool | None:
+        """
+        Tell whether the source has a schedule for the configured group.
+
+        True: the group is in a day of the fact schedule or in the preset
+        schedule. False: the source lists other groups only.
+        None: there is no data, no configured group, or no listed group at all,
+        so the source says nothing about the group.
+        """
+        if not self.group:
+            return None
+
+        listed: set[str] = set()
+        fact_days = (self.data or {}).get("data")
+        if isinstance(fact_days, dict):
+            for day in fact_days.values():
+                if isinstance(day, dict):
+                    listed.update(day)
+
+        preset_data = getattr(self, "preset_data", None)
+        preset_groups = (
+            preset_data.get("data") if isinstance(preset_data, dict) else None
+        )
+        if isinstance(preset_groups, dict):
+            listed.update(preset_groups)
+
+        if not listed:
+            return None
+        return f"GPV{self.group}" in listed
+
     def get_current_event(self, at: datetime.datetime) -> PlannedOutageEvent | None:
         """Get the current event at a specific time."""
         events = self.get_events(at, at + datetime.timedelta(days=1))
