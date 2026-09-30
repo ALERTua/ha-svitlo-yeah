@@ -1,9 +1,11 @@
 """End-to-end tests against the real DTEK JSON sources (real network access)."""
 
+import datetime
 from unittest.mock import MagicMock
 
 import aiohttp
 import pytest
+from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson, FetchResult
@@ -84,5 +86,34 @@ class TestJsonDtekAPIRealEndpoints:
                 assert api.is_group_listed() is True, (
                     f"{provider_key}: offered group {group} is not listed {urls}"
                 )
+        finally:
+            await api.session.close()
+
+    @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
+    async def test_scheduled_events_real_endpoints(self, provider_key):
+        """
+        The weekly preset schedule of each group turns into valid events.
+
+        Only the real data shows a change of the preset format that would
+        break the calendar of scheduled outages.
+        """
+        urls = DTEK_PROVIDER_URLS[provider_key]
+        api = await _make_api_real(urls=urls)
+        try:
+            await api.fetch_data(allow_stale_data=True)
+            if not api._preset_section("data"):
+                pytest.skip(f"{provider_key}: no preset schedule {urls}")
+
+            start = dt_utils.now()
+            end = start + datetime.timedelta(days=7)
+            for group in api.get_dtek_region_groups():
+                api.group = group
+                for event in api.get_scheduled_events(start, end):
+                    assert event.start.tzinfo, f"{provider_key} {group}: naive start"
+                    assert event.end.tzinfo, f"{provider_key} {group}: naive end"
+                    assert event.start < event.end, (
+                        f"{provider_key} {group}: {event.start} is not before "
+                        f"{event.end}"
+                    )
         finally:
             await api.session.close()
