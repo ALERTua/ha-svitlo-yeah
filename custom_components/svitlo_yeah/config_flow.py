@@ -151,6 +151,20 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self.data.update(user_input)  # add group to the config
             self.data.pop("_stale_ack", None)  # flow-local flag, do not persist
 
+            # One entry for each provider and group: a second one only repeats it
+            self._async_abort_entries_match(
+                {
+                    key: self.data[key]
+                    for key in (
+                        CONF_PROVIDER_TYPE,
+                        CONF_REGION,
+                        CONF_PROVIDER,
+                        CONF_GROUP,
+                    )
+                    if key in self.data
+                }
+            )
+
             if self.source == SOURCE_RECONFIGURE:
                 # The update listener of the entry reloads it with the new group.
                 # An explicit reason keeps the text of this integration: without

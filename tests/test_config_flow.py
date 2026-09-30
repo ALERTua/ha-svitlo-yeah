@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_RECONFIGURE
+from homeassistant.data_entry_flow import AbortFlow
 
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
@@ -29,7 +30,8 @@ TEST_GROUPS = ["1.1", "1.2"]
 
 
 def _stub_results(flow: IntegrationConfigFlow) -> IntegrationConfigFlow:
-    """Stub the result helpers of a config flow to return plain dicts."""
+    """Stub the result helpers to return plain dicts, with no current entries."""
+    flow._async_current_entries = MagicMock(return_value=[])
     flow.async_show_form = MagicMock(
         side_effect=lambda **kwargs: {"type": "form", **kwargs}
     )
@@ -400,3 +402,86 @@ class TestReconfigureGroup:
         assert result["type"] == "abort"
         assert result["reason"] == "reconfigure_e_svitlo"
         flow.async_update_and_abort.assert_not_called()
+
+
+def _existing_entry(entry_id: str, data: dict) -> MagicMock:
+    """Build a current config entry with the given data and no options."""
+    entry = MagicMock()
+    entry.entry_id = entry_id
+    entry.data = data
+    entry.options = {}
+    return entry
+
+
+DTEK_KYIV_REGION_1_1 = {
+    CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
+    CONF_PROVIDER: TEST_PROVIDER_KEY,
+    CONF_GROUP: "1.1",
+}
+YASNO_KYIV_1_1 = {
+    CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+    CONF_PROVIDER: YASNO_DSO_ID,
+    CONF_REGION: YASNO_REGION_ID,
+    CONF_GROUP: "1.1",
+}
+
+
+class TestDuplicateGroup:
+    """The integration keeps one entry for each provider and group."""
+
+    async def test_same_provider_and_group_aborts(self, flow):
+        """A second entry for the same DTEK provider and group aborts."""
+        flow._async_current_entries.return_value = [
+            _existing_entry("other", DTEK_KYIV_REGION_1_1)
+        ]
+
+        with pytest.raises(AbortFlow) as err:
+            await flow.async_step_group({CONF_GROUP: "1.1"})
+
+        assert err.value.reason == "already_configured"
+
+    async def test_other_group_creates_the_entry(self, flow):
+        """Another group of the same provider is a new entry."""
+        flow._async_current_entries.return_value = [
+            _existing_entry("other", DTEK_KYIV_REGION_1_1)
+        ]
+
+        result = await flow.async_step_group({CONF_GROUP: "1.2"})
+
+        assert result["type"] == "create_entry"
+
+    async def test_yasno_group_of_another_region_creates_the_entry(self, flow):
+        """The same Yasno group in another region is a new entry."""
+        flow.data = {**YASNO_KYIV_1_1, CONF_REGION: 3}
+        flow.data.pop(CONF_GROUP)
+        flow._async_current_entries.return_value = [
+            _existing_entry("other", YASNO_KYIV_1_1)
+        ]
+
+        result = await flow.async_step_group({CONF_GROUP: "1.1"})
+
+        assert result["type"] == "create_entry"
+
+    async def test_reconfigure_to_the_group_of_another_entry_aborts(self):
+        """Reconfigure does not move an entry onto the group of another entry."""
+        flow = _reconfigure_flow({**DTEK_KYIV_REGION_1_1, CONF_GROUP: "2.2"})
+        flow._async_current_entries.return_value = [
+            _existing_entry("other", DTEK_KYIV_REGION_1_1)
+        ]
+
+        with pytest.raises(AbortFlow) as err:
+            await flow.async_step_group({CONF_GROUP: "1.1"})
+
+        assert err.value.reason == "already_configured"
+        flow.async_update_and_abort.assert_not_called()
+
+    async def test_reconfigure_keeps_its_own_group(self):
+        """Reconfigure of an entry to its own group is not a duplicate."""
+        flow = _reconfigure_flow(DTEK_KYIV_REGION_1_1)
+        flow._async_current_entries.return_value = [
+            _existing_entry("test_entry", DTEK_KYIV_REGION_1_1)
+        ]
+
+        await flow.async_step_group({CONF_GROUP: "1.1"})
+
+        flow.async_update_and_abort.assert_called_once()
