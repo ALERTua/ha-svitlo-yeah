@@ -20,6 +20,7 @@ from custom_components.svitlo_yeah.const import (
     CONF_PROVIDER,
     CONF_REGION,
     DOMAIN,
+    NAME,
 )
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
 from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
@@ -59,6 +60,16 @@ def _delete_issue():
         yield delete_issue
 
 
+@pytest.fixture(autouse=True, name="titles")
+def _titles():
+    """Give the translated integration title, which needs a real Home Assistant."""
+    with patch(
+        "custom_components.svitlo_yeah.coordinator.coordinator.async_get_translations",
+        AsyncMock(return_value={"component.svitlo_yeah.title": "Svitlo Yeah!"}),
+    ) as titles:
+        yield titles
+
+
 def _entry(data: dict) -> MagicMock:
     """Build a config entry with the given data and no options."""
     entry = MagicMock()
@@ -66,6 +77,13 @@ def _entry(data: dict) -> MagicMock:
     entry.options = {}
     entry.entry_id = "test_entry"
     return entry
+
+
+def _hass() -> MagicMock:
+    """Build a Home Assistant mock with English as the server language."""
+    hass = MagicMock(spec=HomeAssistant)
+    hass.config = MagicMock(language="en")
+    return hass
 
 
 def _records(caplog, level: int) -> list[logging.LogRecord]:
@@ -81,7 +99,7 @@ def _dtek():
         return_value=MagicMock(),
     ):
         coordinator = DtekCoordinatorJson(
-            MagicMock(spec=HomeAssistant),
+            _hass(),
             _entry({CONF_PROVIDER: "kyiv_region", CONF_GROUP: "3.1"}),
         )
     coordinator.async_fetch_translations = AsyncMock()
@@ -166,7 +184,7 @@ def _yasno():
         return_value=MagicMock(),
     ):
         coordinator = YasnoCoordinator(
-            MagicMock(spec=HomeAssistant),
+            _hass(),
             _entry({CONF_REGION: 25, CONF_PROVIDER: 902, CONF_GROUP: "1.2"}),
         )
     coordinator.async_fetch_translations = AsyncMock()
@@ -273,15 +291,39 @@ class TestGroupNotListedIssue:
             is_persistent=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key="group_not_listed",
-            translation_placeholders={"group": "3.1", "provider": "Kyiv Region"},
+            translation_placeholders={
+                "group": "3.1",
+                "provider": "Kyiv Region",
+                "integration": "Svitlo Yeah!",
+            },
         )
+
+    async def test_issue_takes_the_translated_title(self, dtek, titles):
+        """The integration name comes from the title in the server language."""
+        await _update_dtek(dtek, FetchResult.FRESH, listed=False)
+
+        titles.assert_awaited_once_with(
+            dtek.hass, dtek.hass.config.language, "title", [DOMAIN]
+        )
+
+    async def test_issue_without_a_title_uses_the_name(
+        self, dtek, titles, create_issue
+    ):
+        """Without a translated title, the issue names the integration by NAME."""
+        titles.return_value = {}
+
+        await _update_dtek(dtek, FetchResult.FRESH, listed=False)
+
+        placeholders = create_issue.call_args.kwargs["translation_placeholders"]
+        assert placeholders["integration"] == NAME
 
     async def test_yasno_issue_names_region_and_provider(self, yasno, create_issue):
         """The issue of a Yasno entry names the region and the provider."""
         await _update_yasno(yasno, listed=False)
 
         placeholders = create_issue.call_args.kwargs["translation_placeholders"]
-        assert placeholders == {"group": "1.2", "provider": "Київ ДТЕК"}
+        assert placeholders["group"] == "1.2"
+        assert placeholders["provider"] == "Київ ДТЕК"
 
     async def test_missing_twice_creates_the_issue_once(self, dtek, create_issue):
         """A group that stays missing does not create the issue again."""
@@ -343,7 +385,11 @@ class TestGroupNotListedIssue:
         issue = translations["issues"]["group_not_listed"]
 
         assert _placeholders(issue["title"]) == {"group"}
-        assert _placeholders(issue["description"]) == {"group", "provider"}
+        assert _placeholders(issue["description"]) == {
+            "group",
+            "provider",
+            "integration",
+        }
 
 
 def _placeholders(text: str) -> set[str]:
