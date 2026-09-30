@@ -5,6 +5,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.calendar import CalendarEvent
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_utils
@@ -17,6 +18,7 @@ from ..const import (
     DEBUG,
     DOMAIN,
     EVENT_DATA_CHANGED,
+    ISSUE_GROUP_NOT_LISTED,
     TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
     UPDATE_INTERVAL,
 )
@@ -35,6 +37,11 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
+
+
+def group_not_listed_issue_id(entry_id: str) -> str:
+    """Return the id of the repair issue about a group that the source lacks."""
+    return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
 
 
 class IntegrationCoordinator(DataUpdateCoordinator):
@@ -68,12 +75,14 @@ class IntegrationCoordinator(DataUpdateCoordinator):
 
         None means that the data says nothing about the group, so the last
         known answer stays. A change is logged once: a warning when the group
-        disappears from the source, and an info when it comes back.
+        disappears from the source, and an info when it comes back. While the
+        group is missing, a repair issue tells the user about it.
         """
         if listed is None or listed == self.group_listed:
             return
 
         provider = getattr(self, "provider_id", None)
+        issue_id = group_not_listed_issue_id(self.config_entry.entry_id)
         if listed is False:
             LOGGER.warning(
                 "The source of provider %s has no schedule for group %s, "
@@ -81,10 +90,26 @@ class IntegrationCoordinator(DataUpdateCoordinator):
                 provider,
                 self.group,
             )
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                is_persistent=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_GROUP_NOT_LISTED,
+                translation_placeholders={
+                    "group": str(self.group),
+                    "provider": " ".join(
+                        filter(None, (self.region_name, self.provider_name))
+                    ),
+                },
+            )
         elif self.group_listed is False:
             LOGGER.info(
                 "The source of provider %s lists group %s again", provider, self.group
             )
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
         self.group_listed = listed
 
     async def async_fetch_translations(self) -> None:
