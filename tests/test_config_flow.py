@@ -279,6 +279,29 @@ class TestSetupWithRealProviderApis:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "yasno_connection_error"
 
+    async def test_yasno_regions_timeout_offers_dtek(self, hass, aioclient_mock):
+        """While the Yasno regions time out, the other providers stay available."""
+        aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=TimeoutError())
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+
+        assert result["type"] is FlowResultType.FORM
+        providers = [o["value"] for o in _select_options(result, CONF_PROVIDER)]
+        assert KYIV_REGION_KEY in providers
+        assert YASNO_KEY not in providers
+
+    async def test_yasno_groups_timeout_aborts(self, hass, aioclient_mock):
+        """Planned outages that time out stop the flow like a connection error."""
+        aioclient_mock.get(YASNO_PLANNED_URL, exc=TimeoutError())
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "yasno_connection_error"
+
 
 class TestReconfigureGroup:
     """Reconfigure lets the user pick another group for an existing entry."""

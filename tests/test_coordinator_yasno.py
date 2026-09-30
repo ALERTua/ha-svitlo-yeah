@@ -72,7 +72,12 @@ def _coordinator(hass, monkeypatch):
     return YasnoCoordinator(hass, entry)
 
 
-async def test_failed_request_keeps_the_schedule(hass, aioclient_mock, coordinator):
+@pytest.mark.parametrize(
+    "error", [ClientConnectionError(), TimeoutError()], ids=["connection", "timeout"]
+)
+async def test_failed_request_keeps_the_schedule(
+    hass, aioclient_mock, coordinator, error
+):
     """A failed request leaves the running outage and fires no change event."""
     aioclient_mock.get(PLANNED_URL, json=_outage_all_day_today())
     await coordinator._async_update_data()
@@ -80,7 +85,7 @@ async def test_failed_request_keeps_the_schedule(hass, aioclient_mock, coordinat
 
     changes = async_capture_events(hass, EVENT_DATA_CHANGED)
     aioclient_mock.clear_requests()
-    aioclient_mock.get(PLANNED_URL, exc=ClientConnectionError())
+    aioclient_mock.get(PLANNED_URL, exc=error)
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 
