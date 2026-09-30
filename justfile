@@ -18,10 +18,10 @@ pre-update:
     uv run pre-commit autoupdate
 
 install:
-    uv sync --dev
+    uv sync --all-groups
 
 upgrade:
-    uv sync --dev --upgrade
+    uv sync --all-groups --upgrade
 
 test:
     uv run pytest
