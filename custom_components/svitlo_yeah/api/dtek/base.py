@@ -328,9 +328,8 @@ class DtekAPIBase:
         self, start_date: datetime.datetime, end_date: datetime.datetime
     ) -> list[PlannedOutageEvent]:
         """Get scheduled events within the date range from preset data."""
-        # Access preset_data from the API instance (stored in subclasses)
-        preset_data = getattr(self, "preset_data", None)
-        if not preset_data or "data" not in preset_data or not self.group:
+        preset_groups = self._preset_section("data")
+        if not preset_groups or not self.group:
             return []
 
         events = []
@@ -358,7 +357,7 @@ class DtekAPIBase:
                     continue
 
                 # Get the preset data for this day
-                day_data = preset_data["data"].get(group_key, {}).get(str(day_num), {})
+                day_data = preset_groups.get(group_key, {}).get(str(day_num), {})
                 if not day_data:
                     continue
 

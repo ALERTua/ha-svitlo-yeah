@@ -567,6 +567,17 @@ class TestDtekAPIBaseScheduledEvents:
         events = api.get_scheduled_events(start_date, end_date)
         assert events == []
 
+    def test_get_scheduled_events_list_shaped_data(self, api):
+        """A preset schedule with "data": [] gives no events."""
+        api.preset_data = {"data": []}
+        api.group = "1.1"
+
+        start_date = dt_utils.now()
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert events == []
+
     def test_get_scheduled_events_empty_data(self, api):
         """Test getting scheduled events with empty preset data."""
         api.preset_data = {"data": {}}
