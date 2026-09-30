@@ -489,13 +489,15 @@ class TestDuplicateGroup:
         assert err.value.reason == "already_configured"
         flow.async_update_and_abort.assert_not_called()
 
-    async def test_reconfigure_keeps_its_own_group(self):
-        """Reconfigure of an entry to its own group is not a duplicate."""
+    async def test_reconfigure_to_its_own_group_changes_nothing(self):
+        """Reconfigure to the current group of the entry changes nothing."""
         flow = _reconfigure_flow(DTEK_KYIV_REGION_1_1)
         flow._async_current_entries.return_value = [
             _existing_entry("test_entry", DTEK_KYIV_REGION_1_1)
         ]
 
-        await flow.async_step_group({CONF_GROUP: "1.1"})
+        result = await flow.async_step_group({CONF_GROUP: "1.1"})
 
-        flow.async_update_and_abort.assert_called_once()
+        assert result["type"] == "abort"
+        assert result["reason"] == "reconfigure_unchanged"
+        flow.async_update_and_abort.assert_not_called()
