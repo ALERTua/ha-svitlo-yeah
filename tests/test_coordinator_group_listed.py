@@ -300,11 +300,11 @@ class TestGroupNotListedIssue:
 
     async def test_issue_takes_the_translated_title(self, dtek, titles):
         """The integration name comes from the title in the server language."""
+        dtek.hass.config.language = "uk"
+
         await _update_dtek(dtek, FetchResult.FRESH, listed=False)
 
-        titles.assert_awaited_once_with(
-            dtek.hass, dtek.hass.config.language, "title", [DOMAIN]
-        )
+        titles.assert_awaited_once_with(dtek.hass, "uk", "title", [DOMAIN])
 
     async def test_issue_without_a_title_uses_the_name(
         self, dtek, titles, create_issue
