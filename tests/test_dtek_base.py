@@ -121,6 +121,35 @@ class TestDtekAPIBaseGroups:
         api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
         assert api.get_dtek_region_groups() == []
 
+    def test_get_groups_from_preset_when_fact_is_empty(self, api):
+        """With an empty fact schedule, the groups come from the preset schedule."""
+        preset_keys = [f"GPV{q}.{s}" for q in range(1, 7) for s in (1, 2)]
+        api.data = {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}
+        api.preset_data = {"data": {key: {"1": {"1": "yes"}} for key in preset_keys}}
+
+        groups = api.get_dtek_region_groups()
+
+        assert len(groups) == 12
+        assert groups == [key.removeprefix("GPV") for key in preset_keys]
+
+    def test_get_groups_fact_wins_over_preset(self, api, sample_data):
+        """When the fact schedule has groups, the preset groups are ignored."""
+        api.data = sample_data
+        api.preset_data = {"data": {"GPV9.1": {}, "GPV9.2": {}}}
+        assert api.get_dtek_region_groups() == ["1.1", "1.2"]
+
+    def test_get_groups_empty_fact_and_no_preset_data(self, api):
+        """An empty fact schedule and a preset without data give no groups."""
+        api.data = {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}
+        api.preset_data = {}
+        assert api.get_dtek_region_groups() == []
+
+    def test_get_groups_empty_fact_and_list_shaped_preset(self, api):
+        """A list-shaped empty preset schedule gives no groups and does not crash."""
+        api.data = {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}
+        api.preset_data = {"data": []}
+        assert api.get_dtek_region_groups() == []
+
 
 class TestDtekAPIBaseEventsListShapedData:
     """Regression: upstream feed serializes an empty schedule as "data": []."""

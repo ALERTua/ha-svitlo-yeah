@@ -186,6 +186,28 @@ class TestJsonDtekAPIFetchData:
         finally:
             await api.session.close()
 
+    @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
+    @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
+    async def test_setup_groups_real_endpoints(self, provider_key):
+        """
+        Every provider must offer groups on setup, as the config flow asks for them.
+
+        The config flow accepts stale data with consent, so stale upstream data
+        must still give groups, from the fact or from the preset schedule.
+        """
+        urls = DTEK_PROVIDER_URLS[provider_key]
+        api = await _make_api_real(urls=urls)
+        try:
+            result = await api.fetch_data(allow_stale_data=True)
+            assert result is not FetchResult.UNAVAILABLE, (
+                f"no source could be fetched for {provider_key} {urls}"
+            )
+            assert api.get_dtek_region_groups(), (
+                f"no groups on setup for {provider_key} {urls} (result={result})"
+            )
+        finally:
+            await api.session.close()
+
 
 class TestJsonDtekAPIStaleData:
     """Test the FetchResult contract and stale-data adoption."""

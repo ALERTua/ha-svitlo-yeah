@@ -160,16 +160,33 @@ class DtekAPIBase:
         """
         Get the list of available groups (with GPV prefix stripped).
 
+        The groups come from the first day of the fact schedule:
         {
         'data': {
             '1761688800': {
                 'GPV1.1': {
-        """
-        if not self.data or not isinstance(self.data.get("data"), dict):
-            return []
 
-        first_timestamp = next(iter(self.data["data"].values()), {})
-        return [key.replace("GPV", "") for key in first_timestamp]
+        When the fact schedule has no groups (e.g. ``"data": []`` while no
+        outages are published), the groups come from the weekly preset schedule:
+        {
+        'data': {
+            'GPV1.1': {
+                '1': {
+        """
+        fact_days = (self.data or {}).get("data")
+        if isinstance(fact_days, dict):
+            first_timestamp = next(iter(fact_days.values()), {})
+            if first_timestamp:
+                return [key.replace("GPV", "") for key in first_timestamp]
+
+        preset_data = getattr(self, "preset_data", None)
+        preset_groups = (
+            preset_data.get("data") if isinstance(preset_data, dict) else None
+        )
+        if isinstance(preset_groups, dict):
+            return [key.replace("GPV", "") for key in preset_groups]
+
+        return []
 
     def get_current_event(self, at: datetime.datetime) -> PlannedOutageEvent | None:
         """Get the current event at a specific time."""
