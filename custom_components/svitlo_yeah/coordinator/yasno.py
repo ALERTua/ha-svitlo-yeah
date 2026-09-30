@@ -98,7 +98,14 @@ class YasnoCoordinator(IntegrationCoordinator):
             raise ValueError(group_error)
 
         self._region: YasnoRegion | None = None
-        self.api = YasnoApi(hass)
+        # One API for the life of the coordinator, so that a failed request
+        # keeps the planned outages of the last successful one.
+        self.api = YasnoApi(
+            hass,
+            region_id=self.region_id,
+            provider_id=self.provider_id,
+            group=self.group,
+        )
 
     @property
     def event_name_map(self) -> dict:
@@ -119,13 +126,6 @@ class YasnoCoordinator(IntegrationCoordinator):
     async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
         """Fetch data from Svitlo Yeah API."""
         await self.async_fetch_translations()
-
-        self.api = YasnoApi(
-            self.hass,
-            region_id=self.region_id,
-            provider_id=self.provider_id,
-            group=self.group,
-        )
 
         # Fetch outages data (now async with aiohttp, not blocking)
         await self.api.fetch_data()
