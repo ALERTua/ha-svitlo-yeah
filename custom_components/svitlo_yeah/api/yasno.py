@@ -221,7 +221,7 @@ class YasnoApi:
                 response.raise_for_status()
                 return await response.json()
 
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
             LOGGER.exception("Error fetching data from %s", url)
             return None
 
