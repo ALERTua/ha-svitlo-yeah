@@ -454,19 +454,12 @@ class TestCoordinatorEventToState:
         ],
     )
     def test_event_to_state_none_event_returns_normal(self, coordinator_class):
-        """Test that _event_to_state(event=None) returns STATE_NORMAL for all coordinators."""
-        # Create a mock coordinator instance
-        coordinator = MagicMock(spec=coordinator_class)
+        """Without a current event, each coordinator says that the power is on."""
+        # _event_to_state reads no state of the coordinator, so the test skips
+        # __init__ and its Home Assistant dependencies.
+        coordinator = object.__new__(coordinator_class)
 
-        # Mock the _event_to_state method to return STATE_NORMAL for None input
-        # This tests the expected behavior regardless of implementation details
-        coordinator._event_to_state.return_value = ConnectivityState.STATE_NORMAL
-
-        # Test that _event_to_state(event=None) returns STATE_NORMAL
         result = coordinator._event_to_state(None)
         assert result == ConnectivityState.STATE_NORMAL, (
             f"{coordinator_class.__name__}._event_to_state(None) should return STATE_NORMAL"
         )
-
-        # Verify the method was called with None
-        coordinator._event_to_state.assert_called_once_with(None)
