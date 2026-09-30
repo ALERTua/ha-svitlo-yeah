@@ -1,30 +1,32 @@
-"""Tests for the DTEK JSON stale-data path in the config flow."""
+"""Tests for the config flow: the DTEK JSON stale-data path and the full setup."""
 
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
+from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.config_flow import IntegrationConfigFlow
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
+    CONF_REGION,
+    DTEK_PROVIDER_URLS,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_YASNO,
+    YASNO_PLANNED_OUTAGES_ENDPOINT,
+    YASNO_REGIONS_ENDPOINT,
 )
+from tests.helpers import fake_session
 
 TEST_PROVIDER_KEY = "kyiv_region"
 TEST_GROUPS = ["1.1", "1.2"]
 
 
-@pytest.fixture(name="flow")
-def _flow():
-    """Build a config flow with result helpers stubbed to return dicts."""
-    flow = IntegrationConfigFlow()
-    flow.data = {
-        CONF_PROVIDER: TEST_PROVIDER_KEY,
-        CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
-    }
+def _stub_results(flow: IntegrationConfigFlow) -> IntegrationConfigFlow:
+    """Stub the result helpers of a config flow to return plain dicts."""
     flow.async_show_form = MagicMock(
         side_effect=lambda **kwargs: {"type": "form", **kwargs}
     )
@@ -34,6 +36,17 @@ def _flow():
     flow.async_create_entry = MagicMock(
         side_effect=lambda **kwargs: {"type": "create_entry", **kwargs}
     )
+    return flow
+
+
+@pytest.fixture(name="flow")
+def _flow():
+    """Build a config flow with result helpers stubbed to return dicts."""
+    flow = _stub_results(IntegrationConfigFlow())
+    flow.data = {
+        CONF_PROVIDER: TEST_PROVIDER_KEY,
+        CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
+    }
     return flow
 
 
@@ -124,3 +137,143 @@ class TestStaleAckNotPersisted:
         assert result["type"] == "create_entry"
         assert "_stale_ack" not in result["data"]
         assert result["data"][CONF_GROUP] == "1.1"
+
+
+KYIV_REGION_URL = DTEK_PROVIDER_URLS["kyiv_region"][0]
+KYIV_REGION_KEY = "dtekjsonprovider_kyiv_region"
+KYIV_GROUPS = [f"{queue}.{half}" for queue in range(1, 7) for half in (1, 2)]
+
+YASNO_REGION_ID = 25
+YASNO_DSO_ID = 902
+YASNO_KEY = f"yasnoprovider_{YASNO_REGION_ID}_{YASNO_DSO_ID}"
+YASNO_PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(
+    region_id=YASNO_REGION_ID, dso_id=YASNO_DSO_ID
+)
+YASNO_REGIONS = [
+    {
+        "hasCities": False,
+        "dsos": [{"id": YASNO_DSO_ID, "name": "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"}],
+        "id": YASNO_REGION_ID,
+        "value": "Київ",
+    },
+]
+
+
+def _kyiv_region_feed(*, with_preset: bool) -> dict:
+    """Mirror kyiv-region.json while DTEK publishes no outages: an empty fact."""
+    feed = {"fact": {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}}
+    if with_preset:
+        feed["preset"] = {
+            "data": {f"GPV{group}": {"1": {"1": "yes"}} for group in KYIV_GROUPS}
+        }
+    return feed
+
+
+@contextmanager
+def _serve(routes: dict):
+    """Answer each provider HTTP request of the flow from ``routes``."""
+    session = fake_session(routes)
+    with (
+        patch(
+            "custom_components.svitlo_yeah.api.dtek.json.async_get_clientsession",
+            return_value=session,
+        ),
+        patch(
+            "custom_components.svitlo_yeah.api.yasno.async_get_clientsession",
+            return_value=session,
+        ),
+    ):
+        yield
+
+
+def _select_options(result: dict, field: str) -> list:
+    """Return the options of a select field in a form result."""
+    return result["data_schema"].schema[field].config["options"]
+
+
+@pytest.fixture(name="new_flow")
+def _new_flow(monkeypatch):
+    """Build a config flow at its first step, with an empty Yasno region cache."""
+    monkeypatch.setattr(YasnoApi, "_regions", None)
+    flow = _stub_results(IntegrationConfigFlow())
+    flow.hass = MagicMock()
+    return flow
+
+
+class TestSetupWithRealProviderApis:
+    """Walk the whole config flow with the real provider APIs and fake HTTP."""
+
+    async def test_dtek_kyiv_region_with_empty_fact_schedule(self, new_flow):
+        """An empty fact schedule still offers the preset groups after consent."""
+        routes = {
+            YASNO_REGIONS_ENDPOINT: YASNO_REGIONS,
+            KYIV_REGION_URL: _kyiv_region_feed(with_preset=True),
+        }
+        with _serve(routes):
+            result = await new_flow.async_step_user()
+            providers = [o["value"] for o in _select_options(result, CONF_PROVIDER)]
+            assert KYIV_REGION_KEY in providers
+
+            result = await new_flow.async_step_user({CONF_PROVIDER: KYIV_REGION_KEY})
+            assert result["step_id"] == "stale_confirm"
+
+            result = await new_flow.async_step_stale_confirm({"acknowledge": True})
+            assert result["step_id"] == "group"
+            assert _select_options(result, CONF_GROUP) == KYIV_GROUPS
+
+            result = await new_flow.async_step_group({CONF_GROUP: "1.1"})
+
+        assert result["type"] == "create_entry"
+        assert result["data"] == {
+            CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
+            CONF_PROVIDER: "kyiv_region",
+            CONF_GROUP: "1.1",
+        }
+
+    async def test_dtek_source_without_groups_aborts(self, new_flow):
+        """An empty fact schedule without a preset schedule has no groups."""
+        routes = {
+            YASNO_REGIONS_ENDPOINT: YASNO_REGIONS,
+            KYIV_REGION_URL: _kyiv_region_feed(with_preset=False),
+        }
+        with _serve(routes):
+            await new_flow.async_step_user()
+            result = await new_flow.async_step_user({CONF_PROVIDER: KYIV_REGION_KEY})
+
+        assert result["type"] == "abort"
+        assert result["reason"] == "dtek_json_empty_data"
+
+    async def test_yasno_kyiv(self, new_flow):
+        """Yasno offers the groups of its planned outages and stores the region."""
+        routes = {
+            YASNO_REGIONS_ENDPOINT: YASNO_REGIONS,
+            YASNO_PLANNED_URL: {"1.1": {}, "1.2": {}},
+        }
+        with _serve(routes):
+            result = await new_flow.async_step_user()
+            providers = [o["value"] for o in _select_options(result, CONF_PROVIDER)]
+            assert YASNO_KEY in providers
+
+            result = await new_flow.async_step_user({CONF_PROVIDER: YASNO_KEY})
+            assert result["step_id"] == "group"
+            assert _select_options(result, CONF_GROUP) == ["1.1", "1.2"]
+
+            result = await new_flow.async_step_group({CONF_GROUP: "1.1"})
+
+        assert result["type"] == "create_entry"
+        assert result["data"] == {
+            CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+            CONF_PROVIDER: YASNO_DSO_ID,
+            CONF_REGION: YASNO_REGION_ID,
+            CONF_GROUP: "1.1",
+        }
+
+    async def test_yasno_without_groups_aborts(self, new_flow):
+        """Yasno planned outages without groups stop the flow."""
+        routes = {YASNO_REGIONS_ENDPOINT: YASNO_REGIONS, YASNO_PLANNED_URL: {}}
+        with _serve(routes):
+            await new_flow.async_step_user()
+            result = await new_flow.async_step_user({CONF_PROVIDER: YASNO_KEY})
+
+        assert result["type"] == "abort"
+        assert result["reason"] == "yasno_connection_error"
