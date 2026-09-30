@@ -334,8 +334,14 @@ class TestSetupWithRealProviderApis:
 
 
 def _reconfigure_flow(data: dict) -> IntegrationConfigFlow:
-    """Build a reconfigure flow for an entry with the given data."""
+    """
+    Build a reconfigure flow for an entry with the given data.
+
+    The flow starts with the entry data, as async_step_reconfigure leaves it,
+    so a test can call async_step_group directly.
+    """
     flow = _stub_results(IntegrationConfigFlow())
+    flow.data = dict(data)
     flow.hass = MagicMock()
     flow.context = {"source": SOURCE_RECONFIGURE, "entry_id": "test_entry"}
     entry = MagicMock()
@@ -461,6 +467,16 @@ class TestDuplicateGroup:
         ]
 
         result = await flow.async_step_group({CONF_GROUP: "1.2"})
+
+        assert result["type"] == "create_entry"
+
+    async def test_same_group_of_another_dtek_provider_creates_the_entry(self, flow):
+        """The same group of another DTEK provider is a new entry."""
+        flow._async_current_entries.return_value = [
+            _existing_entry("other", {**DTEK_KYIV_REGION_1_1, CONF_PROVIDER: "odesa"})
+        ]
+
+        result = await flow.async_step_group({CONF_GROUP: "1.1"})
 
         assert result["type"] == "create_entry"
 
