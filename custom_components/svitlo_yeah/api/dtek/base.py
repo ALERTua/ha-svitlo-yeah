@@ -144,6 +144,52 @@ def _merge_ranges(
     return merged
 
 
+def _ranges_to_events(
+    day: datetime.datetime,
+    time_ranges: list[tuple[datetime.time, datetime.time]],
+) -> list[PlannedOutageEvent]:
+    """
+    Turn the outage time ranges of one local day into events.
+
+    ``day`` is any moment of that day. A range that ends at 23:59 or at 0:00
+    ends at the midnight after the day.
+    """
+    next_midnight = (day + datetime.timedelta(days=1)).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    events = []
+    for start_time, end_time in time_ranges:
+        event_start = day.replace(
+            hour=start_time.hour,
+            minute=start_time.minute,
+            second=0,
+            microsecond=0,
+        )
+        if (end_time.hour == 23 and end_time.minute == 59) or (
+            end_time.hour == 0 and end_time.minute == 0
+        ):
+            event_end = next_midnight
+        else:
+            event_end = day.replace(
+                hour=end_time.hour,
+                minute=end_time.minute,
+                second=end_time.second,
+                microsecond=0,
+            )
+
+        events.append(
+            PlannedOutageEvent(
+                start=event_start,
+                end=event_end,
+                event_type=PlannedOutageEventType.DEFINITE,
+            )
+        )
+    return events
+
+
 class DtekAPIBase:
     """Base class for DTEK API implementations."""
 
@@ -247,39 +293,7 @@ class DtekAPIBase:
             day_dt = dt_utils.as_local(day_dt)
 
             group_hours = day_data[group_key]
-            time_ranges = _parse_group_hours(group_hours)
-
-            for start_time, end_time in time_ranges:
-                event_start = day_dt.replace(
-                    hour=start_time.hour,
-                    minute=start_time.minute,
-                    second=0,
-                    microsecond=0,
-                )
-                if (end_time.hour == 23 and end_time.minute == 59) or (
-                    end_time.hour == 0 and end_time.minute == 0
-                ):
-                    event_end = (day_dt + datetime.timedelta(days=1)).replace(
-                        hour=0,
-                        minute=0,
-                        second=0,
-                        microsecond=0,
-                    )
-                else:
-                    event_end = day_dt.replace(
-                        hour=end_time.hour,
-                        minute=end_time.minute,
-                        second=end_time.second,
-                        microsecond=0,
-                    )
-
-                events.append(
-                    PlannedOutageEvent(
-                        start=event_start,
-                        end=event_end,
-                        event_type=PlannedOutageEventType.DEFINITE,
-                    )
-                )
+            events.extend(_ranges_to_events(day_dt, _parse_group_hours(group_hours)))
 
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)
@@ -334,35 +348,9 @@ class DtekAPIBase:
                 if not day_data:
                     continue
 
-                time_ranges = _parse_group_hours(day_data)
-
-                for start_time, end_time in time_ranges:
-                    event_start = day_start.replace(
-                        hour=start_time.hour,
-                        minute=start_time.minute,
-                        second=0,
-                        microsecond=0,
-                    )
-
-                    if (end_time.hour == 23 and end_time.minute == 59) or (
-                        end_time.hour == 0 and end_time.minute == 0
-                    ):
-                        event_end = day_end
-                    else:
-                        event_end = day_start.replace(
-                            hour=end_time.hour,
-                            minute=end_time.minute,
-                            second=end_time.second,
-                            microsecond=0,
-                        )
-
-                    events.append(
-                        PlannedOutageEvent(
-                            start=event_start,
-                            end=event_end,
-                            event_type=PlannedOutageEventType.DEFINITE,
-                        )
-                    )
+                events.extend(
+                    _ranges_to_events(day_start, _parse_group_hours(day_data))
+                )
 
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)

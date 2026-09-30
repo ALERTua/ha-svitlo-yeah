@@ -578,6 +578,20 @@ class TestDtekAPIBaseScheduledEvents:
         events = api.get_scheduled_events(start_date, end_date)
         assert len(events) == 0
 
+    def test_get_scheduled_events_outage_until_midnight(self, api):
+        """An outage to the end of the day ends at the next midnight."""
+        base_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Monday: hours 23 and 24 are 22:00-24:00
+        api.preset_data = {"data": {"GPV1.1": {"1": {"23": "no", "24": "no"}}}}
+        api.group = "1.1"
+        monday = base_date + datetime.timedelta(days=(0 - base_date.weekday()) % 7)
+
+        events = api.get_scheduled_events(monday, monday + datetime.timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (monday.replace(hour=22), monday + datetime.timedelta(days=1))
+        ]
+
 
 class TestDtekAPIBaseTimestamps:
     """Test timestamp-related methods."""
