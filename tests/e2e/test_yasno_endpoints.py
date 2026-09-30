@@ -53,7 +53,15 @@ async def test_planned_outages_real_endpoints(monkeypatch):
                         api.group = group
                         assert api.is_group_listed() is True, f"{name}: {group}"
                         for event in api.get_events(start, end):
-                            assert event.start.tzinfo, f"{name} {group}: naive start"
+                            if event.all_day:
+                                # An emergency day is an all-day event with dates.
+                                assert not isinstance(event.start, datetime.datetime), (
+                                    f"{name} {group}: all-day event with a time"
+                                )
+                            else:
+                                assert event.start.tzinfo, (
+                                    f"{name} {group}: naive start"
+                                )
                             assert event.start < event.end, f"{name} {group}"
     finally:
         await session.close()
