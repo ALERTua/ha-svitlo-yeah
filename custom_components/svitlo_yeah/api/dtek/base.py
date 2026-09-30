@@ -202,6 +202,17 @@ class DtekAPIBase:
         """Fetch outage data. To be implemented by subclasses."""
         raise NotImplementedError
 
+    def _preset_section(self, key: str) -> dict:
+        """
+        Get one section of the weekly preset schedule, for example ``data``.
+
+        An empty dict stands for a missing preset schedule and for a section
+        that is not a dict, such as ``"data": []``.
+        """
+        preset_data = getattr(self, "preset_data", None)
+        section = preset_data.get(key) if isinstance(preset_data, dict) else None
+        return section if isinstance(section, dict) else {}
+
     def get_dtek_region_groups(self) -> list[str]:
         """
         Get the list of available groups (with GPV prefix stripped).
@@ -225,14 +236,7 @@ class DtekAPIBase:
             if first_timestamp:
                 return [key.replace("GPV", "") for key in first_timestamp]
 
-        preset_data = getattr(self, "preset_data", None)
-        preset_groups = (
-            preset_data.get("data") if isinstance(preset_data, dict) else None
-        )
-        if isinstance(preset_groups, dict):
-            return [key.replace("GPV", "") for key in preset_groups]
-
-        return []
+        return [key.replace("GPV", "") for key in self._preset_section("data")]
 
     def get_dtek_region_group_labels(self) -> dict[str, str]:
         """
@@ -243,13 +247,8 @@ class DtekAPIBase:
         parentheses: ``"ЦЕК 1.1 (1001.1)"``. A name that already shows the group,
         such as ``"Черга 1.1"``, gets no label.
         """
-        preset_data = getattr(self, "preset_data", None)
-        names = preset_data.get("sch_names") if isinstance(preset_data, dict) else None
-        if not isinstance(names, dict):
-            return {}
-
         labels = {}
-        for key, name in names.items():
+        for key, name in self._preset_section("sch_names").items():
             group = key.replace("GPV", "")
             if isinstance(name, str) and group not in name.split():
                 labels[group] = f"{name} ({group})"
@@ -273,13 +272,7 @@ class DtekAPIBase:
             for day in fact_days.values():
                 if isinstance(day, dict):
                     listed.update(day)
-
-        preset_data = getattr(self, "preset_data", None)
-        preset_groups = (
-            preset_data.get("data") if isinstance(preset_data, dict) else None
-        )
-        if isinstance(preset_groups, dict):
-            listed.update(preset_groups)
+        listed.update(self._preset_section("data"))
 
         if not listed:
             return None
