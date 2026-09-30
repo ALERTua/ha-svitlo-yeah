@@ -151,6 +151,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self.data.update(user_input)  # add group to the config
             self.data.pop("_stale_ack", None)  # flow-local flag, do not persist
 
+            if self.source == SOURCE_RECONFIGURE:
+                entry = self._get_reconfigure_entry()
+                if self.data[CONF_GROUP] == get_config_value(entry, CONF_GROUP):
+                    # noinspection PyTypeChecker
+                    return self.async_abort(reason="reconfigure_unchanged")
+
             # One entry for each provider and group: a second one only repeats it
             self._async_abort_entries_match(
                 {
