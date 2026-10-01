@@ -51,6 +51,24 @@ def _abort_reasons() -> set[str]:
     }
 
 
+def _form_errors() -> set[str]:
+    """Return each text that config_flow.py puts into the errors of a form."""
+    tree = ast.parse(CONFIG_FLOW.read_text(encoding="utf-8"))
+    return {
+        node.value
+        for assign in ast.walk(tree)
+        if isinstance(assign, ast.Assign)
+        and any(
+            isinstance(target, ast.Subscript)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "errors"
+            for target in assign.targets
+        )
+        for node in ast.walk(assign.value)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
 def test_languages_have_the_same_keys():
     """Each text exists in each language."""
     en, uk = (set(_texts(_load(language))) for language in LANGUAGES)
@@ -76,6 +94,16 @@ def test_each_abort_reason_has_a_text(language):
 
     abort = _load(language)["config"]["abort"]
     assert {r for r in reasons | HA_ABORT_REASONS if not abort.get(r)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_form_error_has_a_text(language):
+    """Each form error has a text, because the form shows a bare key without it."""
+    errors = _form_errors()
+    assert errors  # the parser found the errors of config_flow.py
+
+    texts = _load(language)["config"]["error"]
+    assert {e for e in errors if not texts.get(e)} == set()
 
 
 @pytest.mark.parametrize("language", LANGUAGES)

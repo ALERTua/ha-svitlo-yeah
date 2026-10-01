@@ -19,7 +19,7 @@ from homeassistant.helpers.selector import (
 
 from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
-from .api.e_svitlo import ESvitloClient
+from .api.e_svitlo import ESvitloClient, LoginResult
 from .api.yasno import YASNO_REGIONS_ENDPOINT, YasnoApi
 from .const import (
     CONF_ACCOUNT_ID,
@@ -327,8 +327,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
             client = ESvitloClient(self.hass, provider)
+            login = await client.try_login()
 
-            if await client.login():
+            if login is LoginResult.OK:
                 # Authentication successful, store credentials and proceed
                 self.data["username"] = user_input["username"]
                 self.data["password"] = user_input["password"]
@@ -337,7 +338,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 # noinspection PyTypeChecker
                 return await self.async_step_esvitlo_account()
 
-            errors["base"] = "invalid_auth"
+            errors["base"] = (
+                "invalid_auth" if login is LoginResult.REJECTED else "cannot_connect"
+            )
 
         # Show authentication form
         data_schema = vol.Schema(
@@ -406,8 +409,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         client = ESvitloClient(self.hass, provider)
 
         accounts = await client.get_accounts()
+        if accounts is None:
+            # The server gave no list of accounts: a network or a server error
+            # noinspection PyTypeChecker
+            return self.async_abort(reason="e_svitlo_connection_error")
         if not accounts:
-            # If no accounts found or error, abort or show error
             # noinspection PyTypeChecker
             return self.async_abort(reason="no_accounts_found")
 

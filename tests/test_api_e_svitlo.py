@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiohttp import ClientError
 
-from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
+from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient, LoginResult
 from custom_components.svitlo_yeah.const import E_SVITLO_ERROR_NOT_LOGGED_IN, TZ_UA
 from custom_components.svitlo_yeah.models import ESvitloProvider, PlannedOutageEventType
 
@@ -86,6 +86,30 @@ class TestESvitloClientBase:
         """Test login exception."""
         mock_session_post.side_effect = ClientError()
         assert await client.login() is False
+
+    @pytest.mark.parametrize(
+        ("status", "body", "error", "expected"),
+        [
+            (200, {"data": {"login": True}}, None, LoginResult.OK),
+            (200, {"data": {"login": False}}, None, LoginResult.REJECTED),
+            (500, None, None, LoginResult.UNREACHABLE),
+            (None, None, ClientError(), LoginResult.UNREACHABLE),
+            (None, None, TimeoutError(), LoginResult.UNREACHABLE),
+        ],
+        ids=["accepted", "refused", "http_500", "client_error", "timeout"],
+    )
+    async def test_try_login_tells_refused_from_unreachable(
+        self, client, mock_session_post, status, body, error, expected
+    ):
+        """Refused credentials differ from a server that gave no answer."""
+        if error:
+            mock_session_post.side_effect = error
+        else:
+            mock_response = AsyncMock(status=status)
+            mock_response.json = AsyncMock(return_value=body)
+            mock_session_post.return_value.__aenter__.return_value = mock_response
+
+        assert await client.try_login() is expected
 
 
 @pytest.mark.asyncio

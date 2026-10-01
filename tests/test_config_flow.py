@@ -66,6 +66,9 @@ YASNO_KYIV_1_1 = {
 }
 
 E_SVITLO_KEY = "esvitloprovider_sumy"
+E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
+E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
+E_SVITLO_CREDENTIALS = {"username": "user", "password": "secret"}
 E_SVITLO_ACCOUNTS = [
     {"a": 101, "address": "Суми, вул. Перша, 1", "ls": "5001"},
     {"a": 102, "address": "Суми, вул. Друга, 2", "ls": "5002"},
@@ -73,8 +76,7 @@ E_SVITLO_ACCOUNTS = [
 E_SVITLO_ACCOUNT_101 = {
     CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO,
     CONF_PROVIDER: "sumy",
-    "username": "user",
-    "password": "secret",
+    **E_SVITLO_CREDENTIALS,
     CONF_ACCOUNT_ID: "101",
     CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
 }
@@ -161,6 +163,22 @@ async def _start_flow(hass, aioclient_mock) -> dict:
 async def _configure(hass, result: dict, user_input: dict) -> dict:
     """Submit the form of a flow result."""
     return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
+
+
+async def _start_e_svitlo_flow(hass, aioclient_mock) -> dict:
+    """Start a new flow at the E-Svitlo login form."""
+    result = await _start_flow(hass, aioclient_mock)
+    result = await _configure(hass, result, {CONF_PROVIDER: E_SVITLO_KEY})
+    assert result["step_id"] == "esvitlo_auth"
+    return result
+
+
+def _serve_e_svitlo(aioclient_mock) -> None:
+    """Accept the E-Svitlo login and list two accounts of the user."""
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    aioclient_mock.post(
+        E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": E_SVITLO_ACCOUNTS}}
+    )
 
 
 class TestStaleConfirmRouting:
@@ -468,23 +486,12 @@ class TestDuplicateESvitloAccount:
     @pytest.fixture(autouse=True)
     def _e_svitlo_answers(self, aioclient_mock):
         """Accept the login and list two accounts of the user."""
-        aioclient_mock.post(
-            E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json",
-            json={"data": {"login": True}},
-        )
-        aioclient_mock.post(
-            E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json",
-            json={"data": {"lst_ls": E_SVITLO_ACCOUNTS}},
-        )
+        _serve_e_svitlo(aioclient_mock)
 
     async def _add_account(self, hass, aioclient_mock, account_id: str) -> dict:
         """Walk a new E-Svitlo flow to the given account."""
-        result = await _start_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, {CONF_PROVIDER: E_SVITLO_KEY})
-        assert result["step_id"] == "esvitlo_auth"
-        result = await _configure(
-            hass, result, {"username": "user", "password": "secret"}
-        )
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
         assert result["step_id"] == "esvitlo_account"
         return await _configure(hass, result, {CONF_ACCOUNT_ID: account_id})
 
@@ -510,3 +517,76 @@ class TestDuplicateESvitloAccount:
             CONF_ACCOUNT_ID: "102",
             CONF_ADDRESS_STR: "Суми, вул. Друга, 2",
         }
+
+
+class TestESvitloConnection:
+    """The E-Svitlo steps tell refused credentials from an unreachable server."""
+
+    async def test_refused_login_shows_invalid_auth(self, hass, aioclient_mock):
+        """Credentials that the server refuses keep the form with invalid_auth."""
+        aioclient_mock.post(
+            E_SVITLO_LOGIN_URL, json={"data": {"login": False}, "error": "refused"}
+        )
+
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "esvitlo_auth"
+        assert result["errors"] == {"base": "invalid_auth"}
+
+    @pytest.mark.parametrize(
+        "answer",
+        [{"exc": ClientError()}, {"exc": TimeoutError()}, {"status": 500}],
+        ids=["client_error", "timeout", "http_500"],
+    )
+    async def test_unreachable_server_shows_cannot_connect(
+        self, hass, aioclient_mock, answer
+    ):
+        """A login without an answer of the server keeps the form with cannot_connect."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, **answer)
+
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "esvitlo_auth"
+        assert result["errors"] == {"base": "cannot_connect"}
+
+    async def test_retry_after_a_network_error_reaches_the_account_step(
+        self, hass, aioclient_mock
+    ):
+        """After a network error, the same form logs in on the next try."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+        assert result["errors"] == {"base": "cannot_connect"}
+
+        aioclient_mock.clear_requests()
+        _serve_e_svitlo(aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "esvitlo_account"
+
+    async def test_failed_accounts_request_aborts(self, hass, aioclient_mock):
+        """A failed request for the accounts is a connection error, not no accounts."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+        aioclient_mock.post(E_SVITLO_ACCOUNTS_URL, exc=ClientError())
+
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "e_svitlo_connection_error"
+
+    async def test_user_without_accounts_aborts(self, hass, aioclient_mock):
+        """A user whose list of accounts is empty gets no_accounts_found."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+        aioclient_mock.post(E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": []}})
+
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "no_accounts_found"
