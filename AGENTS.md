@@ -139,11 +139,7 @@ stack. See `README.md` for the authoritative region → provider → source tabl
 
 ### DTEK JSON freshness
 
-`api/dtek/json.py` fetches JSON with a `fact` (and optional `preset`) structure and
-checks an `update` timestamp against `DTEK_FRESH_DATA_DAYS`. `fetch_data` returns a
-`FetchResult` enum — `FRESH`, `STALE`, or `UNAVAILABLE`. Stale data is only adopted
-during setup with explicit user consent (`allow_stale_data=True`); it is **never**
-served at runtime. The `update` field uses `DD.MM.YYYY HH:MM` (or `HH:MM DD.MM.YYYY`).
+`api/dtek/json.py` fetches JSON with a `fact` (and optional `preset`) structure and checks an `update` timestamp against `DTEK_FRESH_DATA_DAYS`. `fetch_data` returns a `FetchResult` enum — `FRESH`, `STALE`, or `UNAVAILABLE`. Newly fetched stale data is only adopted during setup with explicit user consent (`allow_stale_data=True`). At runtime, `STALE` leaves `self.data` as it is. Thus the coordinator keeps serving the last fresh copy of the current run from memory, also after that copy is older than `DTEK_FRESH_DATA_DAYS`. After a restart it has no data until a source is fresh. `test_stale_at_runtime_keeps_the_last_fresh_copy` pins this behavior. The `update` field uses `DD.MM.YYYY HH:MM` (or `HH:MM DD.MM.YYYY`).
 
 ### Hour-status grid (DTEK schedule encoding)
 

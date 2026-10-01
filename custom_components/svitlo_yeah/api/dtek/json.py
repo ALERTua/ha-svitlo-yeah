@@ -69,8 +69,8 @@ class DtekAPIJson(DtekAPIBase):
         - ``STALE``: sources responded, but all data is older than allowed.
           Only when ``allow_stale_data`` is True is the freshest stale source
           adopted into ``self.data`` (explicit setup consent); otherwise
-          ``self.data`` is left untouched so stale data is never served at
-          runtime.
+          ``self.data`` is left untouched, so it keeps the last fresh copy of
+          this run, if any.
         - ``UNAVAILABLE``: no source could be fetched/parsed at all.
         """
         stale_fact: dict | None = None
