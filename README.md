@@ -187,6 +187,82 @@ data:
 - To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
 - This project is intended to be used as a Home Assistant / HACS integration, not as a standalone Python library — the API classes require a Home Assistant instance. If you'd like the code to be usable outside the HACS integration as a plain Python library, let me know and I'll consider adding support for that.
 
+## Data updates
+
+The integration asks the source of each entry for the outage schedule every 15 minutes. The source is the Yasno API, the E-Svitlo API, or a JSON file on GitHub that a community project updates for a DTEK region (see [Supported Regions](#supported-regions)). Between two updates, each entity changes its state exactly at the start and at the end of an outage, without a new request. To update now, press the **Force refresh now** button of the entry, or call the `homeassistant.update_entity` action on one of its entities.
+
+The integration keeps the last schedule of each entry, also across a restart of Home Assistant. If the source does not answer, or a DTEK source has no data newer than 2 days, the entities keep the last schedule until the source gives fresh data. The integration then writes one line to the log, and one more line when the source answers again.
+
+## Known limitations
+
+- The **Next Planned Outage**, **Next Scheduled Outage** and **Next Connectivity** sensors look 24 hours ahead. An outage that starts later shows only in the calendars.
+- A DTEK JSON source is a community copy of the DTEK schedule. It can come later than the website of DTEK, and it has no emergency outages.
+- E-Svitlo serves Sumy and Sumy Oblast only.
+- The update interval is 15 minutes, and you cannot change it.
+- Reconfigure changes the group of an entry, but not its entity IDs. To update them, open the device and select **Recreate entity IDs**.
+- One entry shows one group, or one E-Svitlo personal account. For another group or address, add one more entry.
+
+## Troubleshooting
+
+<details>
+<summary>Electricity shows Unknown, and Repairs shows «No outage schedule for group …»</summary>
+
+**Description:** the source has no schedule for the group of the entry. The provider can renumber or remove groups.
+
+**Resolution:**
+
+1. Find your current group on the website of your provider.
+2. Go to **Settings** → **Devices & services** → **Svitlo Yeah!**, open the menu of the entry, and select **Reconfigure**.
+3. Select the group. The repair message disappears when the source has the group.
+
+</details>
+
+<details>
+<summary>The schedule does not change, and Schedule Updated On is old</summary>
+
+**Description:** the source does not answer, or a DTEK source has no fresh data. The entities show the last schedule that the integration got. The log has the line «The source of provider … does not answer» when the source does not answer.
+
+**Resolution:**
+
+1. Press **Force refresh now**. If the source does not answer, the press shows an error.
+2. Compare the schedule with the website of your provider. A DTEK JSON source can come later than the website.
+3. Wait for the next update. The entities change when the source gives fresh data.
+
+</details>
+
+<details>
+<summary>The setup stops with «No data source gave a schedule…» or «Failed to get the Yasno groups»</summary>
+
+**Description:** the source did not answer during the setup, or it has no groups now.
+
+**Resolution:** make sure that Home Assistant can connect to the Internet, and add the integration again later.
+
+</details>
+
+<details>
+<summary>E-Svitlo asks to sign in again</summary>
+
+**Resolution:** see [E-Svitlo refuses the login](#e-svitlo-refuses-the-login).
+
+</details>
+
+<details>
+<summary>The entry shows «Failed to set up»</summary>
+
+**Description:** the entry has no setting that the integration needs, or it has a DTEK source that this version of the integration does not have. The message names the reason.
+
+**Resolution:** delete the entry, and add it again.
+
+</details>
+
+To report a problem, get the debug log and the diagnostics, as the [troubleshooting guide of Home Assistant](https://www.home-assistant.io/docs/configuration/troubleshooting/) tells:
+
+1. Go to **Settings** → **Devices & services** → **Svitlo Yeah!**. Open the three dots **⋮** menu at the top right, and select **Enable debug logging**.
+2. Make the problem happen again, for example press **Force refresh now**.
+3. In the same menu, select **Disable debug logging**, and save the log file.
+4. Open the menu of the entry, and select **Download diagnostics**. The diagnostics do not include the E-Svitlo login, password, personal account or address.
+5. Open an issue on [GitHub](https://github.com/ALERTua/ha-svitlo-yeah/issues), and attach both files.
+
 ## Removing the integration
 
 This integration follows standard integration removal. Each entry keeps its last schedule in the storage of Home Assistant. When you delete an entry, Home Assistant removes its device and its entities, and the integration removes its repair issue and its stored schedule.
