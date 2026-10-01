@@ -31,3 +31,7 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "e2e: marks tests as end-to-end tests that require real network access (deselect with '-m \"not e2e\"')",
 ]
+
+[tool.ty.src]
+# The tests use mocks and wrong values on purpose, so ty checks the integration only.
+include = ["custom_components"]
