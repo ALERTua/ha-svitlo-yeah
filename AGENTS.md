@@ -137,6 +137,10 @@ Outage data comes from several providers, each with its own `api/` client and
 `aiohttp` through HA's `async_get_clientsession(hass)` — there is no bespoke HTTP
 stack. See `README.md` for the authoritative region → provider → source table.
 
+### Old states until new data
+
+The entities must not become unavailable without need. Until a coordinator gets new data, the entities keep their old states. Thus a coordinator never raises `UpdateFailed` or `ConfigEntryNotReady` when a source does not answer, and a failed fetch keeps the last data. The Bronze rule `test-before-setup` of the integration quality scale conflicts with this requirement, because Home Assistant shows each entity of an entry that retries its setup as unavailable after a restart. The integration does not follow that rule on purpose.
+
 ### DTEK JSON freshness
 
 `api/dtek/json.py` fetches JSON with a `fact` (and optional `preset`) structure and checks an `update` timestamp against `DTEK_FRESH_DATA_DAYS`. `fetch_data` returns a `FetchResult` enum — `FRESH`, `STALE`, or `UNAVAILABLE`. Newly fetched stale data is only adopted during setup with explicit user consent (`allow_stale_data=True`). At runtime, `STALE` leaves `self.data` as it is. Thus the coordinator keeps serving the last fresh copy of the current run from memory, also after that copy is older than `DTEK_FRESH_DATA_DAYS`. After a restart it has no data until a source is fresh. `test_stale_at_runtime_keeps_the_last_fresh_copy` pins this behavior. The `update` field uses `DD.MM.YYYY HH:MM` (or `HH:MM DD.MM.YYYY`).
