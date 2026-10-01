@@ -11,7 +11,11 @@ from custom_components.svitlo_yeah import button, calendar, sensor
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
+    CONF_PROVIDER_TYPE,
+    CONF_REGION,
     DOMAIN,
+    PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_YASNO,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -90,5 +94,58 @@ async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
     assert limits["sensor"] is None
     assert limits["calendar"] is None
     assert limits["button"]._value == 1
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {CONF_PROVIDER_TYPE: "unknown", CONF_GROUP: "1.1"},
+        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON, CONF_GROUP: "1.1"},
+        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON, CONF_PROVIDER: "kyiv_region"},
+        {
+            CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+            CONF_PROVIDER: 902,
+            CONF_GROUP: "1.1",
+        },
+        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO, CONF_REGION: 25, CONF_GROUP: "1.1"},
+        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO, CONF_REGION: 25, CONF_PROVIDER: 902},
+    ],
+    ids=[
+        "unknown_provider_type",
+        "dtek_without_provider",
+        "dtek_without_group",
+        "yasno_without_region",
+        "yasno_without_provider",
+        "yasno_without_group",
+    ],
+)
+async def test_broken_entry_does_not_load(hass, data):
+    """An entry without a setting that the config flow always writes stops its setup."""
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry.add_to_hass(hass)
+
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+
+
+async def test_changed_options_reload_the_entry(hass, aioclient_mock):
+    """A change of the options of an entry sets it up again with a new coordinator."""
+    data, answers = PROVIDERS["dtek"]
+    answers(aioclient_mock, True)
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    old_coordinator = entry.runtime_data
+
+    hass.config_entries.async_update_entry(entry, options={CONF_GROUP: "1.1"})
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.runtime_data is not old_coordinator
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

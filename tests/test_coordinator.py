@@ -9,7 +9,10 @@ import pytest
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.const import EVENT_DATA_CHANGED
+from custom_components.svitlo_yeah.const import (
+    EVENT_DATA_CHANGED,
+    TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
+)
 from custom_components.svitlo_yeah.coordinator.coordinator import IntegrationCoordinator
 from custom_components.svitlo_yeah.coordinator.dtek.base import DtekCoordinatorBase
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
@@ -463,3 +466,77 @@ class TestCoordinatorEventToState:
         assert result == ConnectivityState.STATE_NORMAL, (
             f"{coordinator_class.__name__}._event_to_state(None) should return STATE_NORMAL"
         )
+
+    @pytest.mark.parametrize(
+        ("coordinator_class", "uid", "state"),
+        [
+            (
+                DtekCoordinatorJson,
+                PlannedOutageEventType.DEFINITE.value,
+                ConnectivityState.STATE_PLANNED_OUTAGE,
+            ),
+            # DTEK sources publish no emergency outages
+            (
+                DtekCoordinatorJson,
+                PlannedOutageEventType.EMERGENCY.value,
+                ConnectivityState.STATE_NORMAL,
+            ),
+            (
+                YasnoCoordinator,
+                PlannedOutageEventType.EMERGENCY.value,
+                ConnectivityState.STATE_EMERGENCY,
+            ),
+            (YasnoCoordinator, "unknown", ConnectivityState.STATE_NORMAL),
+            (
+                ESvitloCoordinator,
+                PlannedOutageEventType.EMERGENCY.value,
+                ConnectivityState.STATE_EMERGENCY,
+            ),
+            (ESvitloCoordinator, "unknown", ConnectivityState.STATE_NORMAL),
+        ],
+        ids=[
+            "dtek_definite",
+            "dtek_emergency",
+            "yasno_emergency",
+            "yasno_unknown",
+            "e_svitlo_emergency",
+            "e_svitlo_unknown",
+        ],
+    )
+    def test_event_to_state_maps_each_event_type(self, coordinator_class, uid, state):
+        """Each coordinator turns the type of the current event into a state."""
+        coordinator = object.__new__(coordinator_class)
+        now = dt_utils.now()
+        event = CalendarEvent(
+            start=now, end=now + timedelta(hours=1), summary="", uid=uid
+        )
+
+        assert coordinator._event_to_state(event) == state
+
+
+class TestESvitloEventNames:
+    """E-Svitlo names its events without the group."""
+
+    def test_scheduled_event_name_has_no_group(self):
+        """The group of E-Svitlo comes from the account, so the name does not repeat it."""
+        coordinator = object.__new__(ESvitloCoordinator)
+        coordinator.group = "4.1"
+        coordinator.translations = {
+            TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: "Графікове відключення"
+        }
+        now = dt_utils.now()
+        event = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=now,
+            end=now + timedelta(hours=1),
+        )
+
+        result = coordinator._get_scheduled_calendar_event(event)
+
+        assert result.summary == "Графікове відключення"
+
+    def test_no_scheduled_event_gives_no_calendar_event(self):
+        """Without a scheduled event, there is no calendar event."""
+        coordinator = object.__new__(ESvitloCoordinator)
+
+        assert coordinator._get_scheduled_calendar_event(None) is None

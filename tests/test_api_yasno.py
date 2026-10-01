@@ -614,3 +614,45 @@ class TestYasnoApiScheduledEvents:
         events = api.get_scheduled_events(start_date, end_date)
 
         assert len(events) == 2
+
+
+class TestYasnoApiUnusualDays:
+    """The client skips a day or a field that Yasno does not give as expected."""
+
+    def test_group_without_updated_on_has_no_update_time(
+        self, api, planned_outage_data
+    ):
+        """Without updatedOn, the Schedule Updated On sensor has no value."""
+        del planned_outage_data[TEST_GROUP]["updatedOn"]
+        api.planned_outage_data = planned_outage_data
+
+        assert api.get_updated_on() is None
+
+    def test_current_event_of_an_emergency_day(self, api, emergency_outage_data, today):
+        """During an emergency day, the all-day event of that date is the current one."""
+        api.planned_outage_data = emergency_outage_data
+
+        event = api.get_current_event(today.replace(hour=12))
+
+        assert event is not None
+        assert event.all_day
+        assert event.event_type == PlannedOutageEventType.EMERGENCY
+
+    @pytest.mark.parametrize(
+        "date_value", [None, "not a date"], ids=["no_date", "bad_date"]
+    )
+    def test_day_without_a_good_date_is_skipped(
+        self, api, planned_outage_data, today, tomorrow, date_value
+    ):
+        """A day without a date, or with a date that does not parse, gives no events."""
+        group = planned_outage_data[TEST_GROUP]
+        if date_value is None:
+            del group["today"]["date"]
+            del group["tomorrow"]["date"]
+        else:
+            group["today"]["date"] = group["tomorrow"]["date"] = date_value
+        api.planned_outage_data = planned_outage_data
+        end = tomorrow + timedelta(days=1)
+
+        assert api.get_events(today, end) == []
+        assert api.get_scheduled_events(today, end) == []

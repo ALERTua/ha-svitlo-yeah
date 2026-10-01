@@ -63,3 +63,32 @@ async def test_coordinator_update_plans_the_next_boundary():
     first_unsubscribe.assert_called_once()
     assert timers[-1][0] == outage_start
     entity.async_write_ha_state.assert_called()
+
+
+async def test_boundary_writes_the_new_state_and_plans_the_next_one():
+    """At the start of an outage, the entity writes its new state and plans the end."""
+    coordinator = MagicMock()
+    coordinator.config_entry.entry_id = "test_entry"
+    coordinator.next_event = None
+    coordinator.get_current_event.return_value = None
+    entity = IntegrationSensor(coordinator, ELECTRICITY)
+    entity.hass = MagicMock()
+    entity.async_write_ha_state = MagicMock()
+    now = dt_utils.now()
+    outage = CalendarEvent(
+        summary="Planned outage",
+        start=now - timedelta(seconds=1),
+        end=now + timedelta(hours=1),
+    )
+    timers = []
+
+    def track(_hass, action, when):
+        timers.append((when, action))
+        return MagicMock()
+
+    with patch("custom_components.svitlo_yeah.entity.async_track_point_in_time", track):
+        coordinator.get_current_event.return_value = outage  # the outage has begun
+        await entity._handle_boundary(now)
+
+    entity.async_write_ha_state.assert_called_once()
+    assert timers == [(outage.end_datetime_local, entity._handle_boundary)]
