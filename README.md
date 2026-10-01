@@ -172,6 +172,19 @@ data:
 - To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
 - This project is intended to be used as a Home Assistant / HACS integration, not as a standalone Python library — the API classes require a Home Assistant instance. If you'd like the code to be usable outside the HACS integration as a plain Python library, let me know and I'll consider adding support for that.
 
+## Removing the integration
+
+This integration follows standard integration removal. It keeps no data outside its entries. When you delete an entry, Home Assistant removes its device and its entities, and the integration removes its repair issue.
+
+Each provider and group is a separate entry, and so is each E-Svitlo account. To remove an entry:
+
+1. Go to **Settings** → **Devices & services**, and select the **Svitlo Yeah!** card.
+2. Next to the entry that you want to remove, select the three dots **⋮** menu.
+3. Select **Delete**.
+
+To remove the integration files too, delete all entries first. Then open **HACS**, find **Svitlo Yeah | Світло Є**, select the three dots **⋮** menu, and select **Remove**. Restart Home Assistant.
+
+Automations, scripts and dashboards that use the entities or the `svitlo_yeah_data_changed` event stay. Change or delete them yourself.
 
 ## Contributing
 
