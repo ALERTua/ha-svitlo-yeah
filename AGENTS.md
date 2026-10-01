@@ -55,7 +55,7 @@ Use the `just` recipes. The `justfile` shows what each recipe runs.
 
 Run any ad-hoc Python via `uv run python ...`.
 
-The pre-commit hooks also run the full test suite, so each commit runs it.
+The pre-commit hooks also run the full test suite, so each commit runs it. They also run the `ty` type checker on the files of `[tool.ty.src]` in `pyproject.toml`, which is `custom_components` only, because the tests use mocks and wrong values on purpose. Fix a type error instead of adding a `ty:ignore` comment.
 
 ## Local test Home Assistant (optional)
 

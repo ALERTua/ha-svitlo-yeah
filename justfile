@@ -10,6 +10,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 lint:
     uv run ruff format .
     uv run ruff check --fix
+    uv run pre-commit run ty --all-files
 
 pre:
     uv run pre-commit run --all-files
