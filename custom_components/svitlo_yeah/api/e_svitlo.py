@@ -2,6 +2,7 @@
 
 import logging
 from datetime import date, datetime, time, timedelta
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import aiohttp
@@ -16,6 +17,14 @@ from ..const import E_SVITLO_ERROR_NOT_LOGGED_IN, E_SVITLO_SUMY_BASE_URL, TZ_UA
 from ..models import PlannedOutageEvent, PlannedOutageEventType
 
 LOGGER = logging.getLogger(__name__)
+
+
+class LoginResult(Enum):
+    """Outcome of an E-Svitlo login attempt."""
+
+    OK = "ok"  # the server accepted the credentials
+    REJECTED = "rejected"  # the server answered and refused the credentials
+    UNREACHABLE = "unreachable"  # no answer, or an HTTP error of the server
 
 
 class ESvitloClient:
@@ -37,6 +46,10 @@ class ESvitloClient:
 
     async def login(self) -> bool:
         """Authenticate with E-Svitlo API."""
+        return await self.try_login() is LoginResult.OK
+
+    async def try_login(self) -> LoginResult:
+        """Authenticate, and tell refused credentials from an unreachable server."""
         try:
             async with self.session.post(
                 url=self.base_url + "api_main/login_api.json",
@@ -51,17 +64,17 @@ class ESvitloClient:
                     if result.get("data", {}).get("login", False) is True:
                         self.is_authenticated = True
                         LOGGER.debug("Successfully authenticated with E-Svitlo API")
-                        return True
+                        return LoginResult.OK
 
                     error_msg = result.get("error", "Unknown error")
                     LOGGER.error("E-Svitlo login failed: %s", error_msg)
-                    return False
+                    return LoginResult.REJECTED
 
                 LOGGER.error("E-Svitlo login HTTP error: %s", response.status)
-                return False
+                return LoginResult.UNREACHABLE
         except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
             LOGGER.exception("Exception during E-Svitlo login")
-            return False
+            return LoginResult.UNREACHABLE
 
     async def _send_post_request(
         self, endpoint: str, data: dict | None = None
