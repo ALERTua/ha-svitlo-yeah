@@ -21,6 +21,10 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+# Each press sends requests to the source, so the presses of an entry run one
+# after another
+PARALLEL_UPDATES = 1
+
 REFRESH_BUTTON = ButtonEntityDescription(
     key="refresh",
     translation_key="refresh",
