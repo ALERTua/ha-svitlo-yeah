@@ -93,6 +93,9 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         # Whether the source lists the configured group, from the last data
         # that could tell. None until such data arrives.
         self.group_listed: bool | None = None
+        # Whether the last fetch got no answer from the source. The entities
+        # keep the last data then, so only the refresh button reports it.
+        self.last_fetch_failed = False
         self._store: Store[dict] | None = None
         self._stored: dict | None = None
 

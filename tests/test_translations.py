@@ -69,6 +69,19 @@ def _form_errors() -> set[str]:
     }
 
 
+def _exception_keys() -> set[str]:
+    """Return each translation_key that the integration gives to an exception."""
+    return {
+        keyword.value.value
+        for path in TRANSLATIONS.parent.rglob("*.py")
+        for call in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(call, ast.Call)
+        and any(k.arg == "translation_domain" for k in call.keywords)
+        for keyword in call.keywords
+        if keyword.arg == "translation_key" and isinstance(keyword.value, ast.Constant)
+    }
+
+
 def test_languages_have_the_same_keys():
     """Each text exists in each language."""
     en, uk = (set(_texts(_load(language))) for language in LANGUAGES)
@@ -104,6 +117,16 @@ def test_each_form_error_has_a_text(language):
 
     texts = _load(language)["config"]["error"]
     assert {e for e in errors if not texts.get(e)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_exception_has_a_text(language):
+    """Each translated exception has a text, because the UI shows a bare key without it."""
+    keys = _exception_keys()
+    assert keys  # the parser found the exceptions of the integration
+
+    texts = _load(language).get("exceptions", {})
+    assert {k for k in keys if not texts.get(k, {}).get("message")} == set()
 
 
 @pytest.mark.parametrize("language", LANGUAGES)

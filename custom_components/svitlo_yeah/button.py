@@ -8,7 +8,9 @@ from homeassistant.components.button import (
     ButtonEntityDescription,
 )
 from homeassistant.const import EntityCategory
+from homeassistant.exceptions import HomeAssistantError
 
+from .const import DOMAIN
 from .entity import IntegrationEntity
 
 if TYPE_CHECKING:
@@ -57,6 +59,17 @@ class IntegrationRefreshButton(IntegrationEntity, ButtonEntity):
         )
 
     async def async_press(self) -> None:
-        """Force an immediate data refresh, ignoring the update interval."""
+        """
+        Force an immediate data refresh, ignoring the update interval.
+
+        When the source does not answer, the press fails with an error. The
+        entities stay available with the last data (AGENTS.md, «Old states
+        until new data»), so the press must not touch last_update_success.
+        """
         LOGGER.debug("Manual refresh requested for %s", self.coordinator.group)
         await self.coordinator.async_refresh()
+        if self.coordinator.last_fetch_failed:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="refresh_failed",
+            )
