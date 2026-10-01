@@ -6,7 +6,6 @@ from enum import Enum
 
 from homeassistant.util import dt as dt_utils
 
-from ...const import DEBUG
 from ...models import PlannedOutageEvent, PlannedOutageEventType
 from ..common_tools import _merge_adjacent_events, parse_timestamp
 
@@ -312,8 +311,6 @@ class DtekAPIBase:
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)
         output = [e for e in events if not (e.end <= start_date or e.start >= end_date)]
-        if DEBUG:
-            LOGGER.debug("%s: get_events: %s", self, output)
         return output
 
     def get_updated_on(self) -> datetime.datetime | None:
@@ -368,47 +365,4 @@ class DtekAPIBase:
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)
         output = [e for e in events if not (e.end <= start_date or e.start >= end_date)]
-        if DEBUG:
-            LOGGER.debug("%s: get_scheduled_events: %s", self, output)
         return output
-
-
-def _debug_data() -> dict:
-    now = dt_utils.now()
-    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    # till_midnight
-    output = {
-        "data": {
-            midnight.timestamp(): {
-                "GPV1.2": {
-                    "1": "yes",
-                    "2": "yes",
-                    "3": "yes",
-                    "4": "yes",
-                    "5": "yes",
-                    "6": "yes",
-                    "7": "yes",
-                    "8": "yes",
-                    "9": "yes",
-                    "10": "msecond",
-                    "11": "no",
-                    "12": "msecond",
-                    "13": "yes",
-                    "14": "yes",
-                    "15": "yes",
-                    "16": "yes",
-                    "17": "yes",
-                    "18": "yes",
-                    "19": "yes",
-                    "20": "mfirst",
-                    "21": "no",
-                    "22": "no",
-                    "23": "no",
-                    "24": "mfirst",
-                },
-            },
-        },
-        "update": midnight.strftime("%d.%m.%Y %H:%M"),
-        "today": midnight.timestamp(),
-    }
-    return output

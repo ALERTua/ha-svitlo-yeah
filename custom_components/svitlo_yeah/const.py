@@ -3,9 +3,6 @@
 from typing import Final
 from zoneinfo import ZoneInfo
 
-# Do not commit as True
-DEBUG: Final = False
-
 DOMAIN: Final = "svitlo_yeah"
 NAME: Final = "Svitlo Yeah | Світло Є"
 
@@ -29,10 +26,7 @@ PROVIDER_DTEK_SHORT: Final = "ДТЕК"
 TZ_UA = ZoneInfo("Europe/Kyiv")
 
 # Costants
-if DEBUG:
-    UPDATE_INTERVAL: Final = 1
-else:
-    UPDATE_INTERVAL: Final = 15
+UPDATE_INTERVAL: Final = 15
 DTEK_FRESH_DATA_DAYS: Final = 2
 
 # API Endpoints

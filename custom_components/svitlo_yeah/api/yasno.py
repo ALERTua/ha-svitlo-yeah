@@ -1,7 +1,7 @@
 """Yasno API client for Svitlo Yeah integration."""
 
 import logging
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
 from ..const import (
     BLOCK_KEY_STATUS,
-    DEBUG,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -120,71 +119,6 @@ def _parse_day_schedule(day_data: dict, dt: datetime) -> list[PlannedOutageEvent
 
 
 # noinspection PyUnusedLocal
-def _debug_data() -> dict:
-    # emergency shutdowns
-    now = datetime.now(UTC)
-    today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    output = {
-        "3.1": {
-            "today": {
-                "slots": [],
-                "date": today_midnight.isoformat(timespec="seconds"),
-                "status": "EmergencyShutdowns",
-            },
-            "tomorrow": {
-                "slots": [],
-                "date": (today_midnight + timedelta(days=1)).isoformat(
-                    timespec="seconds"
-                ),
-                "status": "EmergencyShutdowns",
-            },
-            "updatedOn": now.isoformat(timespec="seconds"),
-        }
-    }
-    # over midnight events
-    output = {
-        "3.1": {
-            "today": {
-                "slots": [
-                    {"start": 0, "end": 960, "type": "NotPlanned"},
-                    {"start": 960, "end": 1200, "type": "Definite"},
-                    {"start": 1200, "end": 1350, "type": "NotPlanned"},
-                    {"start": 1350, "end": 1440, "type": "Definite"},
-                ],
-                "date": now.isoformat(timespec="seconds"),
-                "status": "ScheduleApplies",
-            },
-            "tomorrow": {
-                "slots": [
-                    {"start": 0, "end": 270, "type": "Definite"},
-                ],
-                "date": (now + timedelta(days=1)).isoformat(timespec="seconds"),
-                "status": "ScheduleApplies",
-            },
-            "updatedOn": now.isoformat(timespec="seconds"),
-        }
-    }
-    # manual outage data
-    minutes = 14 * 60 + 8
-    output = {
-        "3.1": {
-            "today": {
-                "slots": [
-                    {"start": 0, "end": minutes, "type": "NotPlanned"},
-                    {"start": minutes, "end": minutes + 1, "type": "Definite"},
-                ],
-                "date": now.isoformat(timespec="seconds"),
-                "status": "ScheduleApplies",
-            },
-            "tomorrow": {
-                "slots": [],
-                "date": (now + timedelta(days=1)).isoformat(timespec="seconds"),
-                "status": "WaitingForSchedule",
-            },
-            "updatedOn": now.isoformat(timespec="seconds"),
-        }
-    }
-    return output
 
 
 class YasnoApi:
@@ -261,8 +195,6 @@ class YasnoApi:
         LOGGER.debug("Filling Yasno planned outage data with: %s", output)
         self.planned_outage_data = output
 
-        if DEBUG:
-            self.planned_outage_data = _debug_data()
         return True
 
     @property
@@ -397,15 +329,6 @@ class YasnoApi:
             LOGGER.debug("Cannot get_events: no group_data yet")
             return []
 
-        if DEBUG:
-            LOGGER.debug(
-                "get_events for %s from %s to %s:\n%s",
-                self.group,
-                start_date,
-                end_date,
-                group_data,
-            )
-
         events = []
         for key, day_data in group_data.items():
             # parse only "today" and "tomorrow"
@@ -477,15 +400,6 @@ class YasnoApi:
         if not group_data:
             LOGGER.debug("Cannot get_scheduled_events: no group_data yet")
             return []
-
-        if DEBUG:
-            LOGGER.debug(
-                "get_scheduled_events for %s from %s to %s:\n%s",
-                self.group,
-                start_date,
-                end_date,
-                group_data,
-            )
 
         events = []
         for key, day_data in group_data.items():
