@@ -364,6 +364,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.data[CONF_ACCOUNT_ID] = user_input[CONF_ACCOUNT_ID]
 
+            # One entry for each E-Svitlo account: a second one only repeats it
+            self._async_abort_entries_match(
+                {
+                    key: self.data[key]
+                    for key in (CONF_PROVIDER_TYPE, CONF_PROVIDER, CONF_ACCOUNT_ID)
+                }
+            )
+
             # To store the address string, we need to find it again
             # from the account list
             # Re-instantiate client to fetch accounts
