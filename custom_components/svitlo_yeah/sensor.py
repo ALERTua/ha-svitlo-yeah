@@ -38,7 +38,6 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
     IntegrationSensorDescription(
         key="electricity",
         translation_key="electricity",
-        icon="mdi:transmission-tower",
         device_class=SensorDeviceClass.ENUM,
         options=[str(_.value) for _ in ConnectivityState],
         val_func=lambda coordinator: coordinator.current_state,
@@ -46,35 +45,30 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
     IntegrationSensorDescription(
         key="schedule_updated_on",
         translation_key="schedule_updated_on",
-        icon="mdi:update",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.schedule_updated_on,
     ),
     IntegrationSensorDescription(
         key="schedule_data_changed",
         translation_key="schedule_data_changed",
-        icon="mdi:update",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.outage_data_last_changed,
     ),
     IntegrationSensorDescription(
         key="next_planned_outage",
         translation_key="next_planned_outage",
-        icon="mdi:calendar-remove",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_planned_outage,
     ),
     IntegrationSensorDescription(
         key="next_scheduled_outage",
         translation_key="next_scheduled_outage",
-        icon="mdi:calendar-clock",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_scheduled_outage,
     ),
     IntegrationSensorDescription(
         key="next_connectivity",
         translation_key="next_connectivity",
-        icon="mdi:calendar-check",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_connectivity,
     ),
