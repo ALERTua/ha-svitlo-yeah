@@ -5,13 +5,16 @@ from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
     DOMAIN,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
+)
+
+pytestmark = pytest.mark.usefixtures(
+    "enable_custom_integrations", "empty_yasno_region_cache"
 )
 
 KYIV_REGIONS = [{"id": 25, "value": "Київ", "dsos": [{"id": 902, "name": "ДТЕК"}]}]
@@ -26,14 +29,8 @@ def _planned_outages(*groups: str) -> dict:
     return {group: {"today": day, "updatedOn": today.isoformat()} for group in groups}
 
 
-@pytest.fixture(autouse=True)
-def _custom_integrations(enable_custom_integrations):
-    """Let Home Assistant load the integration from custom_components."""
-
-
-async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock, monkeypatch):
+async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock):
     """The user picks a Yasno provider and a group, and the entry sets up."""
-    monkeypatch.setattr(YasnoApi, "_regions", None)
     aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=KYIV_REGIONS)
     aioclient_mock.get(
         YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=25, dso_id=902),

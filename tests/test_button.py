@@ -3,94 +3,18 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from aiohttp import ClientError
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.svitlo_yeah.api.yasno import YasnoApi
-from custom_components.svitlo_yeah.const import DOMAIN, YASNO_REGIONS_ENDPOINT
+from custom_components.svitlo_yeah.const import DOMAIN
 from custom_components.svitlo_yeah.models import ConnectivityState
-from tests.test_coordinator_store import (
-    DTEK_KYIV_REGION_1_1,
-    E_SVITLO_ACCOUNT_101,
-    E_SVITLO_DETAILS_URL,
-    E_SVITLO_DISCONNECTIONS_URL,
-    E_SVITLO_LOGIN_URL,
-    KYIV_REGION_URLS,
-    YASNO_KYIV,
-    YASNO_KYIV_1_1,
-    YASNO_PLANNED_URL,
-    _e_svitlo_outage_all_day_today,
-    _fact_with_an_outage_today,
-    _yasno_outage_all_day_today,
+from tests.helpers import PROVIDERS, dtek_answers, fact_with_an_outage_today
+
+pytestmark = pytest.mark.usefixtures(
+    "enable_custom_integrations", "empty_yasno_region_cache"
 )
-
-
-@pytest.fixture(autouse=True)
-def _custom_integrations(enable_custom_integrations):
-    """Let Home Assistant load the integration from custom_components."""
-
-
-@pytest.fixture(autouse=True)
-def _empty_yasno_region_cache(monkeypatch):
-    """Make each Yasno setup fetch the regions again."""
-    monkeypatch.setattr(YasnoApi, "_regions", None)
-
-
-def _dtek_answers(aioclient_mock, fact: dict | None = None) -> None:
-    """Serve the DTEK feeds with this fact schedule, or fail each request without one."""
-    for url in KYIV_REGION_URLS:
-        if fact is None:
-            aioclient_mock.get(url, exc=ClientError())
-        else:
-            aioclient_mock.get(url, json={"fact": fact, "preset": {}})
-
-
-def _yasno_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the Yasno planned outages, or fail the request."""
-    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
-    if answer:
-        aioclient_mock.get(YASNO_PLANNED_URL, json=_yasno_outage_all_day_today())
-    else:
-        aioclient_mock.get(YASNO_PLANNED_URL, exc=ClientError())
-
-
-def _e_svitlo_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the E-Svitlo login and disconnections, or fail the disconnections request."""
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    if answer:
-        aioclient_mock.post(
-            E_SVITLO_DISCONNECTIONS_URL, json=_e_svitlo_outage_all_day_today()
-        )
-    else:
-        aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, exc=ClientError())
-
-
-def _fresh_fact() -> dict:
-    return _fact_with_an_outage_today(datetime.now(UTC))
-
-
-def _stale_fact() -> dict:
-    return _fact_with_an_outage_today(datetime.now(UTC) - timedelta(days=30))
-
-
-PROVIDERS = {
-    "dtek": (
-        DTEK_KYIV_REGION_1_1,
-        lambda mock, answer: _dtek_answers(mock, _fresh_fact() if answer else None),
-    ),
-    "yasno": (
-        YASNO_KYIV_1_1,
-        lambda mock, answer: _yasno_answers(mock, answer=answer),
-    ),
-    "e_svitlo": (
-        E_SVITLO_ACCOUNT_101,
-        lambda mock, answer: _e_svitlo_answers(mock, answer=answer),
-    ),
-}
 
 
 async def _set_up(hass, aioclient_mock, data: dict, answers) -> MockConfigEntry:
@@ -169,7 +93,10 @@ async def test_press_with_an_outdated_dtek_schedule_succeeds(hass, aioclient_moc
     data, answers = PROVIDERS["dtek"]
     entry = await _set_up(hass, aioclient_mock, data, answers)
     aioclient_mock.clear_requests()
-    _dtek_answers(aioclient_mock, _stale_fact())
+    dtek_answers(
+        aioclient_mock,
+        fact_with_an_outage_today(datetime.now(UTC) - timedelta(days=30)),
+    )
 
     await _press(hass, entry)
 

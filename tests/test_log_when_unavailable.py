@@ -5,24 +5,16 @@ import logging
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import DOMAIN
-from tests.test_button import PROVIDERS
+from tests.helpers import PROVIDERS
+
+pytestmark = pytest.mark.usefixtures(
+    "enable_custom_integrations", "empty_yasno_region_cache"
+)
 
 INTEGRATION_LOGGER = "custom_components.svitlo_yeah"
 GONE = "does not answer"
 BACK = "answers again"
-
-
-@pytest.fixture(autouse=True)
-def _custom_integrations(enable_custom_integrations):
-    """Let Home Assistant load the integration from custom_components."""
-
-
-@pytest.fixture(autouse=True)
-def _empty_yasno_region_cache(monkeypatch):
-    """Make each Yasno setup fetch the regions again."""
-    monkeypatch.setattr(YasnoApi, "_regions", None)
 
 
 def _integration_records(caplog) -> list[logging.LogRecord]:

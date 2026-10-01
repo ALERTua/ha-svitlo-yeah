@@ -9,7 +9,6 @@ from homeassistant.config_entries import SOURCE_USER
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     CONF_ACCOUNT_ID,
     CONF_ADDRESS_STR,
@@ -25,6 +24,10 @@ from custom_components.svitlo_yeah.const import (
     PROVIDER_TYPE_YASNO,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
+)
+
+pytestmark = pytest.mark.usefixtures(
+    "enable_custom_integrations", "empty_yasno_region_cache"
 )
 
 KYIV_REGION_URL = DTEK_PROVIDER_URLS["kyiv_region"][0]
@@ -141,21 +144,10 @@ def _add_entry(hass, data: dict) -> MockConfigEntry:
 
 
 @pytest.fixture(autouse=True)
-def _custom_integrations(enable_custom_integrations):
-    """Let Home Assistant load the integration from custom_components."""
-
-
-@pytest.fixture(autouse=True)
 def _no_entry_setup():
     """Create the entries without their setup: these tests cover the flow only."""
     with patch("custom_components.svitlo_yeah.async_setup_entry", return_value=True):
         yield
-
-
-@pytest.fixture(autouse=True)
-def _empty_yasno_region_cache(monkeypatch):
-    """Make each flow fetch the Yasno regions again."""
-    monkeypatch.setattr(YasnoApi, "_regions", None)
 
 
 async def _start_flow(hass, aioclient_mock) -> dict:
