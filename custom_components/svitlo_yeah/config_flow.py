@@ -364,6 +364,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
+        # After an error, keep the typed username; the password is never sent back
+        if user_input is not None:
+            data_schema = self.add_suggested_values_to_schema(
+                data_schema, {"username": user_input["username"]}
+            )
+
         description_placeholders = {"esvitlo_url": "https://sm.e-svitlo.com.ua/"}
 
         # noinspection PyTypeChecker
