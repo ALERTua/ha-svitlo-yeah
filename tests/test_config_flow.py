@@ -12,12 +12,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     CONF_ACCOUNT_ID,
+    CONF_ADDRESS_STR,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
     DOMAIN,
     DTEK_PROVIDER_URLS,
+    E_SVITLO_SUMY_BASE_URL,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
@@ -61,6 +63,20 @@ YASNO_KYIV_1_1 = {
     CONF_PROVIDER: YASNO_DSO_ID,
     CONF_REGION: YASNO_REGION_ID,
     CONF_GROUP: "1.1",
+}
+
+E_SVITLO_KEY = "esvitloprovider_sumy"
+E_SVITLO_ACCOUNTS = [
+    {"a": 101, "address": "Суми, вул. Перша, 1", "ls": "5001"},
+    {"a": 102, "address": "Суми, вул. Друга, 2", "ls": "5002"},
+]
+E_SVITLO_ACCOUNT_101 = {
+    CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO,
+    CONF_PROVIDER: "sumy",
+    "username": "user",
+    "password": "secret",
+    CONF_ACCOUNT_ID: "101",
+    CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
 }
 
 
@@ -444,3 +460,53 @@ class TestDuplicateGroup:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "reconfigure_unchanged"
         assert entry.data == DTEK_KYIV_REGION_1_1
+
+
+class TestDuplicateESvitloAccount:
+    """The integration keeps one entry for each E-Svitlo account."""
+
+    @pytest.fixture(autouse=True)
+    def _e_svitlo_answers(self, aioclient_mock):
+        """Accept the login and list two accounts of the user."""
+        aioclient_mock.post(
+            E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json",
+            json={"data": {"login": True}},
+        )
+        aioclient_mock.post(
+            E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json",
+            json={"data": {"lst_ls": E_SVITLO_ACCOUNTS}},
+        )
+
+    async def _add_account(self, hass, aioclient_mock, account_id: str) -> dict:
+        """Walk a new E-Svitlo flow to the given account."""
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: E_SVITLO_KEY})
+        assert result["step_id"] == "esvitlo_auth"
+        result = await _configure(
+            hass, result, {"username": "user", "password": "secret"}
+        )
+        assert result["step_id"] == "esvitlo_account"
+        return await _configure(hass, result, {CONF_ACCOUNT_ID: account_id})
+
+    async def test_same_account_aborts(self, hass, aioclient_mock):
+        """A second entry for the same account aborts."""
+        _add_entry(hass, E_SVITLO_ACCOUNT_101)
+
+        result = await self._add_account(hass, aioclient_mock, "101")
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "already_configured"
+        assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+
+    async def test_other_account_creates_the_entry(self, hass, aioclient_mock):
+        """Another account of the same user is a new entry with its address."""
+        _add_entry(hass, E_SVITLO_ACCOUNT_101)
+
+        result = await self._add_account(hass, aioclient_mock, "102")
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"] == {
+            **E_SVITLO_ACCOUNT_101,
+            CONF_ACCOUNT_ID: "102",
+            CONF_ADDRESS_STR: "Суми, вул. Друга, 2",
+        }

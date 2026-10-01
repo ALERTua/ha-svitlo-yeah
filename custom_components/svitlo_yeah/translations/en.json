@@ -2,7 +2,7 @@
   "title": "Svitlo Yeah!",
   "config": {
     "abort": {
-      "already_configured": "The integration already has an entry for this group of this provider.",
+      "already_configured": "The integration already has an entry for this group of this provider, or for this E-Svitlo account.",
       "reconfigure_successful": "The entry now uses the new group. To update the entity IDs, open the device and select Recreate entity IDs.",
       "reconfigure_unchanged": "The entry already uses this group. Nothing changed.",
       "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
