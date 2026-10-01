@@ -171,6 +171,24 @@
     },
     "login_rejected": {
       "message": "E-Svitlo refused the login. To enter the current password, go to Settings > Devices & services. If E-Svitlo has maintenance now, try again later."
+    },
+    "unknown_provider_type": {
+      "message": "This entry has the unknown provider type «{provider_type}». Delete the entry and add it again."
+    },
+    "unknown_dtek_provider": {
+      "message": "This version of the integration has no DTEK source «{provider}». Delete the entry and add it again with the region of your address."
+    },
+    "entry_without_region": {
+      "message": "This entry has no region. Delete the entry and add it again."
+    },
+    "entry_without_provider": {
+      "message": "This entry has no provider. Delete the entry and add it again."
+    },
+    "entry_without_group": {
+      "message": "This entry has no group. Delete the entry and add it again."
+    },
+    "entry_without_login": {
+      "message": "This E-Svitlo entry has no login or password. Delete the entry and add it again."
     }
   },
   "common": {

@@ -15,6 +15,7 @@ from custom_components.svitlo_yeah.const import (
     CONF_REGION,
     DOMAIN,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
@@ -99,30 +100,69 @@ async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
 
 
 @pytest.mark.parametrize(
-    "data",
+    ("data", "error"),
     [
-        {CONF_PROVIDER_TYPE: "unknown", CONF_GROUP: "1.1"},
-        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON, CONF_GROUP: "1.1"},
-        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON, CONF_PROVIDER: "kyiv_region"},
-        {
-            CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
-            CONF_PROVIDER: 902,
-            CONF_GROUP: "1.1",
-        },
-        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO, CONF_REGION: 25, CONF_GROUP: "1.1"},
-        {CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO, CONF_REGION: 25, CONF_PROVIDER: 902},
+        ({CONF_GROUP: "1.1"}, "unknown_provider_type"),
+        ({CONF_PROVIDER_TYPE: "unknown", CONF_GROUP: "1.1"}, "unknown_provider_type"),
+        (
+            {CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON, CONF_GROUP: "1.1"},
+            "entry_without_provider",
+        ),
+        (
+            {CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON, CONF_PROVIDER: "kyiv_region"},
+            "entry_without_group",
+        ),
+        (
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
+                CONF_PROVIDER: "removed_region",
+                CONF_GROUP: "1.1",
+            },
+            "unknown_dtek_provider",
+        ),
+        (
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+                CONF_PROVIDER: 902,
+                CONF_GROUP: "1.1",
+            },
+            "entry_without_region",
+        ),
+        (
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+                CONF_REGION: 25,
+                CONF_GROUP: "1.1",
+            },
+            "entry_without_provider",
+        ),
+        (
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+                CONF_REGION: 25,
+                CONF_PROVIDER: 902,
+            },
+            "entry_without_group",
+        ),
+        (
+            {CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO, CONF_PROVIDER: "sumy"},
+            "entry_without_login",
+        ),
     ],
     ids=[
+        "no_provider_type",
         "unknown_provider_type",
         "dtek_without_provider",
         "dtek_without_group",
+        "dtek_unknown_source",
         "yasno_without_region",
         "yasno_without_provider",
         "yasno_without_group",
+        "e_svitlo_without_login",
     ],
 )
-async def test_broken_entry_does_not_load(hass, data):
-    """An entry without a setting that the config flow always writes stops its setup."""
+async def test_broken_entry_stops_with_a_translated_error(hass, data, error):
+    """An entry that cannot work stops its setup and tells the user why, in the user's language."""
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
 
@@ -130,6 +170,7 @@ async def test_broken_entry_does_not_load(hass, data):
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert entry.error_reason_translation_key == error
 
 
 async def test_changed_options_reload_the_entry(hass, aioclient_mock):

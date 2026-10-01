@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
@@ -38,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -
     LOGGER.info("Setup entry: %s", entry)
     provider_type = entry.options.get(
         CONF_PROVIDER_TYPE,
-        entry.data[CONF_PROVIDER_TYPE],
+        entry.data.get(CONF_PROVIDER_TYPE),
     )
 
     if provider_type == PROVIDER_TYPE_DTEK_JSON:
@@ -48,8 +49,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -
     elif provider_type == PROVIDER_TYPE_E_SVITLO:
         coordinator = ESvitloCoordinator(hass, entry)
     else:
-        msg = f"Unsupported provider type: {provider_type}"
-        raise ValueError(msg)
+        # Nothing can make the entry usable, so the user adds it again
+        raise ConfigEntryError(
+            translation_domain=DOMAIN,
+            translation_key="unknown_provider_type",
+            translation_placeholders={"provider_type": str(provider_type)},
+        )
 
     await coordinator.async_config_entry_first_refresh()
 
