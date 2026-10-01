@@ -127,6 +127,12 @@ def _default(result: dict, field: str):
     return next(k for k in result["data_schema"].schema if k == field).default()
 
 
+def _suggested(result: dict, field: str):
+    """Return the suggested value of a field in a form result, or None."""
+    key = next(k for k in result["data_schema"].schema if k == field)
+    return (key.description or {}).get("suggested_value")
+
+
 def _add_entry(hass, data: dict) -> MockConfigEntry:
     """Add a config entry of this integration with the given data."""
     entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -540,6 +546,24 @@ class TestESvitloLoginForm:
             "password",
             "current-password",
         )
+
+    @pytest.mark.parametrize(
+        "answer",
+        [{"json": {"data": {"login": False}}}, {"exc": ClientError()}],
+        ids=["invalid_auth", "cannot_connect"],
+    )
+    async def test_error_keeps_the_username(self, hass, aioclient_mock, answer):
+        """After an error, the form keeps the typed username, but not the password."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, **answer)
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        assert _suggested(result, "username") is None
+
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+
+        assert result["step_id"] == "esvitlo_auth"
+        assert result["errors"]
+        assert _suggested(result, "username") == E_SVITLO_CREDENTIALS["username"]
+        assert _suggested(result, "password") is None
 
 
 class TestESvitloConnection:
