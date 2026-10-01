@@ -26,7 +26,8 @@ require a running Home Assistant instance (`hass`).
     fetch/refresh scheduling and expose events to the entities.
   - `entity.py`, `sensor.py`, `calendar.py`, `button.py` — HA entity platforms.
   - `config_flow.py` — UI setup/options flow.
-  - `models/`, `const.py`, `manifest.json`, `translations/`.
+  - `models/`, `const.py`, `manifest.json`, `translations/`, `icons.json`.
+  - `brand/` — the icon and the logo that Home Assistant and HACS show. They are copies of `icons/*.png`, which the README uses. If you change an image, change both copies: `tests/test_icons.py` makes sure that they are equal.
 - `tests/` — pytest suite (`pytest-asyncio`, `freezegun`, `pytest-homeassistant-custom-component`).
   - `tests/e2e/` — e2e tests with real network access (see "Testing").
 - `conftest.py` — loads the Home Assistant test plugin, also on Windows (see "Testing").
