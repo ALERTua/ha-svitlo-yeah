@@ -396,13 +396,15 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if not event:
             return None
 
-        summary: str = self.event_name_map.get(event.event_type, "")
+        summary: str | None = self.event_name_map.get(event.event_type)
         if not summary:
             LOGGER.warning(
                 "Couldn't get %s from %s. Please report this.",
                 event.event_type,
                 self.event_name_map,
             )
+            # CalendarEvent refuses an event without a name
+            summary = event.event_type.value
 
         # noinspection PyTypeChecker
         return CalendarEvent(

@@ -535,6 +535,22 @@ class TestESvitloEventNames:
 
         assert result.summary == "Графікове відключення"
 
+    def test_event_without_a_name_gets_the_name_of_its_type(self, caplog):
+        """Without a translated name, the event is named after its type, with a warning."""
+        coordinator = object.__new__(ESvitloCoordinator)
+        coordinator.translations = {}
+        now = dt_utils.now()
+        event = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.EMERGENCY,
+            start=now,
+            end=now + timedelta(hours=1),
+        )
+
+        result = coordinator._get_calendar_event(event)
+
+        assert result.summary == PlannedOutageEventType.EMERGENCY.value
+        assert "Couldn't get" in caplog.text
+
     def test_no_scheduled_event_gives_no_calendar_event(self):
         """Without a scheduled event, there is no calendar event."""
         coordinator = object.__new__(ESvitloCoordinator)
