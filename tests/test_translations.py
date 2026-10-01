@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from custom_components.svitlo_yeah import const
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
 TRANSLATIONS = Path(__file__).parent.parent / (
@@ -141,6 +142,26 @@ def test_each_field_has_a_description(language):
         for field in step.get("data", {})
         if not step.get("data_description", {}).get(field)
     } == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_translation_key_of_the_code_has_a_text(language):
+    """
+    Each translation key that const.py names has a text, for example an event name.
+
+    Home Assistant takes the English text for another language, so a name is
+    missing only when en.json lacks the key.
+    """
+    prefix = f"component.{const.DOMAIN}."
+    keys = [
+        value
+        for value in vars(const).values()
+        if isinstance(value, str) and value.startswith(prefix)
+    ]
+    assert keys  # the event names at least
+
+    texts = _texts(_load(language))
+    assert [key for key in keys if not texts.get(key.removeprefix(prefix))] == []
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
