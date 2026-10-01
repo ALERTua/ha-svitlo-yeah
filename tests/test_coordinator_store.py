@@ -9,13 +9,18 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
+    CONF_REGION,
     DOMAIN,
     DTEK_PROVIDER_URLS,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_YASNO,
+    YASNO_PLANNED_OUTAGES_ENDPOINT,
+    YASNO_REGIONS_ENDPOINT,
 )
 from custom_components.svitlo_yeah.coordinator.coordinator import (
     STORE_VERSION,
@@ -30,6 +35,34 @@ DTEK_KYIV_REGION_1_1 = {
     CONF_PROVIDER: "kyiv_region",
     CONF_GROUP: "1.1",
 }
+
+YASNO_KYIV_1_1 = {
+    CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+    CONF_REGION: 25,
+    CONF_PROVIDER: 902,
+    CONF_GROUP: "1.1",
+}
+YASNO_PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=25, dso_id=902)
+YASNO_KYIV = {
+    "id": 25,
+    "value": "Київ",
+    "dsos": [{"id": 902, "name": "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"}],
+}
+
+
+def _yasno_outage_all_day_today() -> dict:
+    """Build a Yasno answer with a planned outage for group 1.1 all day today."""
+    today = dt_utils.start_of_local_day()
+    return {
+        "1.1": {
+            "today": {
+                "slots": [{"start": 0, "end": 1440, "type": "Definite"}],
+                "date": today.isoformat(),
+                "status": "ScheduleApplies",
+            },
+            "updatedOn": today.isoformat(),
+        }
+    }
 
 
 def _fact_with_an_outage_today(update: datetime) -> dict:
@@ -62,6 +95,12 @@ def _kept(source: dict, **fields) -> dict:
 @pytest.fixture(autouse=True)
 def _custom_integrations(enable_custom_integrations):
     """Let Home Assistant load the integration from custom_components."""
+
+
+@pytest.fixture(autouse=True)
+def _empty_yasno_region_cache(monkeypatch):
+    """Make each Yasno setup fetch the regions again."""
+    monkeypatch.setattr(YasnoApi, "_regions", None)
 
 
 async def _set_up(hass, entry: MockConfigEntry):
@@ -152,6 +191,43 @@ async def test_kept_answer_about_another_group_is_not_used(
     assert coordinator.group_listed is None
     issue_id = group_not_listed_issue_id(entry.entry_id)
     assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+    await _unload(hass, entry)
+
+
+async def test_yasno_data_goes_into_the_store(hass, aioclient_mock, hass_storage):
+    """The Yasno planned outages and the region are kept for the next start."""
+    outage = _yasno_outage_all_day_today()
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    aioclient_mock.get(YASNO_PLANNED_URL, json=outage)
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+
+    coordinator = await _set_up(hass, entry)
+
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    kept = hass_storage[store_key(entry.entry_id)]["data"]
+    assert kept["source"] == {"planned_outage_data": outage, "region": YASNO_KYIV}
+    await _unload(hass, entry)
+
+
+async def test_yasno_restart_without_an_answer_shows_the_kept_schedule(
+    hass, aioclient_mock, hass_storage
+):
+    """After a restart, Yasno shows the kept outage, and the device keeps its name."""
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
+    aioclient_mock.get(YASNO_PLANNED_URL, exc=ClientError())
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+    hass_storage[store_key(entry.entry_id)] = _kept(
+        {"planned_outage_data": _yasno_outage_all_day_today(), "region": YASNO_KYIV}
+    )
+
+    coordinator = await _set_up(hass, entry)
+
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert (coordinator.region_name, coordinator.provider_name) == ("Київ", "ДТЕК")
+    # The kept region names only this device, the config flow still asks Yasno
+    assert YasnoApi._regions is None
     await _unload(hass, entry)
 
 

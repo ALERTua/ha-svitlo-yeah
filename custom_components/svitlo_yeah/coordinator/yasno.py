@@ -135,6 +135,34 @@ class YasnoCoordinator(IntegrationCoordinator):
         now = dt_utils.now()
         current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
         self.check_outage_data_changed(current_events)
+        await self._async_store_last_data()
+
+    def _source_data(self) -> dict | None:
+        """Keep the planned outages, and the region that names the device."""
+        if self.api.planned_outage_data is None:
+            return None
+        region = self.region
+        return {
+            "planned_outage_data": self.api.planned_outage_data,
+            "region": None
+            if region is None
+            else {
+                "id": region.id,
+                "value": region.name,
+                "dsos": [{"id": dso.id, "name": dso.name} for dso in region.dsos],
+            },
+        }
+
+    def _restore_source_data(self, source: dict) -> None:
+        """
+        Give the kept planned outages back to the API, until the source answers.
+
+        The kept region names the device while the regions request fails. It
+        stays out of the class cache of YasnoApi, which the config flow uses.
+        """
+        self.api.planned_outage_data = source.get("planned_outage_data")
+        if region := source.get("region"):
+            self._region = YasnoRegion.from_dict(region)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
