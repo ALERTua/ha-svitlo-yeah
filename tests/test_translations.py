@@ -107,6 +107,18 @@ def test_each_form_error_has_a_text(language):
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
+def test_each_field_has_a_description(language):
+    """Each field of a config flow form has a text under it that explains it."""
+    steps = _load(language)["config"]["step"]
+    assert {
+        f"{step_id}.{field}"
+        for step_id, step in steps.items()
+        for field in step.get("data", {})
+        if not step.get("data_description", {}).get(field)
+    } == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
 def test_each_dtek_provider_has_a_name(language):
     """Each DTEK provider has a name, which device names and repair issues use."""
     common = _load(language)["common"]

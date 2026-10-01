@@ -18,7 +18,9 @@
         "data": {
           "provider": "Select your region/system distribution:"
         },
-        "data_description": {}
+        "data_description": {
+          "provider": "The region or the distribution system operator that supplies electricity to your address."
+        }
       },
       "group": {
         "title": "Settings",
@@ -37,7 +39,8 @@
           "password": "Password"
         },
         "data_description": {
-          "username": "Use login and password from E-Svitlo personal cabinet: {esvitlo_url}"
+          "username": "Use login and password from E-Svitlo personal cabinet: {esvitlo_url}",
+          "password": "The password of your E-Svitlo personal cabinet."
         }
       },
       "esvitlo_account": {
@@ -45,6 +48,9 @@
         "description": "Select the account (address) to monitor",
         "data": {
           "account_id": "Account"
+        },
+        "data_description": {
+          "account_id": "The personal account (address) whose outage schedule the integration shows. For another address, add one more integration entry."
         }
       },
       "stale_confirm": {
@@ -52,6 +58,9 @@
         "description": "No fresh outage data is available right now.\n\nYou can pick a group from this outdated schedule, but once outages resume please double-check that your group assignment has not changed.",
         "data": {
           "acknowledge": "I understand and accept the risk"
+        },
+        "data_description": {
+          "acknowledge": "To continue with the outdated schedule, select this checkbox."
         }
       }
     },
