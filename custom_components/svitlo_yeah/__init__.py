@@ -24,15 +24,16 @@ from .coordinator.e_svitlo import ESvitloCoordinator
 from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+    from .coordinator.coordinator import SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> bool:
     """Set up a new entry."""
     LOGGER.info("Setup entry: %s", entry)
     provider_type = entry.options.get(
@@ -59,14 +60,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_reload_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> None:
     """Reload config entry."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SvitloYeahConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
     LOGGER.info("Unload entry: %s", entry)
@@ -78,6 +79,6 @@ async def async_unload_entry(
     return unload_ok
 
 
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_remove_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> None:
     """Delete the last data that the entry kept for a restart."""
     await Store(hass, STORE_VERSION, store_key(entry.entry_id)).async_remove()

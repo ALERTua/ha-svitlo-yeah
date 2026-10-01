@@ -1,7 +1,7 @@
 """Config flow for Svitlo Yeah integration."""
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import (
@@ -44,12 +44,6 @@ from .models.providers import (
     ESvitloProvider,
     YasnoProvider,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-
-    from .models import YasnoRegion
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -95,7 +89,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         LOGGER.debug("async_step_user: No User input yet")
         api_yasno = YasnoApi(self.hass)
         await api_yasno.fetch_yasno_regions()
-        yasno_regions: list[YasnoRegion] = api_yasno.regions  # ty:ignore[invalid-assignment]
+        yasno_regions = api_yasno.regions or []
         LOGGER.debug("async_step_user: yasno_regions: %s", yasno_regions)
         yasno_providers: list[YasnoProvider] = []
         if yasno_regions:
@@ -194,8 +188,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         groups = []
         group_labels: dict[str, str] = {}
-        errors: dict[str, str] | None = None
-        description_placeholders: Mapping[str, str] | None = None
         if provider_type == PROVIDER_TYPE_YASNO:
             if region_id and provider_id:
                 temp_api = YasnoApi(
@@ -206,11 +198,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 await temp_api.fetch_planned_outage_data()
                 groups = temp_api.get_yasno_groups()
                 if not groups:
-                    description_placeholders = {"url": YASNO_REGIONS_ENDPOINT}
                     # noinspection PyTypeChecker
                     return self.async_abort(
                         reason="yasno_connection_error",
-                        description_placeholders=description_placeholders,
+                        description_placeholders={"url": YASNO_REGIONS_ENDPOINT},
                     )
 
         elif provider_type == PROVIDER_TYPE_DTEK_JSON and provider_id:
@@ -220,9 +211,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 result = await temp_api.fetch_data(allow_stale_data=True)
                 groups = temp_api.get_dtek_region_groups()
                 if result is FetchResult.UNAVAILABLE or not groups:
-                    description_placeholders = {
-                        "urls": urls[0] if len(urls) == 1 else urls
-                    }  # ty:ignore[invalid-assignment]
                     # noinspection PyTypeChecker
                     return self.async_abort(
                         reason=(
@@ -230,7 +218,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                             if result is FetchResult.UNAVAILABLE
                             else "dtek_json_empty_data"
                         ),
-                        description_placeholders=description_placeholders,
+                        # One source on each line of the text
+                        description_placeholders={"urls": "\n".join(urls)},
                     )
                 if result is FetchResult.STALE and not self.data.get("_stale_ack"):
                     # noinspection PyTypeChecker
@@ -261,19 +250,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-        # Add description placeholders with URLs
-        if not description_placeholders:
-            description_placeholders = {
-                "yasno_url": "https://static.yasno.ua/kyiv/outages",
-                "dtek_url": "https://www.dtek-krem.com.ua/ua/shutdowns",
-            }
-
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="group",
             data_schema=data_schema,
-            errors=errors,
-            description_placeholders=description_placeholders,
+            description_placeholders={
+                "yasno_url": "https://static.yasno.ua/kyiv/outages",
+                "dtek_url": "https://www.dtek-krem.com.ua/ua/shutdowns",
+            },
         )
 
     async def async_step_reconfigure(

@@ -12,11 +12,10 @@ from homeassistant.const import EntityCategory
 from .entity import IntegrationEntity
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .coordinator.coordinator import IntegrationCoordinator
+    from .coordinator.coordinator import IntegrationCoordinator, SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,12 +30,12 @@ REFRESH_BUTTON = ButtonEntityDescription(
 # noinspection PyUnusedLocal
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    config_entry: SvitloYeahConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the button platform."""
     LOGGER.debug("Setup new button: %s", config_entry)
-    coordinator: IntegrationCoordinator = config_entry.runtime_data
+    coordinator = config_entry.runtime_data
     async_add_entities([IntegrationRefreshButton(coordinator, REFRESH_BUTTON)])
 
 

@@ -5,10 +5,10 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 if TYPE_CHECKING:
-    import aiohttp
     from homeassistant.core import HomeAssistant
 
 from ...const import DTEK_FRESH_DATA_DAYS
@@ -79,7 +79,9 @@ class DtekAPIJson(DtekAPIBase):
 
         for url in self.urls:
             try:
-                async with self.session.get(url, timeout=10) as response:
+                async with self.session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
                     response.raise_for_status()
                     json_data = await response.text()
                 json_data = json.loads(json_data)

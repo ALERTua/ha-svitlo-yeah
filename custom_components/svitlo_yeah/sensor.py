@@ -16,12 +16,10 @@ from .models import ConnectivityState
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .coordinator.coordinator import IntegrationCoordinator
-    from .coordinator.yasno import YasnoCoordinator
+    from .coordinator.coordinator import IntegrationCoordinator, SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
 
@@ -83,12 +81,12 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
 # noinspection PyUnusedLocal
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    config_entry: SvitloYeahConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
     LOGGER.debug("Setup new sensor: %s", config_entry)
-    coordinator: YasnoCoordinator = config_entry.runtime_data
+    coordinator = config_entry.runtime_data
     async_add_entities(
         IntegrationSensor(coordinator, description) for description in SENSORS
     )
@@ -101,7 +99,7 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
 
     def __init__(
         self,
-        coordinator: YasnoCoordinator,
+        coordinator: IntegrationCoordinator,
         entity_description: IntegrationSensorDescription,
     ) -> None:
         """Initialize the sensor."""

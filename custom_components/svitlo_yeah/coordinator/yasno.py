@@ -49,7 +49,7 @@ def _simplify_provider_name(provider_name: str) -> str:
 class YasnoCoordinator(IntegrationCoordinator):
     """Class to manage fetching Yasno outages data."""
 
-    config_entry: ConfigEntry
+    api: YasnoApi
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -123,7 +123,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
+    async def _async_update_data(self) -> None:
         """Fetch data from Svitlo Yeah API."""
         await self.async_fetch_translations()
 
@@ -180,7 +180,7 @@ class YasnoCoordinator(IntegrationCoordinator):
     def region(self) -> YasnoRegion | None:
         """Get the configured region."""
         if not self._region:
-            self._region = self.api.get_region_by_id(self.region_id)  # ty:ignore[possibly-missing-attribute]
+            self._region = self.api.get_region_by_id(self.region_id)
             LOGGER.debug("Caching region to %s", self._region)
         return self._region
 

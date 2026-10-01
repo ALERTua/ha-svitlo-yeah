@@ -79,7 +79,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
+    async def _async_update_data(self) -> None:
         """Fetch data from DTEK API."""
         await self.async_fetch_translations()
 
