@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_utils
@@ -39,10 +40,19 @@ LOGGER = logging.getLogger(__name__)
 
 TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
 
+# The store keeps the last data of an entry across a restart (AGENTS.md, «Old
+# states until new data»)
+STORE_VERSION = 1
+
 
 def group_not_listed_issue_id(entry_id: str) -> str:
     """Return the id of the repair issue about a group that the source lacks."""
     return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
+
+
+def store_key(entry_id: str) -> str:
+    """Return the key of the store that keeps the last data of an entry."""
+    return f"{DOMAIN}.{entry_id}"
 
 
 class IntegrationCoordinator(DataUpdateCoordinator):
@@ -69,6 +79,56 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         # Whether the source lists the configured group, from the last data
         # that could tell. None until such data arrives.
         self.group_listed: bool | None = None
+        self._store: Store[dict] | None = None
+        self._stored: dict | None = None
+
+    async def _async_setup(self) -> None:
+        """
+        Start with the data that the last run kept, until the source answers.
+
+        Thus after a restart the entities show the old states, also while the
+        source does not answer.
+        """
+        self._store = Store(
+            self.hass, STORE_VERSION, store_key(self.config_entry.entry_id)
+        )
+        stored = await self._store.async_load()
+        if not stored:
+            return
+        self._stored = stored
+        self._restore_source_data(stored["source"])
+        if changed := stored.get("outage_data_last_changed"):
+            self.outage_data_last_changed = dt_utils.parse_datetime(changed)
+        # After a Reconfigure, the kept answer is about another group
+        if stored.get("group") == self.group:
+            await self.async_fetch_translations()  # the repair issue names the provider
+            await self._async_update_group_listed(stored.get("group_listed"))
+
+    def _source_data(self) -> dict | None:
+        """Return the data of the source to keep across a restart, or None."""
+        return None
+
+    def _restore_source_data(self, source: dict) -> None:
+        """Give the kept data of the source back to the API client."""
+
+    async def _async_store_last_data(self) -> None:
+        """Keep the last data of the source, when it changed after the last save."""
+        source = self._source_data()
+        if self._store is None or source is None:
+            return
+        data = {
+            "source": source,
+            "group": self.group,
+            "group_listed": self.group_listed,
+            "outage_data_last_changed": (
+                self.outage_data_last_changed.isoformat()
+                if self.outage_data_last_changed
+                else None
+            ),
+        }
+        if data != self._stored:
+            await self._store.async_save(data)
+            self._stored = data
 
     async def _async_update_group_listed(self, listed: bool | None) -> None:
         """
@@ -233,8 +293,8 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         without a schedule, "normal" would claim that the power is on.
 
         Only data that lists groups tells that the group is missing, and for
-        DTEK only fresh data does. Without such data, for example after a
-        restart while the DTEK source is stale, there are no events, and the
+        DTEK only fresh data does. Without such data, for example for a new
+        entry while the DTEK source is stale, there are no events, and the
         state is "normal".
         """
         if self.group_listed is False:
@@ -368,15 +428,18 @@ class IntegrationCoordinator(DataUpdateCoordinator):
     def initialize_outage_data_tracking(
         self, current_events: list[PlannedOutageEvent]
     ) -> None:
-        """Initialize outage tracking with current events and update timestamp."""
+        """
+        Initialize outage tracking with current events.
+
+        The time of the last change stays as it is: None, or the time that the
+        store kept from the last run.
+        """
         # Sort events for comparison. isoformat due to datetime and date objects
         sorted_current = sorted(
             current_events,
             key=lambda e: (e.start.isoformat(), e.end.isoformat(), e.event_type.value),
         )
         self._previous_outage_events = sorted_current
-        # Initialize with the API's last update timestamp
-        self.outage_data_last_changed = None
 
     def fire_event(self) -> None:
         """Fire event for data change."""

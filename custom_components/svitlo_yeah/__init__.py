@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_PROVIDER_TYPE,
@@ -13,7 +14,11 @@ from .const import (
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
 )
-from .coordinator.coordinator import group_not_listed_issue_id
+from .coordinator.coordinator import (
+    STORE_VERSION,
+    group_not_listed_issue_id,
+    store_key,
+)
 from .coordinator.dtek.json import DtekCoordinatorJson
 from .coordinator.e_svitlo import ESvitloCoordinator
 from .coordinator.yasno import YasnoCoordinator
@@ -71,3 +76,8 @@ async def async_unload_entry(
         # The next setup asks the source again and creates the issue if needed.
         ir.async_delete_issue(hass, DOMAIN, group_not_listed_issue_id(entry.entry_id))
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the last data that the entry kept for a restart."""
+    await Store(hass, STORE_VERSION, store_key(entry.entry_id)).async_remove()

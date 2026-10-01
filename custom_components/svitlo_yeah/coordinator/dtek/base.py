@@ -95,6 +95,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         # Check if outage data has changed (used for last_data_change attribute)
         current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
         self.check_outage_data_changed(current_events)
+        await self._async_store_last_data()
 
     @property
     def provider_name(self) -> str:
