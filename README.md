@@ -57,6 +57,21 @@ If it doesn't work, adding this repository to HACS manually by adding this URL:
 This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for *
 *Svitlo Yeah**.
 
+### Setup parameters
+
+Before you start, find your outage group on the website of your provider. For Sumy and Oblast, you need the login and the password of your E-Svitlo personal cabinet instead, because E-Svitlo gives the group of your personal account.
+
+| Step | Field | Description |
+|---|---|---|
+| Select Region/System Distribution | Select your region/system distribution | The region or the distribution system operator that supplies electricity to your address. The list has each region of [Supported Regions](#supported-regions). |
+| Outdated schedule data | I understand and accept the risk | Shows only when no DTEK JSON source of the region has fresh data. Select it to pick your group from the outdated schedule. See [Outdated schedule data](#outdated-schedule-data-dtek-json). |
+| Settings | Select your group | Your outage group, for example `1.1`. Find it on the website of your provider, for example [Yasno](https://static.yasno.ua/kyiv/outages) or [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). For DTEK Dnipro, the list shows a CEK group with its number in the source, for example «ЦЕК 1.1 (1001.1)». |
+| E-Svitlo Authentication | Username | The login of your [E-Svitlo personal cabinet](https://sm.e-svitlo.com.ua/). |
+| E-Svitlo Authentication | Password | The password of your E-Svitlo personal cabinet. |
+| Select Account | Account | The personal account (address) whose outage schedule the entry shows. For another address, add one more entry. |
+
+Each region and group is a separate entry. To change the group of a DTEK or Yasno entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
+
 ### Select your region and Service Provider (if applicable)
 
 ![Region Selection](/media/1_region.png)
