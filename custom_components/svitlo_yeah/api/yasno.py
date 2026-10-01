@@ -2,7 +2,7 @@
 
 import logging
 from datetime import UTC, date, datetime, time, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -211,8 +211,8 @@ class YasnoApi:
         self,
         url: str,
         timeout_secs: int = 60,
-    ) -> list[dict] | None:
-        """Fetch data from the given URL."""
+    ) -> Any:
+        """Fetch the JSON of the given URL: a list or a dict, or None after a failure."""
         try:
             async with self.session.get(
                 url,
@@ -258,7 +258,7 @@ class YasnoApi:
             LOGGER.debug("Keeping the last Yasno planned outage data")
             return
         LOGGER.debug("Filling Yasno planned outage data with: %s", output)
-        self.planned_outage_data = output  # ty:ignore[invalid-assignment]
+        self.planned_outage_data = output
 
         if DEBUG:
             self.planned_outage_data = _debug_data()

@@ -212,6 +212,21 @@ class TestStaleConfirmRouting:
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "dtek_json_unavailable"
+        assert result["description_placeholders"] == {"urls": KYIV_REGION_URL}
+
+    async def test_unavailable_sources_go_one_on_each_line(self, hass, aioclient_mock):
+        """The abort text names each source of a provider on its own line."""
+        urls = DTEK_PROVIDER_URLS["vinnytsia"]
+        for url in urls:
+            aioclient_mock.get(url, exc=ClientError())
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(
+            hass, result, {CONF_PROVIDER: "dtekjsonprovider_vinnytsia"}
+        )
+
+        assert len(urls) > 1
+        assert result["description_placeholders"] == {"urls": "\n".join(urls)}
 
     @pytest.mark.parametrize("fresh", [True, False], ids=["fresh", "stale"])
     async def test_data_without_groups_aborts_as_empty(

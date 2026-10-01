@@ -17,6 +17,8 @@ LOGGER = logging.getLogger(__name__)
 class DtekCoordinatorJson(DtekCoordinatorBase):
     """Class to manage fetching DTEK outage data."""
 
+    api: DtekAPIJson
+
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the DtekCoordinatorBase class."""
         super().__init__(hass=hass, config_entry=config_entry)

@@ -25,6 +25,9 @@ LOGGER = logging.getLogger(__name__)
 class ESvitloCoordinator(IntegrationCoordinator):
     """Coordinator for E-Svitlo API integration."""
 
+    api: ESvitloClient
+    provider: ESvitloProvider
+
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the E-Svitlo coordinator."""
         super().__init__(hass, config_entry)
@@ -52,7 +55,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
         """Get the configured provider name."""
         return self.config_entry.data.get(
             "address_str",
-            f"E-Svitlo ({self.provider.user_name})",  # ty:ignore[unresolved-attribute]
+            f"E-Svitlo ({self.provider.user_name})",
         )
 
     @property
@@ -67,7 +70,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
+    async def _async_update_data(self) -> None:
         """Fetch data from E-Svitlo API."""
         LOGGER.debug("Updating E-Svitlo data")
 

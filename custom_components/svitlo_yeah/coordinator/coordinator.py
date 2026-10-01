@@ -12,6 +12,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_utils
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
@@ -33,6 +35,7 @@ from ..models import (
 
 if TYPE_CHECKING:
     from ..api.dtek.base import DtekAPIBase
+    from ..api.e_svitlo import ESvitloClient
     from ..api.yasno import YasnoApi
     from ..models.providers import BaseProvider
 
@@ -55,15 +58,26 @@ def store_key(entry_id: str) -> str:
     return f"{DOMAIN}.{entry_id}"
 
 
-class IntegrationCoordinator(DataUpdateCoordinator):
-    """Base class to manage fetching outages data."""
+# A config entry of this integration, with its coordinator in runtime_data
+type SvitloYeahConfigEntry = ConfigEntry[IntegrationCoordinator]
 
-    config_entry: ConfigEntry
-    api: DtekAPIBase | YasnoApi
+
+class IntegrationCoordinator(DataUpdateCoordinator[None]):
+    """
+    Base class to manage fetching outages data.
+
+    The coordinator keeps no data of its own: the API client of each provider
+    holds the schedule, so the data of the coordinator is None.
+    """
+
+    config_entry: SvitloYeahConfigEntry
+    api: DtekAPIBase | YasnoApi | ESvitloClient
     region: YasnoRegion
     provider: BaseProvider
 
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, config_entry: SvitloYeahConfigEntry
+    ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
@@ -201,7 +215,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
 
     def _get_first_future_start(
         self,
-        events: list[PlannedOutageEvent | CalendarEvent],
+        events: Sequence[PlannedOutageEvent | CalendarEvent],
     ) -> datetime.date | datetime.datetime | None:
         """Get the start time of the first future event."""
         now = dt_utils.as_local(dt_utils.now())
@@ -232,7 +246,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
             events = [_ for _ in events if self._event_to_state(_) == state_type]
 
         # Find first future event
-        start_time = self._get_first_future_start(events)  # ty:ignore[invalid-argument-type]
+        start_time = self._get_first_future_start(events)
         if start_time is None:
             return None
 
@@ -276,7 +290,7 @@ class IntegrationCoordinator(DataUpdateCoordinator):
         scheduled_events = self.get_scheduled_events_between(
             now, now + TIMEFRAME_TO_CHECK
         )
-        next_scheduled = self._get_first_future_start(scheduled_events)  # ty:ignore[invalid-argument-type]
+        next_scheduled = self._get_first_future_start(scheduled_events)
 
         # Get next planned outage
         next_planned = self.next_planned_outage
