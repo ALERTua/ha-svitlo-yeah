@@ -1,7 +1,7 @@
 """Config flow for Svitlo Yeah integration."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.config_entries import (
@@ -45,7 +45,33 @@ from .models.providers import (
     YasnoProvider,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 LOGGER = logging.getLogger(__name__)
+
+E_SVITLO_URL = "https://sm.e-svitlo.com.ua/"
+
+
+def _esvitlo_login_schema() -> vol.Schema:
+    """
+    Return the E-Svitlo login form.
+
+    The autocomplete values let a password manager fill in the form.
+    """
+    return vol.Schema(
+        {
+            vol.Required("username"): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT, autocomplete="username")
+            ),
+            vol.Required("password"): TextSelector(
+                TextSelectorConfig(
+                    type=TextSelectorType.PASSWORD,
+                    autocomplete="current-password",
+                )
+            ),
+        }
+    )
 
 
 def get_config_value(
@@ -328,22 +354,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         # Show authentication form
-        # The autocomplete values let a password manager fill in the form
-        data_schema = vol.Schema(
-            {
-                vol.Required("username"): TextSelector(
-                    TextSelectorConfig(
-                        type=TextSelectorType.TEXT, autocomplete="username"
-                    )
-                ),
-                vol.Required("password"): TextSelector(
-                    TextSelectorConfig(
-                        type=TextSelectorType.PASSWORD,
-                        autocomplete="current-password",
-                    )
-                ),
-            }
-        )
+        data_schema = _esvitlo_login_schema()
 
         # After an error, keep the typed username; the password is never sent back
         if user_input is not None:
@@ -351,14 +362,68 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 data_schema, {"username": user_input["username"]}
             )
 
-        description_placeholders = {"esvitlo_url": "https://sm.e-svitlo.com.ua/"}
-
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="esvitlo_auth",
             data_schema=data_schema,
             errors=errors,
-            description_placeholders=description_placeholders,
+            description_placeholders={"esvitlo_url": E_SVITLO_URL},
+        )
+
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Ask for the E-Svitlo login again, after the server refused it."""
+        # noinspection PyTypeChecker
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Check the new E-Svitlo login, and keep it in the entry."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            client = ESvitloClient(
+                self.hass,
+                ESvitloProvider(
+                    user_name=user_input["username"], password=user_input["password"]
+                ),
+            )
+            login = await client.try_login()
+            accounts = await client.get_accounts() if login is LoginResult.OK else None
+            account_id = entry.data.get(CONF_ACCOUNT_ID)
+            if login is LoginResult.REJECTED:
+                errors["base"] = "invalid_auth"
+            elif accounts is None:
+                errors["base"] = "cannot_connect"
+            elif account_id is not None and all(
+                str(a.get("a")) != str(account_id) for a in accounts
+            ):
+                # Another login must not swap the account of the entry
+                # noinspection PyTypeChecker
+                return self.async_abort(reason="wrong_account")
+            else:
+                # noinspection PyTypeChecker
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={
+                        "username": user_input["username"],
+                        "password": user_input["password"],
+                    },
+                )
+
+        # The username of the entry, or the typed one; the password is never sent back
+        username = (user_input or entry.data).get("username")
+        # noinspection PyTypeChecker
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=self.add_suggested_values_to_schema(
+                _esvitlo_login_schema(), {"username": username}
+            ),
+            errors=errors,
+            description_placeholders={"esvitlo_url": E_SVITLO_URL},
         )
 
     async def async_step_esvitlo_account(

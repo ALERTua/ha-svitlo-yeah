@@ -97,6 +97,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         # keep the last data then, so the refresh button and one log line of
         # _set_last_fetch_failed report it.
         self.last_fetch_failed = False
+        # Whether the server refused the login; only E-Svitlo has a login
+        self.login_rejected = False
         self._store: Store[dict] | None = None
         self._stored: dict | None = None
 

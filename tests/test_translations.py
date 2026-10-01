@@ -14,8 +14,10 @@ TRANSLATIONS = Path(__file__).parent.parent / (
 )
 CONFIG_FLOW = TRANSLATIONS.parent / "config_flow.py"
 LANGUAGES = ["en", "uk"]
-# _async_abort_entries_match of Home Assistant aborts with this reason
-HA_ABORT_REASONS = {"already_configured"}
+# Home Assistant aborts with these reasons: _async_abort_entries_match with
+# already_configured, async_update_reload_and_abort of a reauth with
+# reauth_successful
+HA_ABORT_REASONS = {"already_configured", "reauth_successful"}
 
 
 def _load(language: str) -> dict:
