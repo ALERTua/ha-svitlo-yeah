@@ -71,13 +71,14 @@ Before you start, find your outage group on the website of your provider. For Su
 
 Each region and group is a separate entry. To change the group of a DTEK or Yasno entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
 
-### Select your region and Service Provider (if applicable)
+<details>
+<summary>Screenshots of the setup</summary>
 
 ![Region Selection](/media/1_region.png)
 
-### Select your Group
-
 ![Group Selection](/media/3_group.png)
+
+</details>
 
 ### Outdated schedule data (DTEK JSON)
 
@@ -91,11 +92,19 @@ If E-Svitlo refuses the login of an entry, for example after you change the pass
 
 ### Here's how the devices look
 
+<details>
+<summary>The device page</summary>
+
 ![Devices page](/media/4_devices.png)
 
-### Sensors
+</details>
+
+<details>
+<summary>The sensors</summary>
 
 ![Sensors](/media/5_sensors.png) ![Sensors 2](/media/5_1_sensors.png)
+
+</details>
 
 ### Calendar View
 
@@ -103,14 +112,24 @@ Then you can add the integration to your dashboard and see the information about
 Integration also provides a calendar view of planned outages. You can add it to your dashboard as well
 via [Calendar card][calendar-card].
 
+<details>
+<summary>The calendars</summary>
+
 ![Calendars view](/media/6_calendar.png)
+
+</details>
 
 ### Examples
 
 - [Automation](/examples/automation.yaml)
 - [Dashboard](/examples/dashboard.yaml)
 
+<details>
+<summary>The dashboard of the example</summary>
+
 ![dashboard](media/7_dashboard.png)
+
+</details>
 
 ## Integration Entities
 
@@ -150,6 +169,9 @@ The integration creates the following entities in Home Assistant:
 |------------------------------|-----------------------------------------|
 | **svitlo_yeah_data_changed** | Fired when outage data actually changes |
 
+<details>
+<summary>Examples of the event data, for Yasno and for a DTEK JSON source</summary>
+
 ```yaml
 event_type: svitlo_yeah_data_changed
 data:
@@ -174,6 +196,8 @@ data:
   config_entry_id: 01KB817S4AXVFB39X97NGYCV55
 ```
 
+</details>
+
 ### Entity Usage Examples
 
 - Use the **Electricity** sensor in dashboards to display current power status from the calendar perspective
@@ -184,7 +208,13 @@ data:
 
 ### Caveats
 
-- To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
+<details>
+<summary>How to get your Yasno group</summary>
+
+[![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
+
+</details>
+
 - This project is intended to be used as a Home Assistant / HACS integration, not as a standalone Python library — the API classes require a Home Assistant instance. If you'd like the code to be usable outside the HACS integration as a plain Python library, let me know and I'll consider adding support for that.
 
 ## Data updates
