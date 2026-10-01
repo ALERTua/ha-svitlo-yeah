@@ -23,6 +23,9 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+# The coordinator fetches the data for all entities, which only read it
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class IntegrationSensorDescription(SensorEntityDescription):

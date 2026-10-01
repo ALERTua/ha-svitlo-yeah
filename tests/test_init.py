@@ -3,8 +3,11 @@
 import pytest
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_platform
 from homeassistant.util import dt as dt_utils
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.svitlo_yeah import button, calendar, sensor
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
@@ -12,6 +15,7 @@ from custom_components.svitlo_yeah.const import (
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
+from tests.helpers import PROVIDERS
 
 pytestmark = pytest.mark.usefixtures(
     "enable_custom_integrations", "empty_yasno_region_cache"
@@ -62,3 +66,29 @@ async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock):
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
+
+
+async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
+    """The presses of an entry run one after another; the read-only platforms set no limit."""
+    data, answers = PROVIDERS["dtek"]
+    answers(aioclient_mock, True)
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    limits = {
+        platform.domain: platform.parallel_updates
+        for platform in entity_platform.async_get_platforms(hass, DOMAIN)
+        if platform.config_entry is entry
+    }
+
+    # Silver parallel-updates wants the value set in each platform, also the default 0
+    assert (sensor.PARALLEL_UPDATES, calendar.PARALLEL_UPDATES) == (0, 0)
+    assert button.PARALLEL_UPDATES == 1
+    assert set(limits) == {"sensor", "calendar", "button"}
+    assert limits["sensor"] is None
+    assert limits["calendar"] is None
+    assert limits["button"]._value == 1
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
