@@ -42,9 +42,7 @@ def _outage_all_day_today() -> dict:
     }
 
 
-@pytest.fixture(autouse=True)
-def _custom_integrations(enable_custom_integrations):
-    """Let Home Assistant load the translations of the integration."""
+pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
 
 @pytest.fixture(name="coordinator")

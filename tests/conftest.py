@@ -5,6 +5,19 @@ from datetime import timedelta
 import pytest
 from homeassistant.util import dt as dt_utils
 
+from custom_components.svitlo_yeah.api.yasno import YasnoApi
+
+
+@pytest.fixture
+def empty_yasno_region_cache(monkeypatch):
+    """
+    Make each Yasno setup or flow fetch the regions again.
+
+    YasnoApi keeps the regions in a class attribute, so without this fixture
+    one test gets the regions that another test served.
+    """
+    monkeypatch.setattr(YasnoApi, "_regions", None)
+
 
 @pytest.fixture(name="today")
 def _today():
