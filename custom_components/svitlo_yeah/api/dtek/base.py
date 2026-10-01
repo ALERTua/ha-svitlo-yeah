@@ -97,52 +97,6 @@ def _parse_group_hours(
     return ranges
 
 
-def _merge_ranges(
-    ranges: list[tuple[datetime.time, datetime.time]],
-) -> list[tuple[datetime.time, datetime.time]]:
-    """
-    Merge adjacent or overlapping time ranges.
-
-    Args:
-        ranges: List of time ranges to merge
-
-    Returns:
-        List of merged time ranges
-
-    """
-    if not ranges:
-        return []
-
-    # Sort ranges by start time
-    sorted_ranges = sorted(ranges, key=lambda x: x[0])
-
-    merged = []
-    current_start, current_end = sorted_ranges[0]
-
-    for start, end in sorted_ranges[1:]:
-        # Check if ranges are adjacent or overlapping
-        # For time ranges, we consider them adjacent if start <= current_end
-        if start <= current_end:
-            # Ranges overlap or are adjacent, merge them
-            # If end is 59:59, use the next hour boundary
-            if end.minute == 59 and end.second == 59:
-                if end.hour < 23:
-                    current_end = datetime.time(end.hour + 1)
-                else:
-                    current_end = datetime.time(23, 59, 59)
-            else:
-                current_end = max(current_end, end)
-        else:
-            # No overlap, add current range and start a new one
-            merged.append((current_start, current_end))
-            current_start, current_end = start, end
-
-    # Add the last range
-    merged.append((current_start, current_end))
-
-    return merged
-
-
 def _ranges_to_events(
     day: datetime.datetime,
     time_ranges: list[tuple[datetime.time, datetime.time]],
