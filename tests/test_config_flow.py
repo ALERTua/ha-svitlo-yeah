@@ -519,6 +519,24 @@ class TestDuplicateESvitloAccount:
         }
 
 
+class TestESvitloLoginForm:
+    """The E-Svitlo login form helps the browser and a password manager."""
+
+    async def test_fields_have_their_types_and_autocomplete(self, hass, aioclient_mock):
+        """The password field is masked, and both fields name their autocomplete."""
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+
+        schema = result["data_schema"].schema
+        username, password = (
+            schema[field].config for field in ("username", "password")
+        )
+        assert (username["type"], username["autocomplete"]) == ("text", "username")
+        assert (password["type"], password["autocomplete"]) == (
+            "password",
+            "current-password",
+        )
+
+
 class TestESvitloConnection:
     """The E-Svitlo steps tell refused credentials from an unreachable server."""
 

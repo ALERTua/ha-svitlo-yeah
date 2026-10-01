@@ -15,6 +15,9 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 from .api.dtek.base import FetchResult
@@ -343,10 +346,20 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         # Show authentication form
+        # The autocomplete values let a password manager fill in the form
         data_schema = vol.Schema(
             {
-                vol.Required("username"): str,
-                vol.Required("password"): str,
+                vol.Required("username"): TextSelector(
+                    TextSelectorConfig(
+                        type=TextSelectorType.TEXT, autocomplete="username"
+                    )
+                ),
+                vol.Required("password"): TextSelector(
+                    TextSelectorConfig(
+                        type=TextSelectorType.PASSWORD,
+                        autocomplete="current-password",
+                    )
+                ),
             }
         )
 
