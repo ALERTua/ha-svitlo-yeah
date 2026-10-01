@@ -2,8 +2,9 @@
 
 # Test for coordinator.check_outage_data_changed implemented.
 
+import inspect
 from datetime import timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from homeassistant.components.calendar import CalendarEvent
@@ -399,17 +400,19 @@ class TestCoordinatorScheduledEvents:
             all_day=False,
         )
         coordinator.group = "1.1"  # Set group for _group_str
-
-        # Mock the event_name_map property
-        type(coordinator).event_name_map = {
-            PlannedOutageEventType.DEFINITE: f"Planned Outage {coordinator.group}"
-        }
+        names = {PlannedOutageEventType.DEFINITE: f"Planned Outage {coordinator.group}"}
         coordinator.translations = {
             "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
         }
 
-        # Test regular calendar event
-        calendar_event = coordinator._get_calendar_event(event)
+        # Test regular calendar event; only this block replaces the names
+        with patch.object(
+            IntegrationCoordinator,
+            "event_name_map",
+            new_callable=PropertyMock,
+            return_value=names,
+        ):
+            calendar_event = coordinator._get_calendar_event(event)
         assert calendar_event.summary == f"Planned Outage {coordinator.group}"
         assert calendar_event.rrule is None
 
@@ -431,6 +434,11 @@ class TestCoordinatorScheduledEvents:
         no_rrule_event = coordinator._get_scheduled_calendar_event(event, rrule=None)
         assert no_rrule_event.summary == f"Scheduled Outage {coordinator.group}"
         assert no_rrule_event.rrule is None
+
+        # The other tests get the class as it is
+        assert isinstance(
+            inspect.getattr_static(IntegrationCoordinator, "event_name_map"), property
+        )
 
     def test_get_calendar_event_none_event(self, coordinator):
         """Test _get_calendar_event with None event."""
