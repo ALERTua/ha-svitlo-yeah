@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
@@ -323,6 +323,13 @@ class TestSetupWithRealProviderApis:
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "yasno_connection_error"
+
+    async def test_unknown_provider_is_refused_by_the_form(self, hass, aioclient_mock):
+        """The provider select accepts only the providers that the form offers."""
+        result = await _start_flow(hass, aioclient_mock)
+
+        with pytest.raises(InvalidData):
+            await _configure(hass, result, {CONF_PROVIDER: "dtekjsonprovider_nowhere"})
 
     async def test_yasno_regions_timeout_offers_dtek(self, hass, aioclient_mock):
         """While the Yasno regions time out, the other providers stay available."""

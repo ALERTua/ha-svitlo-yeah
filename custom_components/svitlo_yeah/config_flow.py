@@ -77,11 +77,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle the initial step: select provider."""
         if user_input is not None:
             LOGGER.debug("async_step_user: User input: %s", user_input)
-            provider_key = user_input[CONF_PROVIDER]
-            selected_provider = self.available_providers.get(provider_key)
-            if not selected_provider:
-                msg = "Invalid provider selection"
-                raise ValueError(msg)
+            # The select of the form accepts only the keys of available_providers
+            selected_provider = self.available_providers[user_input[CONF_PROVIDER]]
 
             self.data[CONF_PROVIDER_TYPE] = selected_provider.provider_type
             self.data[CONF_PROVIDER] = selected_provider.provider_id
@@ -444,10 +441,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             # account_id is 'a' field
             val = acc.get("a")
             options[val] = label
-
-        if not options:
-            # noinspection PyTypeChecker
-            return self.async_abort(reason="no_accounts_found")
 
         # noinspection PyTypeChecker
         return self.async_show_form(
