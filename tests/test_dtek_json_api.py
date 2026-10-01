@@ -131,6 +131,19 @@ class TestJsonDtekAPIStaleData:
         assert result is FetchResult.STALE
         assert api.data is None
 
+    async def test_stale_at_runtime_keeps_the_last_fresh_copy(self, api):
+        """A source that turns stale keeps the last fresh data of this run."""
+        fresh = _payload(datetime.now(UTC) - timedelta(hours=1))
+        stale = _payload(datetime.now(UTC) - timedelta(days=1000))
+        set_session_responses(api, [make_response(fresh)])
+        await api.fetch_data()
+
+        set_session_responses(api, [make_response(stale), make_response(stale)])
+        result = await api.fetch_data()
+
+        assert result is FetchResult.STALE
+        assert api.data["update"] == fresh["fact"]["update"]
+
     async def test_stale_with_allow_adopts_data(self, api):
         """With consent, the freshest stale source is adopted into data."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
