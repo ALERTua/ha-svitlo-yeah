@@ -222,7 +222,8 @@ class YasnoApi:
                 return await response.json()
 
         except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
-            LOGGER.exception("Error fetching data from %s", url)
+            # The coordinator logs once when Yasno stops answering
+            LOGGER.debug("Error fetching data from %s", url, exc_info=True)
             return None
 
     async def fetch_yasno_regions(self) -> None:

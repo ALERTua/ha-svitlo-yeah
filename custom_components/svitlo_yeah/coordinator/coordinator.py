@@ -94,7 +94,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         # that could tell. None until such data arrives.
         self.group_listed: bool | None = None
         # Whether the last fetch got no answer from the source. The entities
-        # keep the last data then, so only the refresh button reports it.
+        # keep the last data then, so the refresh button and one log line of
+        # _set_last_fetch_failed report it.
         self.last_fetch_failed = False
         self._store: Store[dict] | None = None
         self._stored: dict | None = None
@@ -146,6 +147,32 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if data != self._stored:
             await self._store.async_save(data)
             self._stored = data
+
+    def _set_last_fetch_failed(self, failed: bool) -> None:
+        """
+        Keep whether the last fetch got no answer, and log each change once.
+
+        The entities keep the last data meanwhile, so these two info lines
+        tell when the source stopped answering and when it answered again.
+        """
+        if failed == self.last_fetch_failed:
+            return
+        # An E-Svitlo entry has no provider_id, and its address is personal data
+        source = getattr(self, "provider_id", None) or self.provider.region_name
+        if failed:
+            LOGGER.info(
+                "The source of provider %s does not answer for group %s, "
+                "so the entities keep the last schedule",
+                source,
+                self.group,
+            )
+        else:
+            LOGGER.info(
+                "The source of provider %s answers again for group %s",
+                source,
+                self.group,
+            )
+        self.last_fetch_failed = failed
 
     async def _async_update_group_listed(self, listed: bool | None) -> None:
         """
