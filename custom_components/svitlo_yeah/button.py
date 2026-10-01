@@ -28,7 +28,6 @@ PARALLEL_UPDATES = 1
 REFRESH_BUTTON = ButtonEntityDescription(
     key="refresh",
     translation_key="refresh",
-    icon="mdi:refresh",
     entity_category=EntityCategory.CONFIG,
 )
 
