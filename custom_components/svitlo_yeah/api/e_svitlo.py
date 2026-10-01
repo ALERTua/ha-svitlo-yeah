@@ -43,6 +43,8 @@ class ESvitloClient:
         self.group: str | None = None
         self._cached_events: list[PlannedOutageEvent] = []
         self._last_update: datetime | None = None
+        # The raw answer of the last disconnections request that succeeded
+        self.last_answer: dict | None = None
 
     async def login(self) -> bool:
         """Authenticate with E-Svitlo API."""
@@ -167,6 +169,7 @@ class ESvitloClient:
         )
 
         if data:
+            self.last_answer = data
             events = self._parse_disconnections(data)
             self._cached_events = events or []
             # Store last update timestamp from API response
@@ -189,6 +192,14 @@ class ESvitloClient:
             return events
 
         return None
+
+    def restore_disconnections(
+        self, answer: dict, last_update: datetime | None
+    ) -> None:
+        """Use a kept answer of the disconnections request until the server answers."""
+        self.last_answer = answer
+        self._cached_events = self._parse_disconnections(answer)
+        self._last_update = last_update
 
     async def _ensure_connection(self) -> bool:
         """Check and ensure connection is authenticated."""
