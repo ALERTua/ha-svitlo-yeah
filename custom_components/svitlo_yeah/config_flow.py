@@ -296,13 +296,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
         """Warn about stale DTEK JSON data and require acknowledgement."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            if not user_input.get("acknowledge"):
+            if user_input.get("acknowledge"):
+                self.data["_stale_ack"] = True
                 # noinspection PyTypeChecker
-                return await self.async_step_stale_confirm()
-            self.data["_stale_ack"] = True
-            # noinspection PyTypeChecker
-            return await self.async_step_group()
+                return await self.async_step_group()
+            errors["acknowledge"] = "acknowledge_required"
 
         data_schema = vol.Schema(
             {vol.Required("acknowledge", default=False): bool},
@@ -312,6 +312,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="stale_confirm",
             data_schema=data_schema,
+            errors=errors,
         )
 
     async def async_step_esvitlo_auth(

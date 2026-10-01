@@ -66,7 +66,8 @@
     },
     "error": {
       "invalid_auth": "Invalid username or password",
-      "cannot_connect": "Failed to connect to E-Svitlo. Make sure that Home Assistant can connect to the Internet, and try again."
+      "cannot_connect": "Failed to connect to E-Svitlo. Make sure that Home Assistant can connect to the Internet, and try again.",
+      "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it."
     }
   },
   "device": {

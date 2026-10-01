@@ -220,8 +220,8 @@ class TestStaleConfirmRouting:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "dtek_json_empty_data"
 
-    async def test_stale_confirm_unchecked_re_renders_form(self, hass, aioclient_mock):
-        """Submitting the form without the checkbox re-shows it."""
+    async def test_stale_confirm_unchecked_shows_an_error(self, hass, aioclient_mock):
+        """The form without the checkbox comes back with an error at the checkbox."""
         aioclient_mock.get(
             KYIV_REGION_URL, json=_dtek_feed(fresh=False, preset_groups=KYIV_GROUPS)
         )
@@ -232,6 +232,11 @@ class TestStaleConfirmRouting:
 
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "stale_confirm"
+        assert result["errors"] == {"acknowledge": "acknowledge_required"}
+
+        result = await _configure(hass, result, {"acknowledge": True})
+
+        assert result["step_id"] == "group"
 
 
 class TestSetupWithRealProviderApis:
