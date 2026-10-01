@@ -266,6 +266,34 @@ class TestESvitloClientDisconnections:
         # Check last update parsing
         assert client.get_updated_on() == datetime(2025, 12, 15, 10, 0, tzinfo=TZ_UA)
 
+    @pytest.mark.parametrize(
+        ("date_str", "end"),
+        [
+            ("30.09.2026", datetime(2026, 10, 1, 2, 0, tzinfo=TZ_UA)),
+            ("31.12.2026", datetime(2027, 1, 1, 2, 0, tzinfo=TZ_UA)),
+        ],
+    )
+    async def test_overnight_period_on_the_last_day_of_a_month(
+        self, client, mock_session_post, date_str, end
+    ):
+        """An outage past midnight on the last day of a month ends on the next day."""
+        client.is_authenticated = True
+        client.group = "4.1"
+        response_data = {
+            "data": {
+                "date_today": date_str,
+                "lst_time_disc": [{"start_time": "23:00", "end_time": "02:00"}],
+            }
+        }
+        mock_resp = AsyncMock(status=200)
+        mock_resp.json = AsyncMock(return_value=response_data)
+        mock_session_post.return_value.__aenter__.return_value = mock_resp
+
+        events = await client.get_disconnections()
+
+        assert len(events) == 1
+        assert events[0].end == end
+
     async def test_get_disconnections_parse_error(self, client, mock_session_post):
         """Test parsing error."""
         client.is_authenticated = True
