@@ -87,6 +87,8 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         now = dt_utils.now()
         result = await self.api.fetch_data()
         LOGGER.debug("Fetched %s data for %s", result, self)
+        # An outdated schedule is an answer of the source, not a failure
+        self.last_fetch_failed = result is FetchResult.UNAVAILABLE
 
         # Only fresh data can tell whether the source still lists the group.
         if result is FetchResult.FRESH:

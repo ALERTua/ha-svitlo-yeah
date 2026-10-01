@@ -88,6 +88,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
             # Get disconnections data
             events = await self.api.get_disconnections()
+            self.last_fetch_failed = events is None
 
             if events is not None:
                 LOGGER.debug(

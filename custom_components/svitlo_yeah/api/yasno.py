@@ -237,15 +237,15 @@ class YasnoApi:
 
         LOGGER.debug("Fetched yasno regions data: %s", YasnoApi._regions)
 
-    async def fetch_planned_outage_data(self) -> None:
-        """Fetch outage data for the configured region and provider."""
+    async def fetch_planned_outage_data(self) -> bool:
+        """Fetch the planned outages of the region, and tell whether Yasno answered."""
         if not self.region_id or not self.provider_id:
             LOGGER.error(
                 "Region ID %s and Provider ID %s must be set before fetching outages",
                 self.region_id,
                 self.provider_id,
             )
-            return
+            return False
 
         url = YASNO_PLANNED_OUTAGES_ENDPOINT.format(
             region_id=self.region_id,
@@ -256,12 +256,13 @@ class YasnoApi:
         if output is None:
             # A failed request says nothing new, so the last planned outages stay
             LOGGER.debug("Keeping the last Yasno planned outage data")
-            return
+            return False
         LOGGER.debug("Filling Yasno planned outage data with: %s", output)
         self.planned_outage_data = output
 
         if DEBUG:
             self.planned_outage_data = _debug_data()
+        return True
 
     @property
     def regions(self) -> list[YasnoRegion] | None:
@@ -523,7 +524,11 @@ class YasnoApi:
             if _.all_day or not (_.end <= start_date or _.start >= end_date)
         ]
 
-    async def fetch_data(self) -> None:
-        """Fetch all required data."""
+    async def fetch_data(self) -> bool:
+        """
+        Fetch all required data, and tell whether Yasno gave the planned outages.
+
+        The regions only name the device, so their request does not count.
+        """
         await self.fetch_yasno_regions()
-        await self.fetch_planned_outage_data()
+        return await self.fetch_planned_outage_data()

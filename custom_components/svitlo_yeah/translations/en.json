@@ -151,6 +151,11 @@
       "description": "The source {provider} has no outage schedule for group {group}. Until the source has it, the Electricity sensor shows Unknown, and the calendars show no outages for this group.\n\nThe provider can renumber or remove groups. Find your group on the website of the provider. To change the group, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Reconfigure.\n\nThis message disappears when the source has group {group} again."
     }
   },
+  "exceptions": {
+    "refresh_failed": {
+      "message": "Failed to get a new outage schedule, because the source did not answer. The entities keep the last schedule. Make sure that Home Assistant can connect to the Internet, and try again later."
+    }
+  },
   "common": {
     "event_name_planned_outage": "Planned Outage",
     "event_name_scheduled_outage": "Scheduled Outage",
