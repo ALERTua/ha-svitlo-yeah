@@ -72,10 +72,11 @@ class ESvitloClient:
                     LOGGER.error("E-Svitlo login failed: %s", error_msg)
                     return LoginResult.REJECTED
 
-                LOGGER.error("E-Svitlo login HTTP error: %s", response.status)
+                # The coordinator logs once when E-Svitlo stops answering
+                LOGGER.debug("E-Svitlo login HTTP error: %s", response.status)
                 return LoginResult.UNREACHABLE
         except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
-            LOGGER.exception("Exception during E-Svitlo login")
+            LOGGER.debug("Exception during E-Svitlo login", exc_info=True)
             return LoginResult.UNREACHABLE
 
     async def _send_post_request(
@@ -89,7 +90,7 @@ class ESvitloClient:
         try:
             async with self.session.post(url, data=data) as response:
                 if response.status != 200:
-                    LOGGER.error(
+                    LOGGER.debug(
                         "E-Svitlo HTTP error %s for %s", response.status, endpoint
                     )
                     return None
@@ -109,7 +110,9 @@ class ESvitloClient:
 
                 return result
         except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
-            LOGGER.exception("Exception during E-Svitlo request to %s", endpoint)
+            LOGGER.debug(
+                "Exception during E-Svitlo request to %s", endpoint, exc_info=True
+            )
             return None
 
     async def get_accounts(self) -> list[dict] | None:

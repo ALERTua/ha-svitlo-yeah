@@ -88,7 +88,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
             # Get disconnections data
             events = await self.api.get_disconnections()
-            self.last_fetch_failed = events is None
+            self._set_last_fetch_failed(events is None)
 
             if events is not None:
                 LOGGER.debug(
@@ -99,7 +99,7 @@ class ESvitloCoordinator(IntegrationCoordinator):
                 current_events = self.api.get_events(now, now + timedelta(hours=24))
                 self.check_outage_data_changed(current_events)
             else:
-                LOGGER.warning("Failed to fetch E-Svitlo data")
+                LOGGER.debug("Failed to fetch E-Svitlo data")
                 # Keep existing data if fetch fails
 
             await self._async_store_last_data()
