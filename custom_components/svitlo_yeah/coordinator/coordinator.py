@@ -106,15 +106,15 @@ class IntegrationCoordinator(DataUpdateCoordinator):
 
     def _source_data(self) -> dict | None:
         """Return the data of the source to keep across a restart, or None."""
-        return None
+        raise NotImplementedError
 
     def _restore_source_data(self, source: dict) -> None:
         """Give the kept data of the source back to the API client."""
+        raise NotImplementedError
 
     async def _async_store_last_data(self) -> None:
         """Keep the last data of the source, when it changed after the last save."""
-        source = self._source_data()
-        if self._store is None or source is None:
+        if self._store is None or (source := self._source_data()) is None:
             return
         data = {
             "source": source,

@@ -11,14 +11,19 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
+    CONF_ACCOUNT_ID,
+    CONF_ADDRESS_STR,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
     DOMAIN,
     DTEK_PROVIDER_URLS,
+    E_SVITLO_SUMY_BASE_URL,
     PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
+    TZ_UA,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -89,6 +94,33 @@ def _kept(source: dict, **fields) -> dict:
             "outage_data_last_changed": None,
             **fields,
         },
+    }
+
+
+E_SVITLO_ACCOUNT_101 = {
+    CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO,
+    CONF_PROVIDER: "sumy",
+    "username": "user",
+    "password": "secret",
+    CONF_ACCOUNT_ID: "101",
+    CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
+}
+E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
+E_SVITLO_DETAILS_URL = E_SVITLO_SUMY_BASE_URL + "/api_main_reg/all_details_ls_api.json"
+E_SVITLO_DISCONNECTIONS_URL = (
+    E_SVITLO_SUMY_BASE_URL + "api_main/get_user_disconnections_image_api.json"
+)
+
+
+def _e_svitlo_outage_all_day_today() -> dict:
+    """Build an E-Svitlo answer with an outage all day today, updated at 10:00."""
+    today = datetime.now(TZ_UA)
+    return {
+        "data": {
+            "date_today": today.strftime("%d.%m.%Y"),
+            "lst_time_disc": [{"start_time": "00:00", "end_time": "23:59"}],
+            "last_update": f"Оновлено: {today:%d.%m.%Y} 10:00",
+        }
     }
 
 
@@ -228,6 +260,79 @@ async def test_yasno_restart_without_an_answer_shows_the_kept_schedule(
     assert (coordinator.region_name, coordinator.provider_name) == ("Київ", "ДТЕК")
     # The kept region names only this device, the config flow still asks Yasno
     assert YasnoApi._regions is None
+    await _unload(hass, entry)
+
+
+async def test_e_svitlo_data_goes_into_the_store(hass, aioclient_mock, hass_storage):
+    """The raw E-Svitlo answer, its update time and the group are kept."""
+    answer = _e_svitlo_outage_all_day_today()
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
+    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
+    entry.add_to_hass(hass)
+
+    coordinator = await _set_up(hass, entry)
+
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    kept = hass_storage[store_key(entry.entry_id)]["data"]["source"]
+    updated = datetime.now(TZ_UA).replace(hour=10, minute=0, second=0, microsecond=0)
+    assert kept == {
+        "disconnections": answer,
+        "last_update": updated.isoformat(),
+        "group": "4.1",
+    }
+    await _unload(hass, entry)
+
+
+async def test_e_svitlo_restart_without_an_answer_shows_the_kept_schedule(
+    hass, aioclient_mock, hass_storage
+):
+    """After a restart, E-Svitlo shows the kept outage, and the device keeps its group."""
+    updated = datetime.now(TZ_UA).replace(hour=10, minute=0, second=0, microsecond=0)
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
+    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
+    entry.add_to_hass(hass)
+    hass_storage[store_key(entry.entry_id)] = _kept(
+        {
+            "disconnections": _e_svitlo_outage_all_day_today(),
+            "last_update": updated.isoformat(),
+            "group": "4.1",
+        },
+        group="4.1",
+    )
+
+    coordinator = await _set_up(hass, entry)
+
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert coordinator.schedule_updated_on == updated
+    assert coordinator.group == "4.1"
+    # The client still asks the server for the group, the kept one names the device
+    assert coordinator.api.group is None
+    await _unload(hass, entry)
+
+
+@pytest.mark.parametrize(
+    ("data", "urls"),
+    [
+        (YASNO_KYIV_1_1, [YASNO_REGIONS_ENDPOINT, YASNO_PLANNED_URL]),
+        (E_SVITLO_ACCOUNT_101, [E_SVITLO_LOGIN_URL]),
+    ],
+    ids=["yasno", "e_svitlo"],
+)
+async def test_new_entry_without_an_answer_keeps_nothing(
+    hass, aioclient_mock, hass_storage, data, urls
+):
+    """A new entry whose source does not answer has nothing to keep."""
+    for url in urls:
+        aioclient_mock.get(url, exc=ClientError())
+        aioclient_mock.post(url, exc=ClientError())
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry.add_to_hass(hass)
+
+    await _set_up(hass, entry)
+
+    assert store_key(entry.entry_id) not in hass_storage
     await _unload(hass, entry)
 
 
