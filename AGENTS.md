@@ -48,7 +48,7 @@ Use the `just` recipes. The `justfile` shows what each recipe runs.
 - `just lint`: after each code change.
 - `just test`: after each change.
 - `just test_e2e`: after a change of the code that reads a real source, and before a release. It needs network access.
-- `just cov`: when you add or change tests, to see the lines of each module that no test runs.
+- `just cov`: when you add or change tests, to see the lines of each module that no test runs. Keep each module above 95% (Silver rule `test-coverage`). `[tool.coverage.report]` in `pyproject.toml` excludes the same lines as Home Assistant core, for example `raise NotImplementedError`.
 - `just pre`: before you finish a change.
 - `just pre-update`: when you update the versions of the pre-commit hooks.
 - `just version X.Y.Z`: when you change the version.

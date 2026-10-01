@@ -862,3 +862,21 @@ class TestDtekAPIBaseEventMerging:
         assert events[0].end.hour == 0
         assert events[0].end.minute == 0
         assert events[0].end.second == 0
+
+
+class TestDtekAPIBaseUnusualDays:
+    """The parser keeps going through a status or a day that it does not expect."""
+
+    def test_second_half_after_an_unknown_status_starts_at_the_full_hour(self):
+        """A «second» after a status that the parser does not know opens the outage at the full hour."""
+        assert _parse_group_hours({"13": "?", "14": "second"}) == [
+            (datetime.time(13, 0), datetime.time(14, 0))
+        ]
+
+    def test_day_without_the_group_has_no_events(self, api, sample_data):
+        """A day of the schedule that does not list the group gives no events."""
+        hours = sample_data["data"][TEST_TIMESTAMP]["GPV1.1"]
+        api.data = {**sample_data, "data": {TEST_TIMESTAMP: {"GPV2.1": hours}}}
+        day = dt_utils.as_local(dt_utils.utc_from_timestamp(int(TEST_TIMESTAMP)))
+
+        assert api.get_events(day, day + datetime.timedelta(days=1)) == []
