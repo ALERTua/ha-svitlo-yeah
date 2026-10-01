@@ -4,12 +4,14 @@ import datetime
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util import dt as dt_utils
 
 from ...api.dtek.base import FetchResult
 from ...const import (
     CONF_GROUP,
     CONF_PROVIDER,
+    DOMAIN,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
 from ...models import (
@@ -46,27 +48,23 @@ class DtekCoordinatorBase(IntegrationCoordinator):
             CONF_PROVIDER,
             config_entry.data.get(CONF_PROVIDER),
         )
+        # The config flow always writes these settings, so a broken entry
+        # cannot load until the user adds it again
         if not self.provider_id:
-            provider_required_msg = (
-                "Provider not set in configuration - this should not happen "
-                "with proper config flow"
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="entry_without_provider",
             )
-            provider_error = "Provider configuration is required"
-            LOGGER.error(provider_required_msg)
-            raise ValueError(provider_error)
 
         self.group = config_entry.options.get(
             CONF_GROUP,
             config_entry.data.get(CONF_GROUP),
         )
         if not self.group:
-            group_required_msg = (
-                "Group not set in configuration - this should not happen "
-                "with proper config flow"
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="entry_without_group",
             )
-            group_error = "Group configuration is required"
-            LOGGER.error(group_required_msg)
-            raise ValueError(group_error)
 
     @property
     def event_name_map(self) -> dict:

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 import datetime
 
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_utils
 
@@ -69,32 +70,23 @@ class YasnoCoordinator(IntegrationCoordinator):
             config_entry.data.get(CONF_GROUP),
         )
 
+        # The config flow always writes these settings, so a broken entry
+        # cannot load until the user adds it again
         if not self.region_id:
-            region_required_msg = (
-                "Region not set in configuration - this should not happen "
-                "with proper config flow"
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="entry_without_region",
             )
-            region_error = "Region configuration is required"
-            LOGGER.error(region_required_msg)
-            raise ValueError(region_error)
-
         if not self.provider_id:
-            provider_required_msg = (
-                "Provider not set in configuration - this should not happen "
-                "with proper config flow"
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="entry_without_provider",
             )
-            provider_error = "Provider configuration is required"
-            LOGGER.error(provider_required_msg)
-            raise ValueError(provider_error)
-
         if not self.group:
-            group_required_msg = (
-                "Group not set in configuration - this should not happen "
-                "with proper config flow"
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="entry_without_group",
             )
-            group_error = "Group configuration is required"
-            LOGGER.error(group_required_msg)
-            raise ValueError(group_error)
 
         self._region: YasnoRegion | None = None
         # One API for the life of the coordinator, so that a failed request
