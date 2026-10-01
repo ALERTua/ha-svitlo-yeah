@@ -10,7 +10,9 @@
       "e_svitlo_connection_error": "Failed to get the accounts from E-Svitlo.\nThe E-Svitlo server is unreachable, or it answered with an error.\nMake sure that Home Assistant can connect to the Internet, and try again later.",
       "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
-      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}"
+      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}",
+      "reauth_successful": "The entry now uses the new login.",
+      "wrong_account": "This login has no access to the personal account of this entry. Sign in with the login that owns this personal account."
     },
     "step": {
       "user": {
@@ -61,6 +63,18 @@
         },
         "data_description": {
           "acknowledge": "To continue with the outdated schedule, select this checkbox."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to E-Svitlo again",
+        "description": "E-Svitlo refused the login of this entry. Enter the current login and password of your E-Svitlo personal cabinet. Until then, the entities show the last schedule. If E-Svitlo has maintenance now, you can also wait: the integration tries the old login at each update.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "The login of your E-Svitlo personal cabinet: {esvitlo_url}",
+          "password": "The current password of your E-Svitlo personal cabinet."
         }
       }
     },
@@ -154,6 +168,9 @@
   "exceptions": {
     "refresh_failed": {
       "message": "Failed to get a new outage schedule, because the source did not answer. The entities keep the last schedule. Make sure that Home Assistant can connect to the Internet, and try again later."
+    },
+    "login_rejected": {
+      "message": "E-Svitlo refused the login. To enter the current password, go to Settings > Devices & services. If E-Svitlo has maintenance now, try again later."
     }
   },
   "common": {

@@ -45,6 +45,8 @@ class ESvitloClient:
         self._last_update: datetime | None = None
         # The raw answer of the last disconnections request that succeeded
         self.last_answer: dict | None = None
+        # Whether the server refused the last login that it answered
+        self.login_rejected = False
 
     async def login(self) -> bool:
         """Authenticate with E-Svitlo API."""
@@ -65,11 +67,14 @@ class ESvitloClient:
                     # Check if login was successful based on response
                     if result.get("data", {}).get("login", False) is True:
                         self.is_authenticated = True
+                        self.login_rejected = False
                         LOGGER.debug("Successfully authenticated with E-Svitlo API")
                         return LoginResult.OK
 
+                    # The coordinator logs once when the server refuses the login
                     error_msg = result.get("error", "Unknown error")
-                    LOGGER.error("E-Svitlo login failed: %s", error_msg)
+                    LOGGER.debug("E-Svitlo login failed: %s", error_msg)
+                    self.login_rejected = True
                     return LoginResult.REJECTED
 
                 # The coordinator logs once when E-Svitlo stops answering

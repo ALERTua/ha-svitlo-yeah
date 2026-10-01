@@ -4,6 +4,7 @@ import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.util import dt as dt_utils
 
 from ..api.e_svitlo import ESvitloClient
@@ -88,7 +89,9 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
             # Get disconnections data
             events = await self.api.get_disconnections()
-            self._set_last_fetch_failed(events is None)
+            # A refused login is an answer of the server, not a missing answer
+            self._set_last_fetch_failed(events is None and not self.api.login_rejected)
+            self._set_login_rejected(self.api.login_rejected)
 
             if events is not None:
                 LOGGER.debug(
@@ -103,6 +106,34 @@ class ESvitloCoordinator(IntegrationCoordinator):
                 # Keep existing data if fetch fails
 
             await self._async_store_last_data()
+
+    def _set_login_rejected(self, rejected: bool) -> None:
+        """
+        Ask the user for the new login once the server refuses it, and log each change once.
+
+        The polls go on with the old login. The server can refuse it for a
+        while, for example during maintenance, and then the next poll that
+        logs in brings the schedule back without any action of the user, and
+        closes the open reauthentication.
+        """
+        if rejected == self.login_rejected:
+            return
+        self.login_rejected = rejected
+        entry_id = self.config_entry.entry_id
+        if rejected:
+            LOGGER.warning(
+                "E-Svitlo refused the login of entry %s, so Home Assistant "
+                "asks for the new login; the entities keep the last schedule",
+                entry_id,
+            )
+            self.config_entry.async_start_reauth(self.hass)
+        else:
+            LOGGER.info("E-Svitlo accepts the login of entry %s again", entry_id)
+            # The open reauthentication would ask for a login that works again
+            for flow in list(
+                self.config_entry.async_get_active_flows(self.hass, {SOURCE_REAUTH})
+            ):
+                self.hass.config_entries.flow.async_abort(flow["flow_id"])
 
     def _source_data(self) -> dict | None:
         """Keep the raw answer of the last disconnections request, and the group."""

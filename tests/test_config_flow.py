@@ -72,6 +72,7 @@ E_SVITLO_KEY = "esvitloprovider_sumy"
 E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
 E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
 E_SVITLO_CREDENTIALS = {"username": "user", "password": "secret"}
+E_SVITLO_NEW_LOGIN = {"username": "user", "password": "new secret"}
 E_SVITLO_ACCOUNTS = [
     {"a": 101, "address": "Суми, вул. Перша, 1", "ls": "5001"},
     {"a": 102, "address": "Суми, вул. Друга, 2", "ls": "5002"},
@@ -651,3 +652,82 @@ class TestESvitloConnection:
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "no_accounts_found"
+
+
+class TestESvitloReauth:
+    """After E-Svitlo refuses the login, the user enters the current one."""
+
+    async def _start(self, hass) -> tuple[MockConfigEntry, dict]:
+        """Add an E-Svitlo entry, and start its reauthentication."""
+        entry = _add_entry(hass, E_SVITLO_ACCOUNT_101)
+        result = await entry.start_reauth_flow(hass)
+        assert result["step_id"] == "reauth_confirm"
+        return entry, result
+
+    async def test_form_suggests_the_username_of_the_entry(self, hass):
+        """The form shows the username of the entry, and never its password."""
+        _, result = await self._start(hass)
+
+        assert _suggested(result, "username") == E_SVITLO_ACCOUNT_101["username"]
+        assert _suggested(result, "password") is None
+
+    async def test_current_login_updates_the_entry(self, hass, aioclient_mock):
+        """A login that opens the account of the entry goes into the entry."""
+        _serve_e_svitlo(aioclient_mock)
+        entry, result = await self._start(hass)
+
+        result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reauth_successful"
+        assert entry.data == {**E_SVITLO_ACCOUNT_101, **E_SVITLO_NEW_LOGIN}
+
+    async def test_refused_login_shows_invalid_auth(self, hass, aioclient_mock):
+        """A refused login keeps the form with invalid_auth and the typed username."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": False}})
+        entry, result = await self._start(hass)
+
+        result = await _configure(
+            hass, result, {**E_SVITLO_NEW_LOGIN, "username": "u2"}
+        )
+
+        assert result["step_id"] == "reauth_confirm"
+        assert result["errors"] == {"base": "invalid_auth"}
+        assert _suggested(result, "username") == "u2"
+        assert _suggested(result, "password") is None
+        assert entry.data == E_SVITLO_ACCOUNT_101
+
+    @pytest.mark.parametrize(
+        "accounts_answer",
+        [None, {"exc": ClientError()}],
+        ids=["login_unreachable", "accounts_unreachable"],
+    )
+    async def test_unreachable_server_shows_cannot_connect(
+        self, hass, aioclient_mock, accounts_answer
+    ):
+        """No answer of the server, at the login or at the accounts, is cannot_connect."""
+        if accounts_answer is None:
+            aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
+        else:
+            aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+            aioclient_mock.post(E_SVITLO_ACCOUNTS_URL, **accounts_answer)
+        entry, result = await self._start(hass)
+
+        result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
+
+        assert result["errors"] == {"base": "cannot_connect"}
+        assert entry.data == E_SVITLO_ACCOUNT_101
+
+    async def test_login_without_the_account_aborts(self, hass, aioclient_mock):
+        """A login that does not open the account of the entry changes nothing."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+        aioclient_mock.post(
+            E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": [{"a": 202}]}}
+        )
+        entry, result = await self._start(hass)
+
+        result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "wrong_account"
+        assert entry.data == E_SVITLO_ACCOUNT_101
