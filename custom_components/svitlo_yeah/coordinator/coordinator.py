@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 from ..const import (
-    DEBUG,
     DOMAIN,
     EVENT_DATA_CHANGED,
     ISSUE_GROUP_NOT_LISTED,
@@ -397,27 +396,12 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if not event:
             return None
 
-        if DEBUG:
-            LOGGER.debug(
-                "Getting event name for %s from %s",
-                event.event_type,
-                self.event_name_map,
-            )
-
         summary: str = self.event_name_map.get(event.event_type, "")
         if not summary:
             LOGGER.warning(
                 "Couldn't get %s from %s. Please report this.",
                 event.event_type,
                 self.event_name_map,
-            )
-
-        if DEBUG:
-            summary += (
-                f" {event.start.date().day}.{event.start.date().month}"
-                f"@{event.start.time()}"
-                f"-{event.end.date().day}.{event.end.date().month}"
-                f"@{event.end.time()}"
             )
 
         # noinspection PyTypeChecker
@@ -436,26 +420,12 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if not event:
             return None
 
-        if DEBUG:
-            LOGGER.debug(
-                "Getting scheduled event name for %s",
-                event.event_type,
-            )
-
         # Use scheduled outage translation for scheduled events
         summary: str = (
             f"{self.translations.get(TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE, '')}"
             f"{self._group_str}"
         )
         summary = summary.strip()
-
-        if DEBUG:
-            summary += (
-                f" {event.start.date().day}.{event.start.date().month}"
-                f"@{event.start.time()}"
-                f"-{event.end.date().day}.{event.end.date().month}"
-                f"@{event.end.time()}"
-            )
 
         # noinspection PyTypeChecker
         return CalendarEvent(
@@ -515,10 +485,6 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if self._previous_outage_events is None:
             # First run - initialize tracking
             self.initialize_outage_data_tracking(sorted_current)
-            """
-            # EVENT DEBUG. DO NOT COMMIT UNCOMMENTED
-            self.fire_event()
-            """
             return False
 
         # Compare with previous events

@@ -10,7 +10,6 @@ from ...api.dtek.base import FetchResult
 from ...const import (
     CONF_GROUP,
     CONF_PROVIDER,
-    DEBUG,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
 from ...models import (
@@ -102,12 +101,6 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     @property
     def provider_name(self) -> str:
         """Get the configured provider name."""
-        if DEBUG:
-            LOGGER.debug(
-                "Getting translation for %s from %s",
-                self.provider_id,
-                self.translations,
-            )
         key = f"component.svitlo_yeah.common.{self.provider_id}"
         return self.translations.get(key, "")
 

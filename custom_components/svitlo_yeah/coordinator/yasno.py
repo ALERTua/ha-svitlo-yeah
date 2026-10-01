@@ -18,7 +18,6 @@ from ..const import (
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_REGION,
-    DEBUG,
     DOMAIN,
     PROVIDER_DTEK_FULL,
     PROVIDER_DTEK_SHORT,
@@ -110,8 +109,6 @@ class YasnoCoordinator(IntegrationCoordinator):
     @property
     def event_name_map(self) -> dict:
         """Return a mapping of event names to translations."""
-        if DEBUG:
-            LOGGER.debug("Event names mapped to translations: %s", self.translations)
         return {
             PlannedOutageEventType.DEFINITE: (
                 f"{self.translations.get(TRANSLATION_KEY_EVENT_PLANNED_OUTAGE)}"

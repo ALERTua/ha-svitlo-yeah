@@ -12,7 +12,6 @@ from homeassistant.util import dt as dt_utils
 from .api.dtek.json import LOGGER
 from .const import (
     CONF_PROVIDER_TYPE,
-    DEBUG,
     DEVICE_MANUFACTURER,
     DOMAIN,
     PROVIDER_TO_DEVICE_NAME_MAP,
@@ -45,7 +44,7 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
         translation_key = PROVIDER_TO_DEVICE_NAME_MAP[provider_type]
 
         # provider is optional
-        if not all((self.coordinator.provider_name, self.coordinator.group)) or DEBUG:
+        if not all((self.coordinator.provider_name, self.coordinator.group)):
             LOGGER.debug(f"""
             Provider Type {provider_type}
             translation_key: {translation_key}
