@@ -37,10 +37,7 @@ PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> bool:
     """Set up a new entry."""
     LOGGER.debug("Setup entry: %s", entry)
-    provider_type = entry.options.get(
-        CONF_PROVIDER_TYPE,
-        entry.data.get(CONF_PROVIDER_TYPE),
-    )
+    provider_type = entry.data.get(CONF_PROVIDER_TYPE)
 
     if provider_type == PROVIDER_TYPE_DTEK_JSON:
         coordinator = DtekCoordinatorJson(hass, entry)

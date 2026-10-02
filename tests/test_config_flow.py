@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
+import voluptuous as vol
 from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
@@ -178,6 +179,19 @@ def _serve_e_svitlo(aioclient_mock) -> None:
     aioclient_mock.post(
         E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": E_SVITLO_ACCOUNTS}}
     )
+
+
+async def test_provider_form_preselects_no_provider(hass, aioclient_mock):
+    """
+    The provider field has an empty default, so the user picks the provider.
+
+    Without a default, the frontend selects the first option of a required select.
+    """
+    result = await _start_flow(hass, aioclient_mock)
+
+    key = next(k for k in result["data_schema"].schema if k == CONF_PROVIDER)
+    assert key.default is not vol.UNDEFINED
+    assert _default(result, CONF_PROVIDER) is None
 
 
 class TestStaleConfirmRouting:

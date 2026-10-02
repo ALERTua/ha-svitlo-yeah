@@ -58,36 +58,30 @@ class YasnoCoordinator(IntegrationCoordinator):
         self.translations = {}
 
         # Get configuration values
-        self.region_id = config_entry.options.get(
-            CONF_REGION,
-            config_entry.data.get(CONF_REGION),
-        )
-        self.provider_id = config_entry.options.get(
-            CONF_PROVIDER,
-            config_entry.data.get(CONF_PROVIDER),
-        )
-        self.group = config_entry.options.get(
-            CONF_GROUP,
-            config_entry.data.get(CONF_GROUP),
-        )
+        region_id = config_entry.data.get(CONF_REGION)
+        provider_id = config_entry.data.get(CONF_PROVIDER)
+        group = config_entry.data.get(CONF_GROUP)
 
         # The config flow always writes these settings, so a broken entry
         # cannot load until the user adds it again
-        if not self.region_id:
+        if not region_id:
             raise ConfigEntryError(
                 translation_domain=DOMAIN,
                 translation_key="entry_without_region",
             )
-        if not self.provider_id:
+        if not provider_id:
             raise ConfigEntryError(
                 translation_domain=DOMAIN,
                 translation_key="entry_without_provider",
             )
-        if not self.group:
+        if not group:
             raise ConfigEntryError(
                 translation_domain=DOMAIN,
                 translation_key="entry_without_group",
             )
+        self.region_id = region_id
+        self.provider_id = provider_id
+        self.group = group
 
         self._region: YasnoRegion | None = None
         # One API for the life of the coordinator, so that a failed request

@@ -39,10 +39,7 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information about this entity."""
-        provider_type = self.coordinator.config_entry.options.get(
-            CONF_PROVIDER_TYPE,
-            self.coordinator.config_entry.data.get(CONF_PROVIDER_TYPE),
-        )
+        provider_type = self.coordinator.config_entry.data[CONF_PROVIDER_TYPE]
         translation_key = PROVIDER_TO_DEVICE_NAME_MAP[provider_type]
 
         # provider is optional

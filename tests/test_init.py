@@ -25,6 +25,7 @@ from custom_components.svitlo_yeah.const import (
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
+from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
 from tests.helpers import (
     E_SVITLO_ACCOUNT_101,
     PROVIDERS,
@@ -256,8 +257,12 @@ async def test_broken_entry_stops_with_a_translated_error(hass, data, error):
     assert entry.error_reason_translation_key == error
 
 
-async def test_changed_options_reload_the_entry(hass, aioclient_mock):
-    """A change of the options of an entry sets it up again with a new coordinator."""
+async def test_changed_data_reload_the_entry(hass, aioclient_mock):
+    """
+    A change of the data of an entry sets it up again with a new coordinator.
+
+    Reconfigure writes the new group into the data and relies on this reload.
+    """
     data, answers = PROVIDERS["dtek"]
     answers(aioclient_mock, answer=True)
     entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -266,10 +271,36 @@ async def test_changed_options_reload_the_entry(hass, aioclient_mock):
     await hass.async_block_till_done()
     old_coordinator = entry.runtime_data
 
-    hass.config_entries.async_update_entry(entry, options={CONF_GROUP: "1.1"})
+    hass.config_entries.async_update_entry(entry, data={**data, CONF_GROUP: "1.2"})
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
     assert entry.runtime_data is not old_coordinator
+    assert entry.runtime_data.group == "1.2"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_settings_come_from_the_data_only(hass, aioclient_mock):
+    """
+    The options of an entry change nothing.
+
+    Only the options flow of 0.5.0 and 0.5.1 wrote options, and such entries
+    have no provider type, so they cannot load since 0.5.7.
+    """
+    data, answers = PROVIDERS["dtek"]
+    answers(aioclient_mock, answer=True)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=data,
+        options={CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO, CONF_GROUP: "9.9"},
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert isinstance(entry.runtime_data, DtekCoordinatorJson)
+    assert entry.runtime_data.group == data[CONF_GROUP]
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
