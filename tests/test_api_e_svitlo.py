@@ -98,8 +98,19 @@ class TestESvitloClientBase:
             (None, None, ClientError(), LoginResult.UNREACHABLE),
             (None, None, TimeoutError(), LoginResult.UNREACHABLE),
             (200, ValueError("not JSON"), None, LoginResult.UNREACHABLE),
+            (200, {"data": None}, None, LoginResult.REJECTED),
+            (200, [], None, LoginResult.UNREACHABLE),
         ],
-        ids=["accepted", "refused", "http_500", "client_error", "timeout", "not_json"],
+        ids=[
+            "accepted",
+            "refused",
+            "http_500",
+            "client_error",
+            "timeout",
+            "not_json",
+            "null_data",
+            "not_an_object",
+        ],
     )
     async def test_try_login_tells_refused_from_unreachable(
         self, client, mock_session_post, status, body, error, expected
