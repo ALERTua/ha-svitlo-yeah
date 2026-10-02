@@ -2,9 +2,10 @@
 
 import datetime
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.calendar import CalendarEvent
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.translation import async_get_translations
@@ -85,6 +86,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
     api: DtekAPIBase | YasnoApi | ESvitloClient
     region: YasnoRegion
     provider: BaseProvider
+    # The DTEK source key or the Yasno dso id; E-Svitlo has none
+    provider_id: str | int | None = None
 
     def __init__(
         self, hass: HomeAssistant, config_entry: SvitloYeahConfigEntry
@@ -112,6 +115,20 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         self.login_rejected = False
         self._store: Store[dict] | None = None
         self._stored: dict | None = None
+
+    def _required_setting(self, key: str, *, translation_key: str) -> Any:
+        """
+        Return a setting of the entry data, or stop the setup with this error.
+
+        The config flow always writes the setting, so an entry without it
+        cannot load until the user adds it again.
+        """
+        value = self.config_entry.data.get(key)
+        if not value:
+            raise ConfigEntryError(
+                translation_domain=DOMAIN, translation_key=translation_key
+            )
+        return value
 
     async def _async_setup(self) -> None:
         """
@@ -189,7 +206,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if failed == self.last_fetch_failed:
             return
         # An E-Svitlo entry has no provider_id, and its address is personal data
-        source = getattr(self, "provider_id", None) or self.provider.region_name
+        source = self.provider_id or self.provider.region_name
         if failed:
             LOGGER.info(
                 "The source of provider %s does not answer for group %s, "
@@ -217,7 +234,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if listed is None or listed == self.group_listed:
             return
 
-        provider = getattr(self, "provider_id", None)
+        provider = self.provider_id
         issue_id = group_not_listed_issue_id(self.config_entry.entry_id)
         if listed is False:
             LOGGER.warning(
