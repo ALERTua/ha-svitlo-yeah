@@ -71,9 +71,8 @@ async def async_unload_entry(
     hass: HomeAssistant,
     entry: SvitloYeahConfigEntry,
 ) -> bool:
-    """Handle removal of an entry."""
-    LOGGER.debug("Unload entry: %s", entry)
     """Unload a config entry."""
+    LOGGER.debug("Unload entry: %s", entry)
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         # The next setup asks the source again and creates the issue if needed.
