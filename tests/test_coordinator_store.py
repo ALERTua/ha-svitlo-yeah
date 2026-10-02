@@ -42,6 +42,7 @@ from tests.helpers import (
     dtek_answers,
     e_svitlo_outage_all_day_today,
     fact_with_an_outage_today,
+    kyiv_midnight,
     yasno_outage_all_day_today,
 )
 
@@ -320,7 +321,7 @@ def _yasno_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
     Serve them again, or no outage today. The outage of tomorrow starts more
     than 24 hours after 09:00 today.
     """
-    tomorrow = dt_utils.start_of_local_day() + timedelta(days=1)
+    tomorrow = kyiv_midnight() + timedelta(days=1)
     late_tomorrow = {
         "slots": [{"start": 1320, "end": 1440, "type": "Definite"}],
         "date": tomorrow.isoformat(),
@@ -363,7 +364,7 @@ async def test_first_answer_after_a_restart_is_compared_with_the_kept_schedule(
 
     The same schedule fires none and keeps the kept time of the last change.
     """
-    freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=9))
+    freezer.move_to(kyiv_midnight() + timedelta(hours=9))
     data, source, group = restart(aioclient_mock, changed=changed)
     kept_change = dt_utils.now() - timedelta(days=2)
     entry = MockConfigEntry(domain=DOMAIN, data=data)

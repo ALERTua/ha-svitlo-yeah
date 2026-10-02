@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 from aiohttp import ClientError
-from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.const import (
     CONF_ACCOUNT_ID,
@@ -67,9 +66,14 @@ E_SVITLO_DISCONNECTIONS_URL = (
 )
 
 
+def kyiv_midnight() -> datetime:
+    """Return the start of the current day in Kyiv: the sources give their days so."""
+    return datetime.now(TZ_UA).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def fact_with_an_outage_today(update: datetime) -> dict:
     """Build a DTEK fact schedule in which group 1.1 has no power all day today."""
-    today = int(dt_utils.start_of_local_day().timestamp())
+    today = int(kyiv_midnight().timestamp())
     day = {"GPV1.1": {str(hour): "no" for hour in range(1, 25)}, "GPV1.2": {}}
     return {
         "data": {str(today): day},
@@ -80,7 +84,7 @@ def fact_with_an_outage_today(update: datetime) -> dict:
 
 def yasno_outage_all_day_today() -> dict:
     """Build a Yasno answer with a planned outage for group 1.1 all day today."""
-    today = dt_utils.start_of_local_day()
+    today = kyiv_midnight()
     return {
         "1.1": {
             "today": {

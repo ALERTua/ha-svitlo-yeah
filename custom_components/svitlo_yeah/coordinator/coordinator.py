@@ -23,6 +23,7 @@ from custom_components.svitlo_yeah.const import (
     ISSUE_GROUP_NOT_LISTED,
     NAME,
     TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
+    TZ_UA,
     UPDATE_INTERVAL,
 )
 from custom_components.svitlo_yeah.models import (
@@ -59,7 +60,8 @@ def _ends_after(event: PlannedOutageEvent, now: datetime.datetime) -> bool:
     """Return whether the event ends after now (an all-day one at its end date)."""
     if isinstance(event.end, datetime.datetime):
         return event.end > now
-    return event.end > now.date()
+    # The date of an all-day event is a day in Kyiv
+    return event.end > now.astimezone(TZ_UA).date()
 
 
 def store_key(entry_id: str) -> str:
@@ -278,7 +280,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
     ) -> datetime.date | datetime.datetime | None:
         """Get the start time of the first future event."""
         now = dt_utils.as_local(dt_utils.now())
-        now_date = now.date()
+        # The date of an all-day event is a day in Kyiv
+        now_date = now.astimezone(TZ_UA).date()
         for event in sorted(events, key=lambda _: _.start):
             comparison_time = now_date if event.all_day else now
             if event.start > comparison_time:
