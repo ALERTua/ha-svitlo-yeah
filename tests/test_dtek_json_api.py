@@ -1,5 +1,6 @@
 """Tests for JSON DTEK API (alternative data sources)."""
 
+import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,7 @@ from custom_components.svitlo_yeah.api.dtek.json import (
     DtekAPIJson,
     FetchResult,
     _is_data_sufficiently_fresh,
+    _parse_update_dt,
 )
 from tests.helpers import make_response, set_session_responses
 
@@ -24,6 +26,18 @@ def _make_api(**kwargs: object) -> DtekAPIJson:
         return_value=MagicMock(),
     ):
         return DtekAPIJson(MagicMock(), **kwargs)
+
+
+@pytest.fixture(name="process_in_utc")
+def _process_in_utc(monkeypatch):
+    """Run the clock of the process in UTC, so that it differs from Kyiv."""
+    if not hasattr(time, "tzset"):
+        pytest.skip("Windows cannot change the time zone of a running process")
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
 
 
 @pytest.fixture(name="api")
@@ -194,6 +208,12 @@ class TestJsonDtekAPIFreshness:
         # Very old data
         old_data = create_sample_json_data(datetime.now(UTC) - timedelta(days=1000))
         assert not _is_data_sufficiently_fresh(old_data)
+
+    @pytest.mark.usefixtures("process_in_utc")
+    @pytest.mark.parametrize("update", ["05.10.2026 10:00", "10:00 05.10.2026"])
+    def test_update_is_a_time_in_kyiv(self, update):
+        """The update time of the source is Kyiv time, whatever the process clock."""
+        assert _parse_update_dt(update) == datetime(2026, 10, 5, 7, 0, tzinfo=UTC)
 
     def test_is_data_missing_timestamp(self):
         """Test data without timestamp."""

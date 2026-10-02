@@ -11,7 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-from custom_components.svitlo_yeah.const import DTEK_FRESH_DATA_DAYS
+from custom_components.svitlo_yeah.const import DTEK_FRESH_DATA_DAYS, TZ_UA
 
 from .base import DtekAPIBase, FetchResult
 
@@ -25,12 +25,14 @@ _UPDATE_DATE_FORMATS = (
 
 
 def _parse_update_dt(update_dt: str | None) -> datetime | None:
-    """Parse the ``update`` field into an aware UTC datetime, or None."""
+    """Parse the ``update`` field, a time in Kyiv, into an aware UTC datetime."""
     if not update_dt:
         return None
     for fmt in _UPDATE_DATE_FORMATS:
         try:
-            return datetime.strptime(update_dt, fmt).astimezone(UTC)
+            return (
+                datetime.strptime(update_dt, fmt).replace(tzinfo=TZ_UA).astimezone(UTC)
+            )
         except ValueError:
             continue
     return None
