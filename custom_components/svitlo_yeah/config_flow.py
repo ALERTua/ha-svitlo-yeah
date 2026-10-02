@@ -1,7 +1,7 @@
 """Config flow for Svitlo Yeah integration."""
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 import voluptuous as vol
 from homeassistant.config_entries import (
@@ -106,6 +106,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self._client.use_login(username, password)
         return self._client
 
+    @override
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Handle the initial step: select provider."""
         if user_input is not None:

@@ -1,7 +1,7 @@
 """Button platform for Svitlo Yeah integration."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from homeassistant.components.button import (
     ButtonEntity,
@@ -60,6 +60,7 @@ class IntegrationRefreshButton(IntegrationEntity, ButtonEntity):
             f"{coordinator.config_entry.entry_id}_{self.entity_description.key}"
         )
 
+    @override
     async def async_press(self) -> None:
         """
         Force an immediate data refresh, ignoring the update interval.

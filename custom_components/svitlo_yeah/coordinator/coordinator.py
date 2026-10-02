@@ -2,7 +2,7 @@
 
 import datetime
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.exceptions import ConfigEntryError
@@ -127,6 +127,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             )
         return value
 
+    @override
     async def _async_setup(self) -> None:
         """
         Start with the data that the last run kept, until the source answers.
@@ -166,6 +167,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             await self.async_fetch_translations()  # the repair issue names the provider
             await self._async_update_group_listed(listed=stored.get("group_listed"))
 
+    @override
     async def _async_update_data(self) -> None:
         """Ask the source, and use its answer while the entry still exists."""
         await self.async_fetch_translations()
