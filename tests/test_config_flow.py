@@ -71,6 +71,8 @@ YASNO_KYIV_1_1 = {
 }
 
 E_SVITLO_KEY = "esvitloprovider_sumy"
+# The login forms name the site of the personal cabinet
+E_SVITLO_SITE = "https://sm.e-svitlo.com.ua/"
 E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
 E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
 E_SVITLO_CREDENTIALS = {"username": "user", "password": "secret"}
@@ -171,6 +173,7 @@ async def _start_e_svitlo_flow(hass, aioclient_mock) -> dict:
     result = await _start_flow(hass, aioclient_mock)
     result = await _configure(hass, result, {CONF_PROVIDER: E_SVITLO_KEY})
     assert result["step_id"] == "esvitlo_auth"
+    assert result["description_placeholders"]["esvitlo_url"] == E_SVITLO_SITE
     return result
 
 
@@ -741,6 +744,7 @@ class TestESvitloReauth:
         entry = _add_entry(hass, E_SVITLO_ACCOUNT_101)
         result = await entry.start_reauth_flow(hass)
         assert result["step_id"] == "reauth_confirm"
+        assert result["description_placeholders"]["esvitlo_url"] == E_SVITLO_SITE
         return entry, result
 
     async def test_form_suggests_the_username_of_the_entry(self, hass):

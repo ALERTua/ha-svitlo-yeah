@@ -10,6 +10,7 @@ from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    common_translation_key,
 )
 from custom_components.svitlo_yeah.coordinator.coordinator import (
     CHANGE_CHECK_WINDOW,
@@ -87,8 +88,7 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     @property
     def provider_name(self) -> str:
         """Get the configured provider name."""
-        key = f"component.svitlo_yeah.common.{self.provider_id}"
-        return self.translations.get(key, "")
+        return self.translations.get(common_translation_key(self.provider_id), "")
 
     @property
     def provider(self) -> DTEKJsonProvider:

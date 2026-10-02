@@ -34,10 +34,12 @@ from .const import (
     CONF_REGION,
     DOMAIN,
     DTEK_PROVIDER_URLS,
+    E_SVITLO_URL,
     NAME,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
+    common_translation_key,
 )
 from .models.providers import (
     BaseProvider,
@@ -51,7 +53,6 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-E_SVITLO_URL = "https://sm.e-svitlo.com.ua/"
 # The checkbox of the form that accepts outdated DTEK data
 CONF_ACKNOWLEDGE = "acknowledge"
 
@@ -174,7 +175,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         provider_type = data.get(CONF_PROVIDER_TYPE)
         provider_id = data.get(CONF_PROVIDER)
         provider_name = names.get(
-            f"component.{DOMAIN}.common.{provider_id}", str(provider_id)
+            common_translation_key(str(provider_id)), str(provider_id)
         )
         if provider_type == PROVIDER_TYPE_E_SVITLO:
             return f"{provider_name} E-Svitlo"

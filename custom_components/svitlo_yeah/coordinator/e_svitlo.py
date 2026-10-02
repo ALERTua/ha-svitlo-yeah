@@ -12,6 +12,7 @@ from custom_components.svitlo_yeah.const import (
     CONF_ACCOUNT_ID,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    common_translation_key,
 )
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
@@ -59,8 +60,8 @@ class ESvitloCoordinator(IntegrationCoordinator):
     @property
     def region_name(self) -> str:
         """Get the region name in the language of the server, as the entry title has."""
-        key = f"component.svitlo_yeah.common.{self.provider.region_name}"
-        return self.translations.get(key, self.provider.region_name)
+        region = self.provider.region_name
+        return self.translations.get(common_translation_key(region), region)
 
     @property
     def provider_name(self) -> str:
