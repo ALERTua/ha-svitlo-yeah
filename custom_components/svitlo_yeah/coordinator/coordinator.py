@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
+from custom_components.svitlo_yeah.api.common_tools import start_moment
 from custom_components.svitlo_yeah.const import (
     DOMAIN,
     EVENT_DATA_CHANGED,
@@ -62,13 +63,6 @@ def _ends_after(event: PlannedOutageEvent, now: datetime.datetime) -> bool:
         return event.end > now
     # The date of an all-day event is a day in Kyiv
     return event.end > now.astimezone(TZ_UA).date()
-
-
-def _start_moment(event: PlannedOutageEvent | CalendarEvent) -> datetime.datetime:
-    """Return when the event starts; an all-day event starts at its Kyiv midnight."""
-    if isinstance(event.start, datetime.datetime):
-        return event.start
-    return datetime.datetime.combine(event.start, datetime.time.min, tzinfo=TZ_UA)
 
 
 def store_key(entry_id: str) -> str:
@@ -300,7 +294,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         # The date of an all-day event is a day in Kyiv
         now_date = now.astimezone(TZ_UA).date()
         # A date and a datetime cannot be compared, so the sort uses moments
-        for event in sorted(events, key=_start_moment):
+        for event in sorted(events, key=start_moment):
             comparison_time = now_date if event.all_day else now
             if event.start > comparison_time:
                 return event.start
