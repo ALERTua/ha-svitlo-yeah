@@ -505,6 +505,24 @@ class TestYasnoApiEvents:
             (today.replace(hour=9), today.replace(hour=11))
         ]
 
+    def test_day_in_utc_is_the_day_in_kyiv(self, api, today):
+        """A date that Yasno gives in UTC is still the Kyiv day of the slots."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [{"start": 600, "end": 660, "type": "Definite"}],
+                    "date": today.astimezone(datetime.UTC).isoformat(),
+                    "status": "ScheduleApplies",
+                },
+            }
+        }
+
+        events = api.get_events(today, today + timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (today.replace(hour=10), today.replace(hour=11))
+        ]
+
     def test_get_current_event(self, api, planned_outage_data, today):
         """Test getting current event."""
         api.planned_outage_data = planned_outage_data

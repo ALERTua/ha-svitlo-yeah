@@ -9,6 +9,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_utils
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from homeassistant.core import HomeAssistant
 
 from custom_components.svitlo_yeah.const import (
@@ -124,6 +126,18 @@ def _parse_day_schedule(day_data: dict, dt: datetime) -> list[PlannedOutageEvent
         )
 
     return events
+
+
+def _in_range(
+    events: list[PlannedOutageEvent], start_date: datetime, end_date: datetime
+) -> list[PlannedOutageEvent]:
+    """Sort and merge the events, and keep those in the range and each all-day one."""
+    events = _merge_adjacent_events(sorted(events, key=start_moment))
+    return [
+        _
+        for _ in events
+        if _.all_day or not (_.end <= start_date or _.start >= end_date)
+    ]
 
 
 class YasnoApi:
@@ -327,16 +341,13 @@ class YasnoApi:
 
         return None
 
-    def get_events(
-        self, start_date: datetime, end_date: datetime
-    ) -> list[PlannedOutageEvent]:
-        """Get all events within the date range."""
+    def _days(self) -> Iterator[tuple[str | None, dict, datetime]]:
+        """Yield the status, the data and the moment of each day of the group."""
         group_data = self._get_group_data()
         if not group_data:
-            LOGGER.debug("Cannot get_events: no group_data yet")
-            return []
+            LOGGER.debug("No days: no group_data yet")
+            return
 
-        events: list[PlannedOutageEvent] = []
         for key, day_data in group_data.items():
             # parse only "today" and "tomorrow"
             if key == "updatedOn" or not isinstance(day_data, dict):
@@ -351,9 +362,14 @@ class YasnoApi:
                 continue
 
             # The slots are minutes of the day in Kyiv, whatever the time zone of HA
-            day_dt = day_dt.astimezone(TZ_UA)
+            yield day_data.get(BLOCK_KEY_STATUS), day_data, day_dt.astimezone(TZ_UA)
 
-            status = day_data.get(BLOCK_KEY_STATUS)
+    def get_events(
+        self, start_date: datetime, end_date: datetime
+    ) -> list[PlannedOutageEvent]:
+        """Get all events within the date range."""
+        events: list[PlannedOutageEvent] = []
+        for status, day_data, day_dt in self._days():
             if status == YasnoPlannedOutageDayStatus.STATUS_SCHEDULE_APPLIES.value:
                 events.extend(_parse_day_schedule(day_data, day_dt))
             elif status == YasnoPlannedOutageDayStatus.STATUS_EMERGENCY_SHUTDOWNS.value:
@@ -382,58 +398,19 @@ class YasnoApi:
                         event_type=PlannedOutageEventType.EMERGENCY,
                     )
                 )
-
-        events.sort(key=start_moment)
-
-        # Merge adjacent events of the same type
-        events = _merge_adjacent_events(events)
-
-        return [
-            _
-            for _ in events
-            if _.all_day or not (_.end <= start_date or _.start >= end_date)
-        ]
+        return _in_range(events, start_date, end_date)
 
     def get_scheduled_events(
         self, start_date: datetime, end_date: datetime
     ) -> list[PlannedOutageEvent]:
         """Get scheduled events (includes WaitingForSchedule status)."""
-        group_data = self._get_group_data()
-        if not group_data:
-            LOGGER.debug("Cannot get_scheduled_events: no group_data yet")
-            return []
-
-        events: list[PlannedOutageEvent] = []
-        for key, day_data in group_data.items():
-            # parse only "today" and "tomorrow"
-            if key == "updatedOn" or not isinstance(day_data, dict):
-                continue
-
-            date_str = day_data.get("date")
-            if not date_str:
-                continue
-
-            day_dt = dt_utils.parse_datetime(date_str)
-            if not day_dt:
-                continue
-
-            day_dt = day_dt.astimezone(TZ_UA)
-
-            # parse only STATUS_WAITING_FOR_SCHEDULE statuses
-            status = day_data.get(BLOCK_KEY_STATUS)
-            if status == YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE.value:
-                events.extend(_parse_day_schedule(day_data, day_dt))
-
-        events.sort(key=start_moment)
-
-        # Merge adjacent events of the same type
-        events = _merge_adjacent_events(events)
-
-        return [
-            _
-            for _ in events
-            if _.all_day or not (_.end <= start_date or _.start >= end_date)
+        events = [
+            event
+            for status, day_data, day_dt in self._days()
+            if status == YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE.value
+            for event in _parse_day_schedule(day_data, day_dt)
         ]
+        return _in_range(events, start_date, end_date)
 
     async def fetch_data(self) -> bool:
         """
