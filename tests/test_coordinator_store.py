@@ -1,4 +1,8 @@
-"""The last data of an entry stays across a restart (AGENTS.md, «Old states until new data»)."""
+"""
+The last data of an entry stays across a restart.
+
+AGENTS.md tells why, in «Old states until new data».
+"""
 
 from datetime import UTC, datetime, timedelta
 
@@ -108,7 +112,7 @@ async def test_stale_dtek_data_stays_out_of_the_store(
 async def test_restart_without_an_answer_shows_the_kept_schedule(
     hass, aioclient_mock, hass_storage
 ):
-    """After a restart, the kept schedule gives the old states until the source answers."""
+    """After a restart, the kept schedule gives the old states until an answer comes."""
     fact = fact_with_an_outage_today(datetime.now(UTC) - timedelta(hours=2))
     changed = dt_utils.now() - timedelta(hours=3)
     for url in KYIV_REGION_URLS:
@@ -210,7 +214,7 @@ async def test_e_svitlo_data_goes_into_the_store(hass, aioclient_mock, hass_stor
 async def test_e_svitlo_restart_without_an_answer_shows_the_kept_schedule(
     hass, aioclient_mock, hass_storage
 ):
-    """After a restart, E-Svitlo shows the kept outage, and the device keeps its group."""
+    """After a restart, E-Svitlo shows the kept outage, and the device has its group."""
     updated = datetime.now(TZ_UA).replace(hour=10, minute=0, second=0, microsecond=0)
     aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
     entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)

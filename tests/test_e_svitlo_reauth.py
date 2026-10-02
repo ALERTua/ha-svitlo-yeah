@@ -1,4 +1,8 @@
-"""E-Svitlo refuses the login: one reauthentication, the old states stay, the polls go on (silver reauthentication-flow)."""
+"""
+E-Svitlo refuses the login (silver reauthentication-flow).
+
+One reauthentication starts, the old states stay, and the polls go on.
+"""
 
 import logging
 
@@ -92,7 +96,11 @@ async def _unload(hass, entry: MockConfigEntry) -> None:
 async def test_refused_login_asks_once_keeps_the_states_and_polls_on(
     hass, aioclient_mock, caplog
 ):
-    """A refused login starts one reauthentication; the next poll that logs in heals the entry."""
+    """
+    A refused login starts one reauthentication.
+
+    The next poll that logs in heals the entry.
+    """
     caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
     e_svitlo_answers(aioclient_mock, answer=True)
     entry = await _set_up(hass)
@@ -135,7 +143,11 @@ async def test_refused_login_asks_once_keeps_the_states_and_polls_on(
 
 
 async def test_refused_login_at_the_first_start_asks_once(hass, aioclient_mock, caplog):
-    """A refused login at the first start loads the entry and starts one reauthentication."""
+    """
+    A refused login at the first start loads the entry.
+
+    It starts one reauthentication.
+    """
     caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
     _refuse_the_login(aioclient_mock)
 

@@ -1,4 +1,8 @@
-"""The diagnostics of an entry help a bug report and keep the personal data out (gold diagnostics)."""
+"""
+The diagnostics of an entry help a bug report (gold diagnostics).
+
+They keep the personal data out.
+"""
 
 import json
 
@@ -24,7 +28,7 @@ async def _diagnostics(
 ) -> dict:
     data, answers = PROVIDERS[provider]
     data = {**data, **data_changes}
-    answers(aioclient_mock, True)
+    answers(aioclient_mock, answer=True)
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)

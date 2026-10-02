@@ -605,7 +605,7 @@ class TestESvitloConnection:
     async def test_unreachable_server_shows_cannot_connect(
         self, hass, aioclient_mock, answer
     ):
-        """A login without an answer of the server keeps the form with cannot_connect."""
+        """No answer of the server to the login keeps the form with cannot_connect."""
         aioclient_mock.post(E_SVITLO_LOGIN_URL, **answer)
 
         result = await _start_e_svitlo_flow(hass, aioclient_mock)
@@ -705,7 +705,7 @@ class TestESvitloReauth:
     async def test_unreachable_server_shows_cannot_connect(
         self, hass, aioclient_mock, accounts_answer
     ):
-        """No answer of the server, at the login or at the accounts, is cannot_connect."""
+        """No answer of the server at the login or the accounts gives cannot_connect."""
         if accounts_answer is None:
             aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
         else:

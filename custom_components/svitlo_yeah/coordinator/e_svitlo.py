@@ -8,13 +8,18 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util import dt as dt_utils
 
-from ..api.e_svitlo import ESvitloClient
-from ..const import (
+from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
+from custom_components.svitlo_yeah.const import (
     DOMAIN,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
-from ..models import ConnectivityState, ESvitloProvider, PlannedOutageEventType
+from custom_components.svitlo_yeah.models import (
+    ConnectivityState,
+    ESvitloProvider,
+    PlannedOutageEventType,
+)
+
 from .coordinator import IntegrationCoordinator
 
 if TYPE_CHECKING:
@@ -101,8 +106,10 @@ class ESvitloCoordinator(IntegrationCoordinator):
             # Get disconnections data
             events = await self.api.get_disconnections()
             # A refused login is an answer of the server, not a missing answer
-            self._set_last_fetch_failed(events is None and not self.api.login_rejected)
-            self._set_login_rejected(self.api.login_rejected)
+            self._set_last_fetch_failed(
+                failed=events is None and not self.api.login_rejected
+            )
+            self._set_login_rejected(rejected=self.api.login_rejected)
 
             if events is not None:
                 LOGGER.debug(
@@ -118,9 +125,9 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
             await self._async_store_last_data()
 
-    def _set_login_rejected(self, rejected: bool) -> None:
+    def _set_login_rejected(self, *, rejected: bool) -> None:
         """
-        Ask the user for the new login once the server refuses it, and log each change once.
+        Ask for the new login once the server refuses it, and log each change once.
 
         The polls go on with the old login. The server can refuse it for a
         while, for example during maintenance, and then the next poll that

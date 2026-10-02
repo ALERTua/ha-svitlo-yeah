@@ -92,7 +92,11 @@ async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock, caplog):
 async def test_device_without_a_provider_logs_from_the_entity_module(
     hass, aioclient_mock, caplog
 ):
-    """Without the Yasno regions the device has no provider name, and entity.py says so in its own log."""
+    """
+    Without the Yasno regions the device has no provider name.
+
+    entity.py says so in its own log.
+    """
     caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
     aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
     aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
@@ -112,9 +116,13 @@ async def test_device_without_a_provider_logs_from_the_entity_module(
 
 
 async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
-    """The presses of an entry run one after another; the read-only platforms set no limit."""
+    """
+    The presses of an entry run one after another.
+
+    The read-only platforms set no limit.
+    """
     data, answers = PROVIDERS["dtek"]
-    answers(aioclient_mock, True)
+    answers(aioclient_mock, answer=True)
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -200,7 +208,11 @@ async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
     ],
 )
 async def test_broken_entry_stops_with_a_translated_error(hass, data, error):
-    """An entry that cannot work stops its setup and tells the user why, in the user's language."""
+    """
+    An entry that cannot work stops its setup.
+
+    It tells the user why, in the language of the user.
+    """
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
 
@@ -214,7 +226,7 @@ async def test_broken_entry_stops_with_a_translated_error(hass, data, error):
 async def test_changed_options_reload_the_entry(hass, aioclient_mock):
     """A change of the options of an entry sets it up again with a new coordinator."""
     data, answers = PROVIDERS["dtek"]
-    answers(aioclient_mock, True)
+    answers(aioclient_mock, answer=True)
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)

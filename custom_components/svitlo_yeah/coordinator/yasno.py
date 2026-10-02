@@ -14,8 +14,8 @@ from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_utils
 
-from ..api.yasno import YasnoApi
-from ..const import (
+from custom_components.svitlo_yeah.api.yasno import YasnoApi
+from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_REGION,
@@ -25,12 +25,13 @@ from ..const import (
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
-from ..models import (
+from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEventType,
     YasnoProvider,
     YasnoRegion,
 )
+
 from .coordinator import IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
@@ -117,8 +118,8 @@ class YasnoCoordinator(IntegrationCoordinator):
         await self.async_fetch_translations()
 
         # Fetch outages data (now async with aiohttp, not blocking)
-        self._set_last_fetch_failed(not await self.api.fetch_data())
-        await self._async_update_group_listed(self.api.is_group_listed())
+        self._set_last_fetch_failed(failed=not await self.api.fetch_data())
+        await self._async_update_group_listed(listed=self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)
         now = dt_utils.now()

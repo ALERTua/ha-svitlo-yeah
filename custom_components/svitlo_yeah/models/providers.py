@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Self
 
-from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
+from custom_components.svitlo_yeah.const import (
+    PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
+    PROVIDER_TYPE_YASNO,
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

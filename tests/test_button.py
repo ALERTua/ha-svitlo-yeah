@@ -1,4 +1,4 @@
-"""The refresh button reports a source that does not answer (silver action-exceptions)."""
+"""The refresh button reports a source without an answer (silver action-exceptions)."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.usefixtures(
 
 async def _set_up(hass, aioclient_mock, data: dict, answers) -> MockConfigEntry:
     """Set up an entry whose source answers with an outage all day today."""
-    answers(aioclient_mock, True)
+    answers(aioclient_mock, answer=True)
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -59,11 +59,11 @@ async def _unload(hass, entry: MockConfigEntry) -> None:
 async def test_press_without_an_answer_fails_and_keeps_the_states(
     hass, aioclient_mock, provider
 ):
-    """The press tells that the source did not answer; the entities keep their states."""
+    """The press says that the source did not answer; the entities keep their states."""
     data, answers = PROVIDERS[provider]
     entry = await _set_up(hass, aioclient_mock, data, answers)
     aioclient_mock.clear_requests()
-    answers(aioclient_mock, False)
+    answers(aioclient_mock, answer=False)
 
     with pytest.raises(HomeAssistantError) as error:
         await _press(hass, entry)

@@ -108,7 +108,7 @@ def _dtek():
     return coordinator
 
 
-async def _update_dtek(coordinator, result: FetchResult, listed: bool | None):
+async def _update_dtek(coordinator, result: FetchResult, *, listed: bool | None):
     """Run one update where fetch_data gives `result` and the API `listed`."""
     coordinator.api.fetch_data = AsyncMock(return_value=result)
     coordinator.api.is_group_listed = MagicMock(return_value=listed)
@@ -191,7 +191,7 @@ def _yasno():
     return coordinator
 
 
-async def _update_yasno(coordinator, listed: bool | None):
+async def _update_yasno(coordinator, *, listed: bool | None):
     """Run one update where the API of the coordinator answers `listed`."""
     api = MagicMock()
     api.fetch_data = AsyncMock()
@@ -258,7 +258,7 @@ class TestElectricityWithoutGroupSchedule:
         assert coordinator.current_state is None
 
     def test_electricity_sensor_is_unknown_for_a_missing_group(self, dtek):
-        """The Electricity sensor gives no value, which Home Assistant shows as unknown."""
+        """The Electricity sensor gives no value, and Home Assistant shows unknown."""
         dtek.group_listed = False
         dtek.get_current_event = MagicMock(return_value=None)
         assert IntegrationSensor(dtek, ELECTRICITY).native_value is None

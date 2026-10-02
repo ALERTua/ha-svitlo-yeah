@@ -5,8 +5,8 @@ import logging
 
 from homeassistant.util import dt as dt_utils
 
-from ..const import TZ_UA
-from ..models import PlannedOutageEvent
+from custom_components.svitlo_yeah.const import TZ_UA
+from custom_components.svitlo_yeah.models import PlannedOutageEvent
 
 LOGGER = logging.getLogger(__name__)
 

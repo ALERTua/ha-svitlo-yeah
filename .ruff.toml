@@ -5,13 +5,36 @@
 target-version = "py314"
 
 [lint]
+select = [
+    "ALL",
+]
+
 ignore = [
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
     "D203", # no-blank-line-before-class (incompatible with formatter)
     "D212", # multi-line-summary-first-line (incompatible with formatter)
     "COM812", # incompatible with formatter
     "ISC001", # incompatible with formatter
-    "TID252", # relative imports from parent modules
+    "CPY001", # copyright notice in each file: Home Assistant core does not check it, LICENSE covers the repository
+]
+
+[lint.per-file-ignores]
+# Claude Code runs this script by its path, so its folder is not a package
+".claude/*.py" = ["INP001"]
+
+# The rules that a test has no reason to follow
+"tests/**" = [
+    "S101",    # pytest checks each result with assert, and nobody runs the tests with python -O
+    "S105",    # the tests use made-up passwords
+    "S106",    # the tests use made-up passwords
+    "SLF001",  # a test reads the private state to check what the code keeps
+    "PLR2004", # the expected value in an assert is the test itself
+    "ANN001",  # ty checks only custom_components ([tool.ty.src] in pyproject.toml), so no tool reads these annotations
+    "ANN003",  # the same as ANN001
+    "ANN201",  # the same as ANN001
+    "ANN202",  # the same as ANN001
+    "PLR0913", # pytest gives the arguments of a test from its fixtures and parameters, and no code calls a test
+    "PLR0917", # the same as PLR0913
 ]
 
 [lint.flake8-pytest-style]
@@ -22,15 +45,3 @@ keep-runtime-typing = true
 
 [lint.mccabe]
 max-complexity = 25
-
-[lint.per-file-ignores]
-"tests/**" = [
-    "ANN001",  # missing type annotation for function argument
-    "ANN201",  # missing return type annotation for public function
-    "ANN202",  # missing return type annotation for private function
-    "DTZ001",  # datetime-without-timezone
-    "S101",    # use of assert (expected in pytest)
-    "SLF001",  # private member access (testing internals)
-    "PLR2004", # magic values in comparisons
-    "E501",    # Line too long
-]

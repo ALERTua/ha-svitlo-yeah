@@ -6,8 +6,15 @@ from enum import Enum
 
 from homeassistant.util import dt as dt_utils
 
-from ...models import PlannedOutageEvent, PlannedOutageEventType
-from ..common_tools import _merge_adjacent_events, parse_timestamp
+from custom_components.svitlo_yeah.api.common_tools import (
+    _merge_adjacent_events,
+    parse_timestamp,
+)
+from custom_components.svitlo_yeah.const import HOURS_IN_DAY, LAST_HOUR, LAST_MINUTE
+from custom_components.svitlo_yeah.models import (
+    PlannedOutageEvent,
+    PlannedOutageEventType,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,14 +53,16 @@ def _parse_group_hours(
     ranges = []
     outage_start = None
 
-    hours_range = range(24)
-    get_key = lambda h: str(h + 1)
-    if "0" in group_hours:  # 0-23 or 1-24 hour format
-        get_key = str
+    hours_range = range(HOURS_IN_DAY)
+    zero_based = "0" in group_hours  # 0-23 or 1-24 hour format
+
+    def get_key(hour: int) -> str:
+        """Return the key of the hour that starts at hour:00."""
+        return str(hour if zero_based else hour + 1)
 
     def safe_time(hour: int, minute: int = 0) -> datetime.time:
         """Create datetime.time handling hour 24 as midnight (0:00)."""
-        if hour >= 24:
+        if hour >= HOURS_IN_DAY:
             return datetime.time(0, minute)
         return datetime.time(hour, minute)
 
@@ -62,7 +71,7 @@ def _parse_group_hours(
         status = group_hours.get(key, "yes")
 
         prev_key = get_key(hour - 1) if hour > 0 else None
-        next_key = get_key(hour + 1) if hour < 23 else None
+        next_key = get_key(hour + 1) if hour < LAST_HOUR else None
 
         prev_status = group_hours.get(prev_key, "yes") if prev_key else "yes"
         next_status = group_hours.get(next_key, "yes") if next_key else "yes"
@@ -121,7 +130,7 @@ def _ranges_to_events(
             second=0,
             microsecond=0,
         )
-        if (end_time.hour == 23 and end_time.minute == 59) or (
+        if (end_time.hour == LAST_HOUR and end_time.minute == LAST_MINUTE) or (
             end_time.hour == 0 and end_time.minute == 0
         ):
             event_end = next_midnight
@@ -264,8 +273,7 @@ class DtekAPIBase:
 
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)
-        output = [e for e in events if not (e.end <= start_date or e.start >= end_date)]
-        return output
+        return [e for e in events if not (e.end <= start_date or e.start >= end_date)]
 
     def get_updated_on(self) -> datetime.datetime | None:
         """Get the updated on timestamp."""
@@ -318,5 +326,4 @@ class DtekAPIBase:
 
         events.sort(key=lambda e: e.start)
         events = _merge_adjacent_events(events)
-        output = [e for e in events if not (e.end <= start_date or e.start >= end_date)]
-        return output
+        return [e for e in events if not (e.end <= start_date or e.start >= end_date)]

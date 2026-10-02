@@ -11,17 +11,19 @@ from homeassistant.util import dt as dt_utils
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-from ..const import (
+from custom_components.svitlo_yeah.const import (
     BLOCK_KEY_STATUS,
+    HOURS_IN_DAY,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
-from ..models import (
+from custom_components.svitlo_yeah.models import (
     PlannedOutageEvent,
     PlannedOutageEventType,
     YasnoPlannedOutageDayStatus,
     YasnoRegion,
 )
+
 from .common_tools import _merge_adjacent_events, parse_timestamp
 
 LOGGER = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ def _minutes_to_time(minutes: int, dt: datetime) -> datetime:
     mins = minutes % 60
 
     # Handle end of day (24:00) as 00:00 of the next day
-    if hours == 24:
+    if hours == HOURS_IN_DAY:
         dt = dt + timedelta(days=1)
         return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -146,7 +148,7 @@ class YasnoApi:
         url: str,
         timeout_secs: int = 60,
     ) -> Any:
-        """Fetch the JSON of the given URL: a list or a dict, or None after a failure."""
+        """Fetch the JSON of the URL: a list or a dict, or None after a failure."""
         try:
             async with self.session.get(
                 url,

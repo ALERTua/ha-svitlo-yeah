@@ -6,7 +6,7 @@
 """Script to update version in pyproject.toml and manifest.json."""
 
 import json
-import os
+import subprocess
 from pathlib import Path
 
 # noinspection PyUnresolvedReferences,PyPackageRequirements
@@ -21,7 +21,8 @@ def update_version(
 ) -> None:
     """Update version in project files and run uv lock."""
     # Update pyproject.toml via uv
-    os.system(f"uv version {version}")
+    # A list goes to uv without a shell; uv comes from the PATH of the developer
+    subprocess.run(["uv", "version", version], check=True)  # noqa: S603, S607
 
     # Update manifest.json
     manifest_path = Path("custom_components/svitlo_yeah/manifest.json")

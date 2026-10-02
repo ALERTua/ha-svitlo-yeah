@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-from ..const import (
+from custom_components.svitlo_yeah.const import (
     DOMAIN,
     EVENT_DATA_CHANGED,
     ISSUE_GROUP_NOT_LISTED,
@@ -25,7 +25,7 @@ from ..const import (
     TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
     UPDATE_INTERVAL,
 )
-from ..models import (
+from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEvent,
     PlannedOutageEventType,
@@ -33,10 +33,10 @@ from ..models import (
 )
 
 if TYPE_CHECKING:
-    from ..api.dtek.base import DtekAPIBase
-    from ..api.e_svitlo import ESvitloClient
-    from ..api.yasno import YasnoApi
-    from ..models.providers import BaseProvider
+    from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
+    from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
+    from custom_components.svitlo_yeah.api.yasno import YasnoApi
+    from custom_components.svitlo_yeah.models.providers import BaseProvider
 
 LOGGER = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         # After a Reconfigure, the kept answer is about another group
         if stored.get("group") == self.group:
             await self.async_fetch_translations()  # the repair issue names the provider
-            await self._async_update_group_listed(stored.get("group_listed"))
+            await self._async_update_group_listed(listed=stored.get("group_listed"))
 
     def _source_data(self) -> dict | None:
         """Return the data of the source to keep across a restart, or None."""
@@ -149,7 +149,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             await self._store.async_save(data)
             self._stored = data
 
-    def _set_last_fetch_failed(self, failed: bool) -> None:
+    def _set_last_fetch_failed(self, *, failed: bool) -> None:
         """
         Keep whether the last fetch got no answer, and log each change once.
 
@@ -175,7 +175,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             )
         self.last_fetch_failed = failed
 
-    async def _async_update_group_listed(self, listed: bool | None) -> None:
+    async def _async_update_group_listed(self, *, listed: bool | None) -> None:
         """
         Keep the last known answer whether the source lists the group.
 
@@ -383,10 +383,10 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
 
     def get_scheduled_events_between(
         self,
-        start_date: datetime.datetime,
-        end_date: datetime.datetime,
+        start_date: datetime.datetime,  # noqa: ARG002  # a provider with a schedule reads it
+        end_date: datetime.datetime,  # noqa: ARG002  # a provider with a schedule reads it
     ) -> list[CalendarEvent]:
-        """Get scheduled outage events."""
+        """Get scheduled outage events: none for a provider without such a schedule."""
         return []
 
     def _get_calendar_event(

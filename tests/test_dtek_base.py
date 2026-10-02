@@ -246,7 +246,7 @@ class TestDtekAPIBaseParseGroupHours:
     """Test _parse_group_hours method."""
 
     @pytest.mark.parametrize(
-        "group_hours,expected",
+        ("group_hours", "expected"),
         [
             # 0 All yes - no outages
             ({str(i): "yes" for i in range(1, 25)}, []),
@@ -340,7 +340,8 @@ class TestDtekAPIBaseParseGroupHours:
                 },
                 [(datetime.time(12, 30), datetime.time(16, 30))],
             ),
-            # 9 Full day schedule with mfirst and msecond parts. Should return 09:30-12:00 and 19:00-23:30
+            # 9 Full day schedule with mfirst and msecond parts.
+            # Should return 09:30-12:00 and 19:00-23:30
             (
                 {
                     "1": "yes",
@@ -382,15 +383,24 @@ class TestDtekAPIBaseParseGroupHours:
 
 
 class TestDtekAPIBaseParsePresetGroupHours:
-    """Test _parse_group_hours method for preset data (same function as for real data)."""
+    """Test _parse_group_hours for preset data (the function of real data)."""
 
     @pytest.mark.parametrize(
-        "group_hours,expected",
+        ("group_hours", "expected"),
         [
             # Test hour format detection - "0" key present (0-23 format)
             (
                 {"0": "yes", "1": "yes", "23": "yes"},
                 [],
+            ),
+            # In the 0-23 format, the key "10" is the hour from 10:00 to 11:00
+            (
+                {
+                    **{str(i): "yes" for i in range(24)},
+                    "10": "no",
+                    "11": "no",
+                },
+                [(datetime.time(10, 0), datetime.time(12, 0))],
             ),
             # Test hour format detection - no "0" key (1-24 format)
             (
@@ -511,7 +521,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
         ],
     )
     def test_parse_preset_group_hours(self, group_hours, expected):
-        """Test parsing various preset group hour patterns using the unified function."""
+        """Test the parse of preset group hour patterns with the shared function."""
         result = _parse_group_hours(group_hours)
         assert result == expected
 
@@ -868,7 +878,7 @@ class TestDtekAPIBaseUnusualDays:
     """The parser keeps going through a status or a day that it does not expect."""
 
     def test_second_half_after_an_unknown_status_starts_at_the_full_hour(self):
-        """A «second» after a status that the parser does not know opens the outage at the full hour."""
+        """A «second» after an unknown status opens the outage at the full hour."""
         assert _parse_group_hours({"13": "?", "14": "second"}) == [
             (datetime.time(13, 0), datetime.time(14, 0))
         ]

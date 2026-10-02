@@ -3,6 +3,7 @@
 import logging
 from datetime import date, datetime, time, timedelta
 from enum import Enum
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import aiohttp
@@ -11,10 +12,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-    from ..models import ESvitloProvider, PlannedOutageEvent
+    from custom_components.svitlo_yeah.models import ESvitloProvider, PlannedOutageEvent
 
-from ..const import E_SVITLO_ERROR_NOT_LOGGED_IN, E_SVITLO_SUMY_BASE_URL, TZ_UA
-from ..models import PlannedOutageEvent, PlannedOutageEventType
+from custom_components.svitlo_yeah.const import (
+    E_SVITLO_ERROR_NOT_LOGGED_IN,
+    E_SVITLO_SUMY_BASE_URL,
+    TZ_UA,
+)
+from custom_components.svitlo_yeah.models import (
+    PlannedOutageEvent,
+    PlannedOutageEventType,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +70,7 @@ class ESvitloClient:
                     "pass_name": self.pwd,
                 },
             ) as response:
-                if response.status == 200:
+                if response.status == HTTPStatus.OK:
                     result = await response.json()
                     # Check if login was successful based on response
                     if result.get("data", {}).get("login", False) is True:
@@ -94,7 +102,7 @@ class ESvitloClient:
         url = self.base_url + endpoint
         try:
             async with self.session.post(url, data=data) as response:
-                if response.status != 200:
+                if response.status != HTTPStatus.OK:
                     LOGGER.debug(
                         "E-Svitlo HTTP error %s for %s", response.status, endpoint
                     )
@@ -109,7 +117,7 @@ class ESvitloClient:
                     if await self.login():
                         # Retry request once
                         async with self.session.post(url, data=data) as retry_response:
-                            if retry_response.status == 200:
+                            if retry_response.status == HTTPStatus.OK:
                                 return await retry_response.json()
                     return None
 

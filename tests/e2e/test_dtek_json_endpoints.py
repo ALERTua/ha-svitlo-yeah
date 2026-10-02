@@ -47,7 +47,8 @@ class TestJsonDtekAPIRealEndpoints:
             if result is FetchResult.STALE:
                 pytest.skip(f"{provider_key}: upstream data is stale {urls}")
             assert result is FetchResult.FRESH, (
-                f"failed to fetch fresh data for {provider_key} {urls} (result={result})"
+                f"failed to fetch fresh data for {provider_key} {urls} "
+                f"(result={result})"
             )
 
             groups = api.get_dtek_region_groups()

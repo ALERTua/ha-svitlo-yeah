@@ -51,7 +51,11 @@ class TestParseTimestamp:
         assert result is None
 
     def test_parse_timestamp_naive_formats_as_local(self):
-        """Test that naive DD.MM.YYYY formats are treated as Europe/Kyiv and converted to local."""
+        """
+        A naive DD.MM.YYYY format means the time of Europe/Kyiv.
+
+        The parser converts it to the local time.
+        """
         # Test a specific naive format
         timestamp_str = "07.12.2025 00:01"
         result = parse_timestamp(timestamp_str)

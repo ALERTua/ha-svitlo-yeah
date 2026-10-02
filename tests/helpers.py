@@ -105,7 +105,7 @@ def e_svitlo_outage_all_day_today() -> dict:
 
 
 def dtek_answers(aioclient_mock, fact: dict | None = None) -> None:
-    """Serve the DTEK feeds with this fact schedule, or fail each request without one."""
+    """Serve the DTEK feeds with this fact schedule, or fail each request without it."""
     for url in KYIV_REGION_URLS:
         if fact is None:
             aioclient_mock.get(url, exc=ClientError())
@@ -123,7 +123,7 @@ def yasno_answers(aioclient_mock, *, answer: bool) -> None:
 
 
 def e_svitlo_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the E-Svitlo login and disconnections, or fail the disconnections request."""
+    """Serve the E-Svitlo login and disconnections, or fail the disconnections."""
     aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
     aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
     if answer:
@@ -139,17 +139,17 @@ def e_svitlo_answers(aioclient_mock, *, answer: bool) -> None:
 PROVIDERS = {
     "dtek": (
         DTEK_KYIV_REGION_1_1,
-        lambda mock, answer: dtek_answers(
+        lambda mock, *, answer: dtek_answers(
             mock, fact_with_an_outage_today(datetime.now(UTC)) if answer else None
         ),
     ),
     "yasno": (
         YASNO_KYIV_1_1,
-        lambda mock, answer: yasno_answers(mock, answer=answer),
+        lambda mock, *, answer: yasno_answers(mock, answer=answer),
     ),
     "e_svitlo": (
         E_SVITLO_ACCOUNT_101,
-        lambda mock, answer: e_svitlo_answers(mock, answer=answer),
+        lambda mock, *, answer: e_svitlo_answers(mock, answer=answer),
     ),
 }
 

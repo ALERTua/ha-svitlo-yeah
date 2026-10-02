@@ -7,26 +7,26 @@ from typing import TYPE_CHECKING
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util import dt as dt_utils
 
-from ...api.dtek.base import FetchResult
-from ...const import (
+from custom_components.svitlo_yeah.api.dtek.base import FetchResult
+from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
     DOMAIN,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
-from ...models import (
+from custom_components.svitlo_yeah.coordinator.coordinator import IntegrationCoordinator
+from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEventType,
 )
-from ...models.providers import DTEKJsonProvider
-from ..coordinator import IntegrationCoordinator
+from custom_components.svitlo_yeah.models.providers import DTEKJsonProvider
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-    from ...api.dtek.base import DtekAPIBase
+    from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,11 +85,11 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         result = await self.api.fetch_data()
         LOGGER.debug("Fetched %s data for %s", result, self)
         # An outdated schedule is an answer of the source, not a failure
-        self._set_last_fetch_failed(result is FetchResult.UNAVAILABLE)
+        self._set_last_fetch_failed(failed=result is FetchResult.UNAVAILABLE)
 
         # Only fresh data can tell whether the source still lists the group.
         if result is FetchResult.FRESH:
-            await self._async_update_group_listed(self.api.is_group_listed())
+            await self._async_update_group_listed(listed=self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)
         current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))

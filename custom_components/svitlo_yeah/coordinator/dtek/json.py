@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 from homeassistant.exceptions import ConfigEntryError
 
-from ...api.dtek.json import DtekAPIJson
-from ...const import DOMAIN, DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
+from custom_components.svitlo_yeah.const import DOMAIN, DTEK_PROVIDER_URLS
+
 from .base import DtekCoordinatorBase
 
 if TYPE_CHECKING:

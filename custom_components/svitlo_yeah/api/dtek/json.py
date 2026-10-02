@@ -11,7 +11,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-from ...const import DTEK_FRESH_DATA_DAYS
+from custom_components.svitlo_yeah.const import DTEK_FRESH_DATA_DAYS
+
 from .base import DtekAPIBase, FetchResult
 
 LOGGER = logging.getLogger(__name__)

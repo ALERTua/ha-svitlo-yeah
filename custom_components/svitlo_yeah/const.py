@@ -29,6 +29,11 @@ TZ_UA = ZoneInfo("Europe/Kyiv")
 UPDATE_INTERVAL: Final = 15
 DTEK_FRESH_DATA_DAYS: Final = 2
 
+# The schedules count the hours of one day; 23:59 stands for the end of a day
+HOURS_IN_DAY: Final = 24
+LAST_HOUR: Final = 23
+LAST_MINUTE: Final = 59
+
 # API Endpoints
 YASNO_REGIONS_ENDPOINT: Final = (
     "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/regions"

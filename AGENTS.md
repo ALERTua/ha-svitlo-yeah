@@ -100,10 +100,7 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
   (`list[...]`, `dict[...]`) — not `Optional`, `Union`, `List`, `Dict`.
 - **`TYPE_CHECKING` guards:** import types used only in annotations under
   `if TYPE_CHECKING:` (see `api/dtek/json.py`). Deferred annotations make this safe.
-- **Ruff with `select = ALL`** and `max-complexity = 25`. A small ignore set lives
-  in `.ruff.toml` (e.g. `ANN401`, formatter-conflict rules). Tests relax some
-  rules (`ANN*`, `S101`, `SLF001`, `PLR2004`, `E501`, `DTZ001`). Prefer a
-  narrowly-scoped `# noqa: RULE` with reason over broadening the global ignores.
+- **Ruff with `select = ALL`** and `max-complexity = 25`. The `ignore` list of `.ruff.toml` has only the rules that conflict with the formatter, `ANN401` and `CPY001`. The tests skip only the rules that a test has no reason to follow, and `.ruff.toml` gives the reason of each. A module in a subpackage imports a parent module by its absolute name, for example `from custom_components.svitlo_yeah.const import DOMAIN`, because `TID252` forbids `from ..const import DOMAIN`. A method that overrides a method of Home Assistant gets `@override` from `typing`, so that ruff does not report the arguments that it does not use. Prefer a narrowly-scoped `# noqa: RULE  # reason` over broadening the global ignores.
 - **Timezone-aware datetimes everywhere.** This is an invariant: HA's
   `calendar.async_get_events` passes tz-aware datetimes, so
   `coordinator.get_events_between` and `api.get_events` datetimes are tz-aware
