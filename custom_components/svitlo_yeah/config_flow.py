@@ -9,6 +9,7 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
 )
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
@@ -63,10 +64,10 @@ def _esvitlo_login_schema() -> vol.Schema:
     """
     return vol.Schema(
         {
-            vol.Required("username"): TextSelector(
+            vol.Required(CONF_USERNAME): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.TEXT, autocomplete="username")
             ),
-            vol.Required("password"): TextSelector(
+            vol.Required(CONF_PASSWORD): TextSelector(
                 TextSelectorConfig(
                     type=TextSelectorType.PASSWORD,
                     autocomplete="current-password",
@@ -376,8 +377,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
             # Validate credentials by attempting login
             provider = ESvitloProvider(
-                user_name=user_input["username"],
-                password=user_input["password"],
+                user_name=user_input[CONF_USERNAME],
+                password=user_input[CONF_PASSWORD],
             )
 
             client = ESvitloClient(self.hass, provider)
@@ -385,8 +386,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
             if login is LoginResult.OK:
                 # Authentication successful, store credentials and proceed
-                self.data["username"] = user_input["username"]
-                self.data["password"] = user_input["password"]
+                self.data[CONF_USERNAME] = user_input[CONF_USERNAME]
+                self.data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
 
                 # Proceed to account/group selection
                 # noinspection PyTypeChecker
@@ -402,7 +403,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # After an error, keep the typed username; the password is never sent back
         if user_input is not None:
             data_schema = self.add_suggested_values_to_schema(
-                data_schema, {"username": user_input["username"]}
+                data_schema, {CONF_USERNAME: user_input[CONF_USERNAME]}
             )
 
         # noinspection PyTypeChecker
@@ -432,7 +433,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             client = ESvitloClient(
                 self.hass,
                 ESvitloProvider(
-                    user_name=user_input["username"], password=user_input["password"]
+                    user_name=user_input[CONF_USERNAME],
+                    password=user_input[CONF_PASSWORD],
                 ),
             )
             login = await client.try_login()
@@ -456,19 +458,19 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_update_and_abort(
                     entry,
                     data_updates={
-                        "username": user_input["username"],
-                        "password": user_input["password"],
+                        CONF_USERNAME: user_input[CONF_USERNAME],
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
                     },
                     reason="reauth_successful",
                 )
 
         # The username of the entry, or the typed one; the password is never sent back
-        username = (user_input or entry.data).get("username")
+        username = (user_input or entry.data).get(CONF_USERNAME)
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=self.add_suggested_values_to_schema(
-                _esvitlo_login_schema(), {"username": username}
+                _esvitlo_login_schema(), {CONF_USERNAME: username}
             ),
             errors=errors,
             description_placeholders={"esvitlo_url": E_SVITLO_URL},
@@ -493,8 +495,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             # from the account list
             # Re-instantiate client to fetch accounts
             provider = ESvitloProvider(
-                user_name=self.data["username"],
-                password=self.data["password"],
+                user_name=self.data[CONF_USERNAME],
+                password=self.data[CONF_PASSWORD],
             )
             client = ESvitloClient(self.hass, provider)
             accounts = await client.get_accounts() or []
@@ -519,8 +521,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # We already have credentials in self.data from previous step
         provider = ESvitloProvider(
-            user_name=self.data["username"],
-            password=self.data["password"],
+            user_name=self.data[CONF_USERNAME],
+            password=self.data[CONF_PASSWORD],
         )
         client = ESvitloClient(self.hass, provider)
 

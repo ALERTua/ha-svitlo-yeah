@@ -4,6 +4,7 @@ import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.util import dt as dt_utils
 
 from .const import CONF_ACCOUNT_ID, CONF_ADDRESS_STR
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from .coordinator.coordinator import SvitloYeahConfigEntry
 
 # The E-Svitlo login, the personal account and its address identify a person
-TO_REDACT = {"username", "password", CONF_ACCOUNT_ID, CONF_ADDRESS_STR}
+TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCOUNT_ID, CONF_ADDRESS_STR}
 LOOK_AHEAD = datetime.timedelta(hours=24)
 
 
