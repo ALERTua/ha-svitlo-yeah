@@ -121,9 +121,21 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         self._store = Store(
             self.hass, STORE_VERSION, store_key(self.config_entry.entry_id)
         )
-        stored = await self._store.async_load()
-        if not stored:
-            return
+        try:
+            stored = await self._store.async_load()
+            if stored:
+                await self._async_restore(stored)
+        except Exception:  # a store that this version cannot read
+            self._stored = None
+            LOGGER.warning(
+                "The kept data of entry %s cannot be read, so the entry starts "
+                "without it",
+                self.config_entry.entry_id,
+            )
+            LOGGER.debug("The kept data cannot be read", exc_info=True)
+
+    async def _async_restore(self, stored: dict) -> None:
+        """Give the kept data back to the coordinator and its API."""
         self._stored = stored
         self._restore_source_data(stored["source"])
         if changed := stored.get("outage_data_last_changed"):

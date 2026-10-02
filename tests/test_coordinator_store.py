@@ -39,6 +39,7 @@ from tests.helpers import (
     YASNO_KYIV,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
+    dtek_answers,
     e_svitlo_outage_all_day_today,
     fact_with_an_outage_today,
     yasno_outage_all_day_today,
@@ -93,6 +94,34 @@ async def test_fresh_dtek_data_goes_into_the_store(hass, aioclient_mock, hass_st
     kept = hass_storage[store_key(entry.entry_id)]["data"]
     assert kept["source"] == {"fact": fact, "preset": {}}
     assert (kept["group"], kept["group_listed"]) == ("1.1", True)
+    await _unload(hass, entry)
+
+
+@pytest.mark.parametrize(
+    "kept",
+    [
+        {"version": STORE_VERSION + 1, "minor_version": 1, "data": {"source": {}}},
+        {"version": STORE_VERSION, "minor_version": 1, "data": {"group": "1.1"}},
+    ],
+    ids=["newer_version", "no_source"],
+)
+async def test_unreadable_store_does_not_stop_the_setup(
+    hass, aioclient_mock, hass_storage, caplog, kept
+):
+    """A kept store that this version cannot read is skipped, and the source answers."""
+    dtek_answers(aioclient_mock, fact_with_an_outage_today(datetime.now(UTC)))
+    entry = MockConfigEntry(domain=DOMAIN, data=DTEK_KYIV_REGION_1_1)
+    entry.add_to_hass(hass)
+    hass_storage[store_key(entry.entry_id)] = {**kept, "key": store_key(entry.entry_id)}
+
+    coordinator = await _set_up(hass, entry)
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert "cannot be read" in caplog.text
+    # The fresh data replaces the store that could not be read
+    assert hass_storage[store_key(entry.entry_id)]["version"] == STORE_VERSION
+    assert "source" in hass_storage[store_key(entry.entry_id)]["data"]
     await _unload(hass, entry)
 
 
