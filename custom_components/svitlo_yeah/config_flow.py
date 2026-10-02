@@ -9,7 +9,6 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
 )
-from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
@@ -19,6 +18,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from homeassistant.helpers.translation import async_get_translations
 
 from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
@@ -155,8 +155,40 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # noinspection PyTypeChecker
         return self.async_show_form(step_id="user", data_schema=data_schema)
 
-    @callback
-    def _async_save_group(self, user_input: dict) -> ConfigFlowResult:
+    async def _async_entry_title(self, data: Mapping[str, Any]) -> str:
+        """
+        Return the title that the integration gives an entry with this data.
+
+        The title is the device name in the language of the server, so that the
+        entries differ on the page of the integration. An E-Svitlo title has no
+        address, because the debug log shows the title of the entry.
+        """
+        names = await async_get_translations(
+            self.hass, self.hass.config.language, "common", [DOMAIN]
+        )
+        provider_type = data.get(CONF_PROVIDER_TYPE)
+        provider_id = data.get(CONF_PROVIDER)
+        provider_name = names.get(
+            f"component.{DOMAIN}.common.{provider_id}", str(provider_id)
+        )
+        if provider_type == PROVIDER_TYPE_E_SVITLO:
+            return f"{provider_name} E-Svitlo"
+        if provider_type == PROVIDER_TYPE_YASNO:
+            api = YasnoApi(self.hass)
+            # The regions come from the class cache, if a flow or an entry
+            # fetched them before
+            await api.fetch_yasno_regions()
+            region_id = data.get(CONF_REGION)
+            region = api.get_region_by_id(region_id) if region_id else None
+            dsos = region.dsos if region else []
+            provider = next((_ for _ in dsos if _.provider_id == provider_id), None)
+            if region is None or provider is None:
+                # Without the Yasno regions the title has no names to show
+                return NAME
+            provider_name = f"{region.name} {provider.short_name}"
+        return f"{provider_name} {data.get(CONF_GROUP)}"
+
+    async def _async_save_group(self, user_input: dict) -> ConfigFlowResult:
         """Create the entry with the chosen group, or give the group to the entry."""
         LOGGER.debug("async_step_group: User input: %s", user_input)
         self.data.update(user_input)  # add group to the config
@@ -183,26 +215,35 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
         if self.source == SOURCE_RECONFIGURE:
+            entry = self._get_reconfigure_entry()
+            # A title that the integration gave follows the group, and a title
+            # of the user stays. NAME is the title that the earlier versions gave.
+            title = entry.title
+            if title in (NAME, await self._async_entry_title(entry.data)):
+                title = await self._async_entry_title(self.data)
             # The update listener of the entry reloads it with the new group.
             # An explicit reason keeps the text of this integration: without
             # it, the 2026.10 development core shows the core translation.
             # noinspection PyTypeChecker
             return self.async_update_and_abort(
-                self._get_reconfigure_entry(),
+                entry,
+                title=title,
                 data_updates={CONF_GROUP: self.data[CONF_GROUP]},
                 reason="reconfigure_successful",
             )
 
         LOGGER.debug("async_step_group: Done. Creating entry from %s", self.data)
         # noinspection PyTypeChecker
-        return self.async_create_entry(title=NAME, data=self.data)
+        return self.async_create_entry(
+            title=await self._async_entry_title(self.data), data=self.data
+        )
 
     async def async_step_group(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step: select group."""
         if user_input is not None:
-            return self._async_save_group(user_input)
+            return await self._async_save_group(user_input)
 
         LOGGER.debug("async_step_user: No User input yet")
 
@@ -465,7 +506,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.data[CONF_ADDRESS_STR] = selected_acc.get("address")
 
             # noinspection PyTypeChecker
-            return self.async_create_entry(title=NAME, data=self.data)
+            return self.async_create_entry(
+                title=await self._async_entry_title(self.data), data=self.data
+            )
 
         # We already have credentials in self.data from previous step
         provider = ESvitloProvider(

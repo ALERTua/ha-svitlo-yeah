@@ -20,8 +20,6 @@ from custom_components.svitlo_yeah.const import (
     CONF_PROVIDER,
     CONF_REGION,
     DOMAIN,
-    PROVIDER_DTEK_FULL,
-    PROVIDER_DTEK_SHORT,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
@@ -35,16 +33,6 @@ from custom_components.svitlo_yeah.models import (
 from .coordinator import IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
-
-
-def _simplify_provider_name(provider_name: str) -> str:
-    """Simplify provider names for cleaner display in device names."""
-    # Replace long DTEK provider names with just "ДТЕК"
-    if PROVIDER_DTEK_FULL in provider_name.upper():
-        return PROVIDER_DTEK_SHORT
-
-    # Add more provider simplifications here as needed
-    return provider_name
 
 
 class YasnoCoordinator(IntegrationCoordinator):
@@ -195,7 +183,7 @@ class YasnoCoordinator(IntegrationCoordinator):
             LOGGER.debug("Trying to get provider_name without provider")
             return ""
 
-        return _simplify_provider_name(self.provider.name)
+        return self.provider.short_name
 
     def get_scheduled_events_between(
         self,

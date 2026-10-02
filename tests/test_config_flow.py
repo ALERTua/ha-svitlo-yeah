@@ -20,6 +20,7 @@ from custom_components.svitlo_yeah.const import (
     DOMAIN,
     DTEK_PROVIDER_URLS,
     E_SVITLO_SUMY_BASE_URL,
+    NAME,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
@@ -295,6 +296,7 @@ class TestSetupWithRealProviderApis:
         # The consent is a flag of the flow, so the entry data does not keep it.
         assert result["data"] == DTEK_KYIV_REGION_1_1
         assert hass.config_entries.async_entries(DOMAIN)[0].data == DTEK_KYIV_REGION_1_1
+        assert result["title"] == "Kyiv Region 1.1"
 
     async def test_dtek_dnipro_labels_the_cek_groups(self, hass, aioclient_mock):
         """A group that the source names without its number gets a label."""
@@ -335,6 +337,8 @@ class TestSetupWithRealProviderApis:
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"] == YASNO_KYIV_1_1
+        # The long DTEK name of the source becomes «ДТЕК», as in the device name
+        assert result["title"] == "Київ ДТЕК 1.1"
 
     async def test_yasno_without_groups_aborts(self, hass, aioclient_mock):
         """Yasno planned outages without groups stop the flow."""
@@ -405,6 +409,7 @@ class TestReconfigureGroup:
     async def test_yasno_group_that_the_source_lacks(self, hass, aioclient_mock):
         """A group that the source lacks is not preselected."""
         entry = _add_entry(hass, {**YASNO_KYIV_1_1, CONF_GROUP: "1.2"})
+        aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=YASNO_REGIONS)
         aioclient_mock.get(YASNO_PLANNED_URL, json={"1.1": {}, "3.1": {}})
 
         result = await entry.start_reconfigure_flow(hass)
@@ -427,6 +432,64 @@ class TestReconfigureGroup:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "reconfigure_e_svitlo"
         assert entry.data == data
+
+
+class TestEntryTitle:
+    """The title of an entry names its provider and group, as the device name does."""
+
+    async def test_title_in_the_language_of_the_server(self, hass, aioclient_mock):
+        """The provider name in the title comes in the language of the server."""
+        hass.config.language = "uk"
+        aioclient_mock.get(
+            KYIV_REGION_URL, json=_dtek_feed(fresh=True, fact_groups=("1.1",))
+        )
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: KYIV_REGION_KEY})
+        result = await _configure(hass, result, {CONF_GROUP: "1.1"})
+
+        assert result["title"] == "Київська Область 1.1"
+
+    @pytest.mark.parametrize(
+        ("title", "new_title"),
+        [
+            ("Kyiv Region 1.1", "Kyiv Region 2.2"),
+            (NAME, "Kyiv Region 2.2"),
+            ("Дача", "Дача"),
+        ],
+        ids=["title_of_the_integration", "title_of_earlier_versions", "own_title"],
+    )
+    async def test_reconfigure_keeps_a_title_of_the_user(
+        self, hass, aioclient_mock, title, new_title
+    ):
+        """Reconfigure moves a title of the integration to the new group."""
+        entry = MockConfigEntry(domain=DOMAIN, data=DTEK_KYIV_REGION_1_1, title=title)
+        entry.add_to_hass(hass)
+        aioclient_mock.get(
+            KYIV_REGION_URL, json=_dtek_feed(fresh=True, fact_groups=("1.1", "2.2"))
+        )
+
+        result = await entry.start_reconfigure_flow(hass)
+        result = await _configure(hass, result, {CONF_GROUP: "2.2"})
+
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data[CONF_GROUP] == "2.2"
+        assert entry.title == new_title
+
+    async def test_yasno_title_without_the_regions(self, hass, aioclient_mock):
+        """Without the Yasno regions the integration has no names: the title stays."""
+        entry = MockConfigEntry(
+            domain=DOMAIN, data={**YASNO_KYIV_1_1, CONF_GROUP: "1.2"}, title="Мій дім"
+        )
+        entry.add_to_hass(hass)
+        aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
+        aioclient_mock.get(YASNO_PLANNED_URL, json={"1.1": {}, "3.1": {}})
+
+        result = await entry.start_reconfigure_flow(hass)
+        result = await _configure(hass, result, {CONF_GROUP: "3.1"})
+
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.title == "Мій дім"
 
 
 class TestDuplicateGroup:
@@ -557,6 +620,8 @@ class TestDuplicateESvitloAccount:
             CONF_ACCOUNT_ID: "102",
             CONF_ADDRESS_STR: "Суми, вул. Друга, 2",
         }
+        # The address is personal data, and the debug log shows the title
+        assert result["title"] == "Sumy E-Svitlo"
 
 
 class TestESvitloLoginForm:
