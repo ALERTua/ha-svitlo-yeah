@@ -169,7 +169,13 @@ class ESvitloClient:
                 #     "infinity"
                 #  ]```
                 self.group = identifiers[0]
-            LOGGER.debug("E-Svitlo all_user info: %s", data_all)
+            # The answer has the personal data of the account, and README asks
+            # the user to attach the debug log to a public issue
+            LOGGER.debug(
+                "E-Svitlo account details: group %s, keys %s",
+                self.group,
+                sorted(data_all.get("data", {})),
+            )
             return data_all
 
         return None
