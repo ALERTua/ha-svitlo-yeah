@@ -304,6 +304,86 @@ async def test_e_svitlo_restart_without_an_answer_shows_the_kept_schedule(
     await _unload(hass, entry)
 
 
+def _dtek_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
+    """Keep a DTEK outage all day; serve it again, or power all day."""
+    fact = fact_with_an_outage_today(datetime.now(UTC) - timedelta(hours=1))
+    ((day, groups),) = fact["data"].items()
+    no_outage = {**groups, "GPV1.1": dict.fromkeys(groups["GPV1.1"], "yes")}
+    dtek_answers(mock, {**fact, "data": {day: no_outage}} if changed else fact)
+    return DTEK_KYIV_REGION_1_1, {"fact": fact, "preset": {}}, "1.1"
+
+
+def _yasno_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
+    """
+    Keep Yasno outages all day today and late tomorrow.
+
+    Serve them again, or no outage today. The outage of tomorrow starts more
+    than 24 hours after 09:00 today.
+    """
+    tomorrow = dt_utils.start_of_local_day() + timedelta(days=1)
+    late_tomorrow = {
+        "slots": [{"start": 1320, "end": 1440, "type": "Definite"}],
+        "date": tomorrow.isoformat(),
+        "status": "ScheduleApplies",
+    }
+    outage = yasno_outage_all_day_today()
+    outage["1.1"]["tomorrow"] = late_tomorrow
+    served = yasno_outage_all_day_today()
+    served["1.1"]["tomorrow"] = late_tomorrow
+    if changed:
+        served["1.1"]["today"]["slots"] = []
+    mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    mock.get(YASNO_PLANNED_URL, json=served)
+    source = {"planned_outage_data": outage, "region": YASNO_KYIV}
+    return YASNO_KYIV_1_1, source, "1.1"
+
+
+def _e_svitlo_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
+    """Keep an E-Svitlo outage all day; serve it again, or a day without outages."""
+    answer = e_svitlo_outage_all_day_today()
+    served = {"data": {**answer["data"], "lst_time_disc": []}} if changed else answer
+    mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    mock.post(E_SVITLO_DISCONNECTIONS_URL, json=served)
+    source = {"disconnections": answer, "last_update": None, "group": "4.1"}
+    return E_SVITLO_ACCOUNT_101, source, "4.1"
+
+
+@pytest.mark.parametrize("changed", [True, False], ids=["changed", "same"])
+@pytest.mark.parametrize(
+    "restart",
+    [_dtek_restart, _yasno_restart, _e_svitlo_restart],
+    ids=["dtek", "yasno", "e_svitlo"],
+)
+async def test_first_answer_after_a_restart_is_compared_with_the_kept_schedule(
+    hass, aioclient_mock, hass_storage, freezer, restart, changed
+):
+    """
+    A schedule that changed while Home Assistant was down fires one event.
+
+    The same schedule fires none and keeps the kept time of the last change.
+    """
+    freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=9))
+    data, source, group = restart(aioclient_mock, changed=changed)
+    kept_change = dt_utils.now() - timedelta(days=2)
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry.add_to_hass(hass)
+    hass_storage[store_key(entry.entry_id)] = _kept(
+        source, group=group, outage_data_last_changed=kept_change.isoformat()
+    )
+    changes = async_capture_events(hass, EVENT_DATA_CHANGED)
+
+    coordinator = await _set_up(hass, entry)
+
+    assert len(changes) == int(changed)
+    assert (coordinator.outage_data_last_changed != kept_change) is changed
+    kept = hass_storage[store_key(entry.entry_id)]["data"]
+    assert kept["outage_data_last_changed"] == (
+        coordinator.outage_data_last_changed.isoformat()
+    )
+    await _unload(hass, entry)
+
+
 @pytest.mark.parametrize(
     ("data", "urls"),
     [
