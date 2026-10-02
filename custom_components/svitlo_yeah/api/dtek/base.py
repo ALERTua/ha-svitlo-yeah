@@ -118,9 +118,8 @@ def _ranges_to_events(
     """
     Turn the outage time ranges of one day into events.
 
-    ``day`` is any moment of that day in Europe/Kyiv, the time zone of the
-    hours of the source. A range that ends at 23:59 or at 0:00 ends at the
-    midnight after the day.
+    ``day`` is any moment of the day in Europe/Kyiv. A range that ends at 23:59
+    or at 0:00 ends at the midnight after the day.
     """
     next_midnight = (day + datetime.timedelta(days=1)).replace(
         hour=0,
@@ -210,10 +209,8 @@ class DtekAPIBase:
         """
         Get labels for the groups whose name in the source does not show the group.
 
-        The weekly preset schedule names each group in ``sch_names``, for example
-        ``"GPV1001.1": "ЦЕК 1.1"``. Such a name gets a label with the group in
-        parentheses: ``"ЦЕК 1.1 (1001.1)"``. A name that already shows the group,
-        such as ``"Черга 1.1"``, gets no label.
+        For ``sch_names`` of the preset ``{"GPV1001.1": "ЦЕК 1.1"}`` the label is
+        ``"ЦЕК 1.1 (1001.1)"``. A name such as ``"Черга 1.1"`` gets no label.
         """
         labels = {}
         for key, name in self._preset_section("sch_names").items():
@@ -226,10 +223,8 @@ class DtekAPIBase:
         """
         Tell whether the source has a schedule for the configured group.
 
-        True: the group is in a day of the fact schedule or in the preset
-        schedule. False: the source lists other groups only.
-        None: there is no data, no configured group, or no listed group at all,
-        so the source says nothing about the group.
+        True: a fact day or the preset has the group. False: only other groups.
+        None: no data, no configured group, or no listed group, so no answer.
         """
         if not self.group:
             return None

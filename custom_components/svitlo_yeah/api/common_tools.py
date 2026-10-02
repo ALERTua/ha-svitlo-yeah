@@ -11,8 +11,7 @@ from custom_components.svitlo_yeah.models import PlannedOutageEvent
 
 LOGGER = logging.getLogger(__name__)
 
-# A request without a usable answer: no connection, a timeout, or a body
-# that is not JSON
+# No usable answer: no connection, a timeout, or a body that is not JSON
 REQUEST_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
 
 
