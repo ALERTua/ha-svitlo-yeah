@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import (
@@ -227,6 +228,54 @@ async def test_yasno_restart_without_an_answer_shows_the_kept_schedule(
     assert (coordinator.region_name, coordinator.provider_name) == ("Київ", "ДТЕК")
     # The kept region names only this device, the config flow still asks Yasno
     assert YasnoApi._regions is None
+    await _unload(hass, entry)
+
+
+async def test_yasno_names_of_the_source_win_over_the_kept_region(
+    hass, aioclient_mock, hass_storage
+):
+    """After a restart, the names that Yasno gives now name the device and are kept."""
+    old_region = {
+        "id": 25,
+        "value": "Київ (стара назва)",
+        "dsos": [{"id": 902, "name": "Стара назва"}],
+    }
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+    hass_storage[store_key(entry.entry_id)] = _kept(
+        {"planned_outage_data": yasno_outage_all_day_today(), "region": old_region}
+    )
+
+    coordinator = await _set_up(hass, entry)
+
+    assert (coordinator.region_name, coordinator.provider_name) == ("Київ", "ДТЕК")
+    device = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
+    assert device is not None
+    assert device.name == "Київ ДТЕК 1.1"
+    kept = hass_storage[store_key(entry.entry_id)]["data"]["source"]["region"]
+    assert kept == YASNO_KYIV
+    await _unload(hass, entry)
+
+
+async def test_yasno_regions_that_come_later_name_the_provider(hass, aioclient_mock):
+    """When the regions request fails at the start, a later answer gives the names."""
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
+    aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+    coordinator = await _set_up(hass, entry)
+    assert (coordinator.region_name, coordinator.provider_name) == ("", "")
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
+    await coordinator.async_refresh()
+
+    assert (coordinator.region_name, coordinator.provider_name) == ("Київ", "ДТЕК")
     await _unload(hass, entry)
 
 
