@@ -1,7 +1,6 @@
 """E-Svitlo coordinator for Svitlo Yeah integration."""
 
 import logging
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import SOURCE_REAUTH
@@ -20,7 +19,7 @@ from custom_components.svitlo_yeah.models import (
     PlannedOutageEventType,
 )
 
-from .coordinator import IntegrationCoordinator
+from .coordinator import CHANGE_CHECK_WINDOW, IntegrationCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
@@ -117,8 +116,8 @@ class ESvitloCoordinator(IntegrationCoordinator):
                 )
                 # Check if outage data has changed
                 now = dt_utils.now()
-                current_events = self.api.get_events(now, now + timedelta(hours=24))
-                self.check_outage_data_changed(current_events)
+                current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
+                self.check_outage_data_changed(current_events, now)
             else:
                 LOGGER.debug("Failed to fetch E-Svitlo data")
                 # Keep existing data if fetch fails
