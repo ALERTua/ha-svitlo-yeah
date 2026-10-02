@@ -19,9 +19,6 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-# Claude Code runs this script by its path, so its folder is not a package
-".claude/*.py" = ["INP001"]
-
 # The rules that a test has no reason to follow
 "tests/**" = [
     "S101",    # pytest checks each result with assert, and nobody runs the tests with python -O
