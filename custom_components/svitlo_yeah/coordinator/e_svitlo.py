@@ -104,6 +104,9 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
             # Get disconnections data
             events = await self.api.get_disconnections()
+            # The entry can be unloaded or removed while the server answers
+            if self._shutdown_requested:
+                return
             # A refused login is an answer of the server, not a missing answer
             self._set_last_fetch_failed(
                 failed=events is None and not self.api.login_rejected
