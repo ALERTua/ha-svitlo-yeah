@@ -100,7 +100,11 @@ class YasnoCoordinator(IntegrationCoordinator):
         await self.async_fetch_translations()
 
         # Fetch outages data (now async with aiohttp, not blocking)
-        self._set_last_fetch_failed(failed=not await self.api.fetch_data())
+        answered = await self.api.fetch_data()
+        # The entry can be unloaded or removed while the source answers
+        if self._shutdown_requested:
+            return
+        self._set_last_fetch_failed(failed=not answered)
         await self._async_update_group_listed(listed=self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)

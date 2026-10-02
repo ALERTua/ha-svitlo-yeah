@@ -4,6 +4,8 @@ The last data of an entry stays across a restart.
 AGENTS.md tells why, in «Old states until new data».
 """
 
+import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -15,10 +17,14 @@ from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
 )
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMockResponse,
+)
 
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     DOMAIN,
+    E_SVITLO_ERROR_NOT_LOGGED_IN,
     EVENT_DATA_CHANGED,
     TZ_UA,
     YASNO_REGIONS_ENDPOINT,
@@ -36,6 +42,7 @@ from tests.helpers import (
     E_SVITLO_DISCONNECTIONS_URL,
     E_SVITLO_LOGIN_URL,
     KYIV_REGION_URLS,
+    PROVIDERS,
     YASNO_KYIV,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
@@ -407,6 +414,99 @@ async def test_new_entry_without_an_answer_keeps_nothing(
 
     assert store_key(entry.entry_id) not in hass_storage
     await _unload(hass, entry)
+
+
+def _late_dtek_answer(mock, answer) -> None:
+    """Serve DTEK with an answer that waits; it lacks group 1.1 of the entry."""
+    today = int(kyiv_midnight().timestamp())
+    fact = {
+        "data": {str(today): {"GPV1.2": {"1": "no"}}},
+        "update": datetime.now(UTC).strftime("%d.%m.%Y %H:%M"),
+        "today": today,
+    }
+    for url in KYIV_REGION_URLS:
+        mock.get(url, side_effect=answer({"fact": fact, "preset": {}}))
+
+
+def _late_yasno_answer(mock, answer) -> None:
+    """Serve Yasno with an answer that waits; it lacks group 1.1 of the entry."""
+    mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    late = {"1.2": yasno_outage_all_day_today()["1.1"]}
+    mock.get(YASNO_PLANNED_URL, side_effect=answer(late))
+
+
+def _late_e_svitlo_answer(mock, answer) -> None:
+    """Serve E-Svitlo with another schedule that waits."""
+    late = e_svitlo_outage_all_day_today()
+    late["data"]["lst_time_disc"] = [{"start_time": "20:00", "end_time": "22:00"}]
+    mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    mock.post(E_SVITLO_DISCONNECTIONS_URL, side_effect=answer(late))
+
+
+def _late_e_svitlo_refusal(mock, answer) -> None:
+    """End the E-Svitlo session with an answer that waits, and refuse the new login."""
+    late = {"error": {"err": E_SVITLO_ERROR_NOT_LOGGED_IN}}
+    mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": False}})
+    mock.post(E_SVITLO_DISCONNECTIONS_URL, side_effect=answer(late))
+
+
+@pytest.mark.parametrize("action", ["remove", "unload"])
+@pytest.mark.parametrize(
+    ("provider", "late_answer"),
+    [
+        ("dtek", _late_dtek_answer),
+        ("yasno", _late_yasno_answer),
+        ("e_svitlo", _late_e_svitlo_answer),
+        ("e_svitlo", _late_e_svitlo_refusal),
+    ],
+    ids=["dtek", "yasno", "e_svitlo", "e_svitlo_refusal"],
+)
+async def test_poll_that_ends_after_the_entry_is_gone_changes_nothing(
+    hass, aioclient_mock, hass_storage, caplog, provider, late_answer, action
+):
+    """
+    A poll that ends after an unload or a removal keeps nothing and asks nothing.
+
+    Home Assistant does not cancel a running poll at the unload of the entry.
+    """
+    data, answers = PROVIDERS[provider]
+    answers(aioclient_mock, answer=True)
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry.add_to_hass(hass)
+    coordinator = await _set_up(hass, entry)
+    kept = hass_storage[store_key(entry.entry_id)]["data"]
+
+    asked, release = asyncio.Event(), asyncio.Event()
+
+    def answer(payload):
+        async def wait_and_answer(method, url, _data):
+            asked.set()
+            await release.wait()
+            return AiohttpClientMockResponse(method, url, json=payload)
+
+        return wait_and_answer
+
+    aioclient_mock.clear_requests()
+    late_answer(aioclient_mock, answer)
+    poll = hass.async_create_task(coordinator.async_refresh())
+    await asyncio.wait_for(asked.wait(), 5)
+    if action == "remove":
+        assert await hass.config_entries.async_remove(entry.entry_id)
+    else:
+        assert await hass.config_entries.async_unload(entry.entry_id)
+    release.set()
+    await poll
+    await hass.async_block_till_done()
+
+    if action == "remove":
+        assert store_key(entry.entry_id) not in hass_storage
+    else:
+        assert hass_storage[store_key(entry.entry_id)]["data"] == kept
+    issue_id = group_not_listed_issue_id(entry.entry_id)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
+    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR] == []
 
 
 async def test_removed_entry_takes_its_store_along(hass, aioclient_mock, hass_storage):

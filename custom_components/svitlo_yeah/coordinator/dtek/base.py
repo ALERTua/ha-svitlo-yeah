@@ -83,6 +83,9 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         now = dt_utils.now()
         result = await self.api.fetch_data()
         LOGGER.debug("Fetched %s data for %s", result, self)
+        # The entry can be unloaded or removed while the source answers
+        if self._shutdown_requested:
+            return
         # An outdated schedule is an answer of the source, not a failure
         self._set_last_fetch_failed(failed=result is FetchResult.UNAVAILABLE)
 
