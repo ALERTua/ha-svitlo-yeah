@@ -60,6 +60,7 @@ E_SVITLO_ACCOUNT_101 = {
     CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
 }
 E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
+E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
 E_SVITLO_DETAILS_URL = E_SVITLO_SUMY_BASE_URL + "/api_main_reg/all_details_ls_api.json"
 E_SVITLO_DISCONNECTIONS_URL = (
     E_SVITLO_SUMY_BASE_URL + "api_main/get_user_disconnections_image_api.json"

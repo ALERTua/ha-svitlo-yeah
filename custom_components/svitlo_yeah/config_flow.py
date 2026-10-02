@@ -446,13 +446,17 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 # noinspection PyTypeChecker
                 return self.async_abort(reason="wrong_account")
             else:
+                # A changed login reloads the entry through its update listener,
+                # and the same login waits for the next poll. The explicit reason
+                # keeps the text of this integration, as in Reconfigure.
                 # noinspection PyTypeChecker
-                return self.async_update_reload_and_abort(
+                return self.async_update_and_abort(
                     entry,
                     data_updates={
                         "username": user_input["username"],
                         "password": user_input["password"],
                     },
+                    reason="reauth_successful",
                 )
 
         # The username of the entry, or the typed one; the password is never sent back
