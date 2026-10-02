@@ -27,6 +27,15 @@ from custom_components.svitlo_yeah.models import (
 LOGGER = logging.getLogger(__name__)
 
 
+def _has_schedule(answer: dict) -> bool:
+    """Return whether an answer of the disconnections request has a schedule."""
+    error = answer.get("error")
+    if isinstance(error, dict) and error.get("err"):
+        return False
+    data = answer.get("data")
+    return isinstance(data, dict) and bool(data)
+
+
 class LoginResult(Enum):
     """Outcome of an E-Svitlo login attempt."""
 
@@ -193,6 +202,11 @@ class ESvitloClient:
             {"a": self.user_id, "cherga": self.group, "mobile_v": True},
         )
 
+        if data and not _has_schedule(data):
+            # The server can answer 200 with an error text or with empty data
+            LOGGER.debug("E-Svitlo answered without a schedule: keys %s", sorted(data))
+            return None
+
         if data:
             self.last_answer = data
             events = self._parse_disconnections(data)
@@ -245,11 +259,7 @@ class ESvitloClient:
         events = []
         LOGGER.debug("E-Svitlo disconnections data: %s", data)
 
-        main_data = data.get("data", {})
-        if not main_data:
-            LOGGER.warning("No data found in E-Svitlo response")
-            return events
-
+        main_data = data.get("data") or {}
         today = main_data.get("lst_time_disc", {})
         if today:
             events = self._parse_day_data(today, main_data.get("date_today", ""))

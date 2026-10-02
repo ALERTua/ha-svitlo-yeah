@@ -11,11 +11,15 @@ from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_utils
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+)
 
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     DOMAIN,
+    EVENT_DATA_CHANGED,
     TZ_UA,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -208,6 +212,39 @@ async def test_e_svitlo_data_goes_into_the_store(hass, aioclient_mock, hass_stor
         "last_update": updated.isoformat(),
         "group": "4.1",
     }
+    await _unload(hass, entry)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{"error": {"err": "Технічні роботи"}}, {"data": {}}],
+    ids=["error_text", "empty_data"],
+)
+async def test_e_svitlo_answer_without_a_schedule_keeps_the_last_one(
+    hass, aioclient_mock, hass_storage, body
+):
+    """An answer 200 without a schedule counts as no answer: the old states stay."""
+    answer = e_svitlo_outage_all_day_today()
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
+    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
+    entry.add_to_hass(hass)
+    coordinator = await _set_up(hass, entry)
+    changes = async_capture_events(hass, EVENT_DATA_CHANGED)
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=body)
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert coordinator.last_fetch_failed
+    assert changes == []
+    kept = hass_storage[store_key(entry.entry_id)]["data"]["source"]
+    assert kept["disconnections"] == answer
     await _unload(hass, entry)
 
 

@@ -473,15 +473,15 @@ class TestESvitloClientDisconnections:
         assert client.group == "3.2"
 
     async def test_get_disconnections_empty_data(self, client, mock_session_post):
-        """Test get_disconnections with empty data."""
+        """Empty data is no schedule, so the answer counts as no answer."""
         client.is_authenticated = True
         client.group = "4.1"
         mock_resp = AsyncMock(status=200)
         mock_resp.json = AsyncMock(return_value={"data": {}})  # Empty main data
         mock_session_post.return_value.__aenter__.return_value = mock_resp
 
-        events = await client.get_disconnections()
-        assert len(events) == 0
+        assert await client.get_disconnections() is None
+        assert client.last_answer is None
 
     async def test_get_disconnections_missing_times(self, client, mock_session_post):
         """Test get_disconnections with missing times."""
