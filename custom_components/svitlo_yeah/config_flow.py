@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 import voluptuous as vol
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
-    ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
 )
@@ -75,19 +74,13 @@ def _esvitlo_login_schema() -> vol.Schema:
     )
 
 
-def get_config_value(
-    entry: ConfigEntry | None,
-    key: str,
-    default: Any = None,
-) -> Any:
-    """Get a value from the config entry or default."""
-    if entry is not None:
-        return entry.options.get(key, entry.data.get(key, default))
-    return default
-
-
 class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
+
+    # The shape of the entry data. A change of the shape raises the version,
+    # and then a new async_migrate_entry in __init__.py must move the old entries.
+    VERSION = 1
+    MINOR_VERSION = 1
 
     def __init__(self) -> None:
         """Initialize config flow."""
@@ -146,10 +139,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         data_schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_PROVIDER,
-                    default=get_config_value(None, CONF_PROVIDER),
-                ): SelectSelector(
+                # Without a default, the frontend would preselect the first
+                # provider, and the user could add it without a look
+                vol.Required(CONF_PROVIDER, default=None): SelectSelector(
                     SelectSelectorConfig(
                         options=provider_options,
                         translation_key="provider",
@@ -172,7 +164,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if self.source == SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
-            if self.data[CONF_GROUP] == get_config_value(entry, CONF_GROUP):
+            if self.data[CONF_GROUP] == entry.data.get(CONF_GROUP):
                 # noinspection PyTypeChecker
                 return self.async_abort(reason="reconfigure_unchanged")
 
@@ -298,7 +290,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Let the user pick another group for an existing entry."""
         entry = self._get_reconfigure_entry()
-        self.data = {**entry.data, **entry.options}
+        self.data = dict(entry.data)
         if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_E_SVITLO:
             # E-Svitlo takes the group from the account, so it has no group list
             # noinspection PyTypeChecker

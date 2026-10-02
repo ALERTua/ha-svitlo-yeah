@@ -44,27 +44,23 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         self.translations = {}
 
         # Get configuration
-        self.provider_id = config_entry.options.get(
-            CONF_PROVIDER,
-            config_entry.data.get(CONF_PROVIDER),
-        )
+        provider_id = config_entry.data.get(CONF_PROVIDER)
         # The config flow always writes these settings, so a broken entry
         # cannot load until the user adds it again
-        if not self.provider_id:
+        if not provider_id:
             raise ConfigEntryError(
                 translation_domain=DOMAIN,
                 translation_key="entry_without_provider",
             )
 
-        self.group = config_entry.options.get(
-            CONF_GROUP,
-            config_entry.data.get(CONF_GROUP),
-        )
-        if not self.group:
+        group = config_entry.data.get(CONF_GROUP)
+        if not group:
             raise ConfigEntryError(
                 translation_domain=DOMAIN,
                 translation_key="entry_without_group",
             )
+        self.provider_id = provider_id
+        self.group = group
 
     @property
     def event_name_map(self) -> dict:
