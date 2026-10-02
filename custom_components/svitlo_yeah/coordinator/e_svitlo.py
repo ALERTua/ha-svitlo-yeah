@@ -7,7 +7,7 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
+from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient, LoginResult
 from custom_components.svitlo_yeah.const import (
     DOMAIN,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
@@ -107,10 +107,11 @@ class ESvitloCoordinator(IntegrationCoordinator):
             # The entry can be unloaded or removed while the server answers
             if self._shutdown_requested:
                 return
-            # A refused login is an answer of the server, not a missing answer
-            self._set_last_fetch_failed(
-                failed=events is None and not self.api.login_rejected
-            )
+            # A refused login is an answer of the server, not a missing answer.
+            # After a refusal, each poll logs in again, so the last login is of
+            # this poll.
+            refused = self.api.last_login is LoginResult.REJECTED
+            self._set_last_fetch_failed(failed=events is None and not refused)
             self._set_login_rejected(rejected=self.api.login_rejected)
 
             if events is not None:

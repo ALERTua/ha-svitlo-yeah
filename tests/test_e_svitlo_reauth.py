@@ -8,6 +8,7 @@ import logging
 from unittest.mock import patch
 
 import pytest
+from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -158,6 +159,48 @@ async def test_refused_login_at_the_first_start_asks_once(hass, aioclient_mock, 
     assert len(_reauth_flows(hass)) == 1
     assert _messages(caplog, logging.WARNING, "refused the login") == 1
     assert _messages(caplog, logging.INFO, "does not answer") == 0
+    await _unload(hass, entry)
+
+
+async def test_server_that_stops_answering_after_a_refusal_does_not_answer(
+    hass, aioclient_mock, caplog
+):
+    """
+    After a refused login, a server without any answer counts as no answer.
+
+    The open reauthentication stays, and the next login that works closes it.
+    """
+    caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
+    e_svitlo_answers(aioclient_mock, answer=True)
+    entry = await _set_up(hass)
+    coordinator = entry.runtime_data
+    electricity = _entity_id(hass, entry, "sensor", "electricity")
+
+    aioclient_mock.clear_requests()
+    _refuse_the_login(aioclient_mock)
+    await coordinator.async_refresh()
+    assert (coordinator.login_rejected, coordinator.last_fetch_failed) == (True, False)
+
+    aioclient_mock.clear_requests()
+    for url in (E_SVITLO_LOGIN_URL, E_SVITLO_DETAILS_URL, E_SVITLO_DISCONNECTIONS_URL):
+        aioclient_mock.post(url, exc=ClientError())
+    await coordinator.async_refresh()
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert (coordinator.login_rejected, coordinator.last_fetch_failed) == (True, True)
+    assert _messages(caplog, logging.INFO, "does not answer") == 1
+    assert len(_reauth_flows(hass)) == 1
+    assert hass.states.get(electricity).state == ConnectivityState.STATE_PLANNED_OUTAGE
+
+    aioclient_mock.clear_requests()
+    e_svitlo_answers(aioclient_mock, answer=True)
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert (coordinator.login_rejected, coordinator.last_fetch_failed) == (False, False)
+    assert _messages(caplog, logging.INFO, "answers again") == 1
+    assert _reauth_flows(hass) == []
     await _unload(hass, entry)
 
 
