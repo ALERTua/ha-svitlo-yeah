@@ -44,8 +44,7 @@ LOGGER = logging.getLogger(__name__)
 
 # How far ahead the next-outage sensors and the diagnostics look
 TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
-# Longer than the schedule of any source (today and tomorrow), so that the
-# check of a change sees each future outage
+# Longer than the schedule of any source, so the change check sees each future outage
 CHANGE_CHECK_WINDOW = datetime.timedelta(days=7)
 
 # The version of the store that keeps the last data of an entry across a restart
@@ -104,8 +103,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         self._previous_outage_events: list[PlannedOutageEvent] | None = None
         self.outage_data_last_changed: datetime.datetime | None = None
         self.group: str | None = None
-        # Whether the source lists the configured group, from the last data
-        # that could tell. None until such data arrives.
+        # Whether the source lists the group, or None until data that can tell arrives
         self.group_listed: bool | None = None
         # Whether the last fetch got no answer, for the refresh button and the log
         self.last_fetch_failed = False
@@ -155,8 +153,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         """Give the kept data back to the coordinator and its API."""
         self._stored = stored
         self._restore_source_data(stored["source"])
-        # The first answer counts as a change only when it differs from the
-        # kept schedule, which can change while Home Assistant is down
+        # The first answer is a change only if it differs from the kept schedule
         now = dt_utils.now()
         self.initialize_outage_data_tracking(
             self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
@@ -224,10 +221,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         """
         Keep the last known answer whether the source lists the group.
 
-        None means that the data says nothing about the group, so the last
-        known answer stays. A change is logged once: a warning when the group
-        disappears from the source, and an info when it comes back. While the
-        group is missing, a repair issue tells the user about it.
+        None keeps the last answer. A change logs one warning when the group goes,
+        or one info when it comes back. A repair issue shows the missing group.
         """
         if listed is None or listed == self.group_listed:
             return
@@ -378,15 +373,10 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
     @property
     def current_state(self) -> str | None:
         """
-        Get the current state.
+        Get the state, or None (unknown) while the source lists only other groups.
 
-        None (unknown) while the source lists other groups but not this one:
-        without a schedule, "normal" would claim that the power is on.
-
-        Only data that lists groups tells that the group is missing, and for
-        DTEK only fresh data does. Without such data, for example for a new
-        entry while the DTEK source is stale, there are no events, and the
-        state is "normal".
+        Without a schedule, "normal" would claim that the power is on. Only data with
+        groups, and for DTEK only fresh data, can tell that the group is missing.
         """
         if self.group_listed is False:
             return None

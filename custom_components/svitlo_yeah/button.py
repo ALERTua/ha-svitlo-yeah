@@ -69,8 +69,7 @@ class IntegrationRefreshButton(IntegrationEntity, ButtonEntity):
         """
         LOGGER.debug("Manual refresh requested for %s", self.coordinator.group)
         await self.coordinator.async_refresh()
-        # A press without any answer says so, also while an earlier refusal of
-        # the login waits for the new login
+        # No answer goes first, also while an older refused login waits for a new one
         if self.coordinator.last_fetch_failed:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
