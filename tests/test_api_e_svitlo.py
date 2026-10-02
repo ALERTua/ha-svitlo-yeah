@@ -1,5 +1,6 @@
 """Tests for E-Svitlo API."""
 
+import logging
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -200,6 +201,37 @@ class TestESvitloClientData:
         assert client.user_id == 555
         assert client.group == "4.1"
         assert info == user_info
+
+    async def test_user_info_log_keeps_the_personal_data_out(
+        self, client, mock_session_post, caplog
+    ):
+        """
+        The debug log of the account details names the group and the keys only.
+
+        README asks the user to attach the debug log to a public issue.
+        """
+        caplog.set_level(logging.DEBUG, logger="custom_components.svitlo_yeah")
+        client.user_id = 101
+        client.is_authenticated = True
+        details = {
+            "data": {
+                "lst_cherga": ["4.1"],
+                "address": "Sumy, Test street 1",
+                "owner": "Testenko Test",
+            }
+        }
+        resp_info = AsyncMock(status=200)
+        resp_info.json = AsyncMock(return_value=details)
+        mock_session_post.return_value.__aenter__.return_value = resp_info
+
+        assert await client.get_user_info() == details
+
+        assert "Sumy, Test street 1" not in caplog.text
+        assert "Testenko Test" not in caplog.text
+        assert (
+            "E-Svitlo account details: group 4.1, keys "
+            "['address', 'lst_cherga', 'owner']" in caplog.text
+        )
 
     async def test_get_accounts_login_fail(self, client, mock_session_post):
         """Test login failure inside get_accounts."""
