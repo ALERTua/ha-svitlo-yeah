@@ -91,6 +91,20 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self.data: dict[str, Any] = {}
         # Whether the user accepted the outdated DTEK data in this flow
         self._stale_ack = False
+        # One E-Svitlo client opens one session for the whole flow
+        self._client: ESvitloClient | None = None
+        # The E-Svitlo accounts that the account form offers
+        self._accounts: list[dict] = []
+
+    def _e_svitlo_client(self, username: str, password: str) -> ESvitloClient:
+        """Return the E-Svitlo client of the flow, with this login."""
+        if self._client is None:
+            self._client = ESvitloClient(
+                self.hass, ESvitloProvider(user_name=username, password=password)
+            )
+        elif (self._client.user_name, self._client.pwd) != (username, password):
+            self._client.use_login(username, password)
+        return self._client
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Handle the initial step: select provider."""
@@ -370,12 +384,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             LOGGER.debug("async_step_esvitlo_auth: User input received")
 
             # Validate credentials by attempting login
-            provider = ESvitloProvider(
-                user_name=user_input[CONF_USERNAME],
-                password=user_input[CONF_PASSWORD],
+            client = self._e_svitlo_client(
+                user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
             )
-
-            client = ESvitloClient(self.hass, provider)
             login = await client.try_login()
 
             if login is LoginResult.OK:
@@ -424,12 +435,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            client = ESvitloClient(
-                self.hass,
-                ESvitloProvider(
-                    user_name=user_input[CONF_USERNAME],
-                    password=user_input[CONF_PASSWORD],
-                ),
+            client = self._e_svitlo_client(
+                user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
             )
             login = await client.try_login()
             accounts = await client.get_accounts() if login is LoginResult.OK else None
@@ -483,21 +490,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             )
 
-            # To store the address string, we need to find it again
-            # from the account list
-            # Re-instantiate client to fetch accounts
-            provider = ESvitloProvider(
-                user_name=self.data[CONF_USERNAME],
-                password=self.data[CONF_PASSWORD],
-            )
-            client = ESvitloClient(self.hass, provider)
-            accounts = await client.get_accounts() or []
-
-            # Find selected account
+            # The address comes from the accounts that the form offered
             selected_acc = next(
                 (
                     a
-                    for a in accounts
+                    for a in self._accounts
                     if str(a.get("a")) == str(user_input[CONF_ACCOUNT_ID])
                 ),
                 None,
@@ -511,13 +508,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 title=await self._async_entry_title(self.data), data=self.data
             )
 
-        # We already have credentials in self.data from previous step
-        provider = ESvitloProvider(
-            user_name=self.data[CONF_USERNAME],
-            password=self.data[CONF_PASSWORD],
+        # The client of the login step is still logged in
+        client = self._e_svitlo_client(
+            self.data[CONF_USERNAME], self.data[CONF_PASSWORD]
         )
-        client = ESvitloClient(self.hass, provider)
-
         accounts = await client.get_accounts()
         if accounts is None:
             # The server gave no list of accounts: a network or a server error
@@ -526,6 +520,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if not accounts:
             # noinspection PyTypeChecker
             return self.async_abort(reason="no_accounts_found")
+        self._accounts = accounts
 
         # Create options mapping: { account_id: "Address (LS)" }
         options = {}

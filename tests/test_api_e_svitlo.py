@@ -128,6 +128,21 @@ class TestESvitloClientBase:
 
         assert await client.try_login() is expected
 
+    async def test_new_login_logs_in_at_the_next_request(
+        self, client, mock_session_post
+    ):
+        """After use_login, the next request logs in with the new credentials."""
+        client.is_authenticated = True
+        client.use_login("u2", "p2")
+        mock_response = AsyncMock(status=200)
+        mock_response.json = AsyncMock(return_value={"data": {"login": True}})
+        mock_session_post.return_value.__aenter__.return_value = mock_response
+
+        await client.get_accounts()
+
+        login = mock_session_post.call_args_list[0]
+        assert login.kwargs["data"] == {"login_name": "u2", "pass_name": "p2"}
+
     async def test_request_answer_that_is_not_json_is_no_answer(
         self, client, mock_session_post
     ):
