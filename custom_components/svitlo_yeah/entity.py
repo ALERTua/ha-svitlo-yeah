@@ -2,7 +2,7 @@
 
 import datetime
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -37,6 +37,7 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
         self._event: CalendarEvent | None = None
 
     @property
+    @override
     def device_info(self) -> DeviceInfo:
         """Return device information about this entity."""
         provider_type = self.coordinator.config_entry.data[CONF_PROVIDER_TYPE]
@@ -66,12 +67,14 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
             entry_type=DeviceEntryType.SERVICE,
         )
 
+    @override
     async def async_added_to_hass(self) -> None:
         """When entity is added, schedule first boundary update."""
         await super().async_added_to_hass()
         self._update_active_state()
         self._schedule_next_boundary()
 
+    @override
     async def async_will_remove_from_hass(self) -> None:
         """Cancel the scheduled boundary callback when the entity is removed."""
         if self._unsubscribe_boundary:
@@ -80,6 +83,7 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
         await super().async_will_remove_from_hass()
 
     @callback
+    @override
     def _handle_coordinator_update(self) -> None:
         """Write the new state, and plan the next boundary from the new data."""
         self._event = self.coordinator.get_current_event()

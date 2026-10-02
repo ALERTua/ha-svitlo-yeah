@@ -71,6 +71,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         )
 
     @property
+    @override
     def event(self) -> CalendarEvent | None:
         """Return current or next event."""
         return self.coordinator.get_current_event()
@@ -115,6 +116,7 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
         )
 
     @property
+    @override
     def event(self) -> CalendarEvent | None:
         """Return current or next event."""
         # For scheduled outages, we don't show current events initially
