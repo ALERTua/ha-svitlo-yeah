@@ -2,6 +2,7 @@
 
 import ast
 import json
+import re
 import string
 from pathlib import Path
 
@@ -14,7 +15,19 @@ TRANSLATIONS = Path(__file__).parent.parent / (
     "custom_components/svitlo_yeah/translations"
 )
 CONFIG_FLOW = TRANSLATIONS.parent / "config_flow.py"
+README = Path(__file__).parent.parent / "README.md"
 LANGUAGES = ["en", "uk"]
+# The provider options whose source covers one region with its oblast
+REGION_OPTIONS = ("dtekjsonprovider_", "esvitloprovider_")
+# The letters of the oblenergo abbreviations, as the English region names spell
+# them, for example Khmelnytskyi, Chernihiv and Zhytomyr
+LATIN = dict(
+    zip(
+        "ВЕЖЗЛОПРСТХЧ",
+        ("V", "E", "Zh", "Z", "L", "O", "P", "R", "S", "T", "Kh", "Ch"),
+        strict=True,
+    )
+)
 # Home Assistant aborts with this reason: _async_abort_entries_match with
 # already_configured
 HA_ABORT_REASONS = {"already_configured"}
@@ -180,9 +193,7 @@ def test_each_provider_option_names_the_region_of_its_devices(language):
     texts = _load(language)
     options = texts["selector"]["provider"]["options"]
     regions = {
-        key: key.split("_", 1)[1]
-        for key in options
-        if key.startswith(("dtekjsonprovider_", "esvitloprovider_"))
+        key: key.split("_", 1)[1] for key in options if key.startswith(REGION_OPTIONS)
     }
     assert len(regions) == len(DTEK_PROVIDER_URLS) + 1  # and E-Svitlo Sumy
 
@@ -191,3 +202,41 @@ def test_each_provider_option_names_the_region_of_its_devices(language):
         for key, region in regions.items()
         if texts["common"][region] not in options[key]
     ] == []
+
+
+def _option_parts(language: str) -> dict[str, list[str]]:
+    """Return the parts of each provider option: DTEK, Lviv and Oblast, LOE."""
+    options = _load(language)["selector"]["provider"]["options"]
+    return {key: text.split(" — ") for key, text in options.items()}
+
+
+def test_readme_names_each_provider_as_the_provider_list():
+    """Each row of the README regions table has the parts of a provider option."""
+    rows = re.findall(
+        r"^\| \*\*(.+?)\*\* *\| (\S+) *\|",
+        README.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    # «DTEK — Kyiv Oblast» has no third part: the provider is the first one
+    listed = [
+        (parts[1], parts[-1] if len(parts) == 3 else parts[0])
+        for parts in _option_parts("en").values()
+    ]
+
+    assert sorted(rows) == sorted(listed)
+
+
+def test_each_ukrainian_abbreviation_spells_the_english_one():
+    """An oblenergo has one abbreviation in both lists, for example ЖОЕ and ZhOE."""
+    english = _option_parts("en")
+    ukrainian = {
+        key: parts[-1]
+        for key, parts in _option_parts("uk").items()
+        if key.startswith(REGION_OPTIONS) and len(parts) == 3
+    }
+    assert len(ukrainian) == 12  # the oblenergos
+
+    assert {
+        key: "".join(LATIN[letter] for letter in abbreviation)
+        for key, abbreviation in ukrainian.items()
+    } == {key: english[key][-1] for key in ukrainian}
