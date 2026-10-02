@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -193,6 +194,31 @@ async def test_yasno_emergency_day_starts_at_the_kyiv_midnight(
     assert entry.runtime_data.next_event is None
     freezer.move_to(NOW)
     assert entry.runtime_data.current_state == ConnectivityState.STATE_EMERGENCY
+    await _unload(hass, entry)
+
+
+@pytest.mark.parametrize("time_zone", TIME_ZONES)
+async def test_yasno_emergency_today_and_an_outage_tomorrow(
+    hass, aioclient_mock, freezer, time_zone
+):
+    """An all-day emergency next to a timed outage adds each entity of the entry."""
+    await hass.config.async_set_time_zone(time_zone)
+    freezer.move_to(LATE)
+    answer = _yasno_day(MONDAY, "EmergencyShutdowns")
+    answer["1.1"]["tomorrow"] = {
+        "slots": [{"start": 60, "end": 180, "type": "Definite"}],
+        "date": TUESDAY.isoformat(),
+        "status": "ScheduleApplies",
+    }
+    _serve_yasno(aioclient_mock, answer)
+
+    entry = await _set_up(hass, YASNO_KYIV_1_1)
+
+    entities = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+    assert len(entities) == 9
+    assert [e.entity_id for e in entities if hass.states.get(e.entity_id) is None] == []
+    assert entry.runtime_data.current_state == ConnectivityState.STATE_EMERGENCY
+    assert entry.runtime_data.next_event.start == TUESDAY + timedelta(hours=1)
     await _unload(hass, entry)
 
 
