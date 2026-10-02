@@ -192,6 +192,10 @@ async def test_server_that_stops_answering_after_a_refusal_does_not_answer(
     assert _messages(caplog, logging.INFO, "does not answer") == 1
     assert len(_reauth_flows(hass)) == 1
     assert hass.states.get(electricity).state == ConnectivityState.STATE_PLANNED_OUTAGE
+    # The press got no answer, so its error tells that, not the earlier refusal
+    with pytest.raises(HomeAssistantError) as error:
+        await _press(hass, entry)
+    assert error.value.translation_key == "refresh_failed"
 
     aioclient_mock.clear_requests()
     e_svitlo_answers(aioclient_mock, answer=True)
