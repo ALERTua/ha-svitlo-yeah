@@ -53,9 +53,7 @@ class ESvitloClient:
     def __init__(self, hass: HomeAssistant, provider: ESvitloProvider) -> None:
         """Initialize the E-Svitlo client."""
         self.hass = hass
-        # The requests after the login carry no token, so the server knows the
-        # login from the cookies of the session. An own session keeps the login
-        # of each account apart from the other accounts and integrations.
+        # The server knows the login by the cookies, so each client has its own session
         self.session: aiohttp.ClientSession = async_create_clientsession(hass)
         self.user_name = provider.user_name
         self.pwd = provider.password
@@ -189,8 +187,7 @@ class ESvitloClient:
                 #     "infinity"
                 #  ]```
                 self.group = identifiers[0]
-            # The answer has the personal data of the account, and README asks
-            # the user to attach the debug log to a public issue
+            # Users attach the debug log to public issues, so it shows no personal data
             LOGGER.debug(
                 "E-Svitlo account details: group %s, keys %s",
                 self.group,

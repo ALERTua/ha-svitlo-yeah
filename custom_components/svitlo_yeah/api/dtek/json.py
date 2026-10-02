@@ -60,19 +60,10 @@ class DtekAPIJson(DtekAPIBase):
 
     async def fetch_data(self, *, allow_stale_data: bool = False) -> FetchResult:
         """
-        Fetch from JSON sources with freshness checking.
+        Fetch the sources, and return FRESH, STALE or UNAVAILABLE (nothing readable).
 
-        Returns a :class:`FetchResult` so callers can tell apart three cases
-        that would otherwise all collapse to ``data is None``:
-
-        - ``FRESH``: a source returned data within the freshness window; it is
-          stored in ``self.data``.
-        - ``STALE``: sources responded, but all data is older than allowed.
-          Only when ``allow_stale_data`` is True is the freshest stale source
-          adopted into ``self.data`` (explicit setup consent); otherwise
-          ``self.data`` is left untouched, so it keeps the last fresh copy of
-          this run, if any.
-        - ``UNAVAILABLE``: no source could be fetched/parsed at all.
+        Fresh data goes into self.data. The freshest stale data goes there only with
+        allow_stale_data, else self.data keeps the last fresh copy of this run.
         """
         stale_fact: dict | None = None
         stale_preset: dict | None = None

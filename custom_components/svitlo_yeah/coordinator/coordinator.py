@@ -48,8 +48,7 @@ TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
 # check of a change sees each future outage
 CHANGE_CHECK_WINDOW = datetime.timedelta(days=7)
 
-# The store keeps the last data of an entry across a restart (AGENTS.md, «Old
-# states until new data»)
+# The version of the store that keeps the last data of an entry across a restart
 STORE_VERSION = 1
 
 
@@ -108,9 +107,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         # Whether the source lists the configured group, from the last data
         # that could tell. None until such data arrives.
         self.group_listed: bool | None = None
-        # Whether the last fetch got no answer from the source. The entities
-        # keep the last data then, so the refresh button and one log line of
-        # _set_last_fetch_failed report it.
+        # Whether the last fetch got no answer, for the refresh button and the log
         self.last_fetch_failed = False
         # Whether the server refused the login; only E-Svitlo has a login
         self.login_rejected = False
