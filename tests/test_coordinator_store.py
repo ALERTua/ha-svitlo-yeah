@@ -352,8 +352,14 @@ async def test_e_svitlo_data_goes_into_the_store(hass, aioclient_mock, hass_stor
 
 @pytest.mark.parametrize(
     "body",
-    [{"error": {"err": "Технічні роботи"}}, {"data": {}}],
-    ids=["error_text", "empty_data"],
+    [
+        {"error": {"err": "Технічні роботи"}},
+        {"data": {}},
+        {"error": "Технічні роботи"},
+        {"data": None},
+        [],
+    ],
+    ids=["error_text", "empty_data", "error_string", "null_data", "not_an_object"],
 )
 async def test_e_svitlo_answer_without_a_schedule_keeps_the_last_one(
     hass, aioclient_mock, hass_storage, body
@@ -375,11 +381,35 @@ async def test_e_svitlo_answer_without_a_schedule_keeps_the_last_one(
     await coordinator.async_refresh()
     await hass.async_block_till_done()
 
+    assert coordinator.last_update_success  # the entities stay available
     assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
     assert coordinator.last_fetch_failed
     assert changes == []
     kept = hass_storage[store_key(entry.entry_id)]["data"]["source"]
     assert kept["disconnections"] == answer
+    await _unload(hass, entry)
+
+
+@pytest.mark.parametrize("empty", ["error", "dict_tom"])
+async def test_e_svitlo_schedule_with_an_empty_field_is_a_schedule(
+    hass, aioclient_mock, empty
+):
+    """A schedule with "error": null or "dict_tom": null is a schedule, no failure."""
+    answer = e_svitlo_outage_all_day_today()
+    if empty == "error":
+        answer["error"] = None
+    else:
+        answer["data"]["dict_tom"] = None
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
+    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
+    entry.add_to_hass(hass)
+
+    coordinator = await _set_up(hass, entry)
+
+    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert not coordinator.last_fetch_failed
     await _unload(hass, entry)
 
 

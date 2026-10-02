@@ -4,7 +4,7 @@ import logging
 from datetime import date, datetime, time, timedelta
 from enum import Enum
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
@@ -28,13 +28,18 @@ from custom_components.svitlo_yeah.models import (
 LOGGER = logging.getLogger(__name__)
 
 
+def _section(answer: dict, key: str) -> dict:
+    """Return a section of an answer; the server can send null or nothing there."""
+    section = answer.get(key)
+    return section if isinstance(section, dict) else {}
+
+
 def _has_schedule(answer: dict) -> bool:
     """Return whether an answer of the disconnections request has a schedule."""
     error = answer.get("error")
     if isinstance(error, dict) and error.get("err"):
         return False
-    data = answer.get("data")
-    return isinstance(data, dict) and bool(data)
+    return bool(_section(answer, "data"))
 
 
 class LoginResult(Enum):
@@ -90,8 +95,11 @@ class ESvitloClient:
             ) as response:
                 if response.status == HTTPStatus.OK:
                     result = await response.json()
+                    if not isinstance(result, dict):
+                        LOGGER.debug("E-Svitlo login answer is not an object")
+                        return LoginResult.UNREACHABLE
                     # Check if login was successful based on response
-                    if result.get("data", {}).get("login", False) is True:
+                    if _section(result, "data").get("login", False) is True:
                         self.is_authenticated = True
                         self.login_rejected = False
                         LOGGER.debug("Successfully authenticated with E-Svitlo API")
@@ -132,14 +140,15 @@ class ESvitloClient:
                         "E-Svitlo session expired for %s, re-authenticating", endpoint
                     )
                     self.is_authenticated = False
+                    result = None
                     if await self.login():
                         # Retry request once
                         async with self.session.post(url, data=data) as retry_response:
                             if retry_response.status == HTTPStatus.OK:
-                                return await retry_response.json()
-                    return None
+                                result = await retry_response.json()
 
-                return result
+                # The callers read an object; any other JSON is no answer
+                return result if isinstance(result, dict) else None
         except REQUEST_ERRORS:
             LOGGER.debug(
                 "Exception during E-Svitlo request to %s", endpoint, exc_info=True
@@ -154,7 +163,7 @@ class ESvitloClient:
         # Short list API endpoint
         data = await self._send_post_request("api_main_reg/short_list_ls_api.json")
         if data:
-            return data.get("data", {}).get("lst_ls", [])
+            return _section(data, "data").get("lst_ls", [])
         return None
 
     async def get_user_info(self) -> dict | None:
@@ -178,7 +187,7 @@ class ESvitloClient:
             "/api_main_reg/all_details_ls_api.json", {"a": self.user_id}
         )
         if data_all:
-            identifiers = data_all.get("data", {}).get("lst_cherga")
+            identifiers = _section(data_all, "data").get("lst_cherga")
             if identifiers:
                 # ``` "lst_cherga": [
                 #     "4.1",
@@ -191,7 +200,7 @@ class ESvitloClient:
             LOGGER.debug(
                 "E-Svitlo account details: group %s, keys %s",
                 self.group,
-                sorted(data_all.get("data", {})),
+                sorted(_section(data_all, "data")),
             )
             return data_all
 
@@ -217,8 +226,8 @@ class ESvitloClient:
             events = self._parse_disconnections(data)
             self._cached_events = events or []
             # Store last update timestamp from API response
-            main_data = data.get("data", {})
-            last_update_str = main_data.get("dict_tom", {}).get(
+            main_data = _section(data, "data")
+            last_update_str = _section(main_data, "dict_tom").get(
                 "last_update", ""
             ) or main_data.get("last_update", "")
             if last_update_str and "Оновлено:" in last_update_str:
@@ -255,21 +264,24 @@ class ESvitloClient:
             self.user_id is not None and self.group is not None
         ) or await self.get_user_info() is not None
 
-    def is_logged_out(self, data: dict) -> bool:
+    def is_logged_out(self, data: Any) -> bool:
         """Check if the response indicates a logged out state."""
-        return data.get("error", {}).get("err") == E_SVITLO_ERROR_NOT_LOGGED_IN
+        error = data.get("error") if isinstance(data, dict) else None
+        return (
+            isinstance(error, dict) and error.get("err") == E_SVITLO_ERROR_NOT_LOGGED_IN
+        )
 
     def _parse_disconnections(self, data: dict) -> list[PlannedOutageEvent]:
         """Parse disconnections data into PlannedOutageEvent objects."""
         events = []
         LOGGER.debug("E-Svitlo disconnections data: %s", data)
 
-        main_data = data.get("data") or {}
+        main_data = _section(data, "data")
         today = main_data.get("lst_time_disc", {})
         if today:
             events = self._parse_day_data(today, main_data.get("date_today", ""))
 
-        tomorrow = main_data.get("dict_tom", {})
+        tomorrow = _section(main_data, "dict_tom")
         if items := tomorrow.get("lst_time_disc", {}):
             events.extend(self._parse_day_data(items, tomorrow.get("date_today", "")))
 
