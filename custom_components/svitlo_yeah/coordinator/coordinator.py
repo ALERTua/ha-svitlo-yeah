@@ -461,8 +461,9 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
 
     def fire_event(self) -> None:
         """Fire event for data change."""
+        # A Yasno entry has no provider while the regions request fails
         event_data = {
-            "region_name": self.provider.region_name,
+            "region_name": getattr(self.provider, "region_name", None),
             "region_id": getattr(self.provider, "region_id", None),
             "provider_id": getattr(self.provider, "id", None),
             "provider_name": getattr(self.provider, "name", None),
