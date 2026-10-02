@@ -130,10 +130,8 @@ class ESvitloCoordinator(IntegrationCoordinator):
         """
         Ask for the new login once the server refuses it, and log each change once.
 
-        The polls go on with the old login. The server can refuse it for a
-        while, for example during maintenance, and then the next poll that
-        logs in brings the schedule back without any action of the user, and
-        closes the open reauthentication.
+        The polls go on with the old login, so a refusal for a while heals without
+        the user, and the next good login closes the open reauthentication.
         """
         if rejected == self.login_rejected:
             return

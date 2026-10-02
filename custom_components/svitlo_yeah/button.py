@@ -21,8 +21,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-# Each press sends requests to the source, so the presses of an entry run one
-# after another
+# Each press asks the source, so the presses of an entry run one at a time
 PARALLEL_UPDATES = 1
 
 REFRESH_BUTTON = ButtonEntityDescription(
@@ -65,10 +64,8 @@ class IntegrationRefreshButton(IntegrationEntity, ButtonEntity):
         """
         Force an immediate data refresh, ignoring the update interval.
 
-        When the source does not answer, or E-Svitlo refuses the login, the
-        press fails with an error. The entities stay available with the last
-        data (AGENTS.md, «Old states until new data»), so the press must not
-        touch last_update_success.
+        Fail when the source does not answer or E-Svitlo refuses the login. Never
+        touch last_update_success, because the entities keep the last data.
         """
         LOGGER.debug("Manual refresh requested for %s", self.coordinator.group)
         await self.coordinator.async_refresh()

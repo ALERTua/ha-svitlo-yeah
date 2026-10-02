@@ -81,8 +81,7 @@ def _esvitlo_login_schema() -> vol.Schema:
 class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
 
-    # The shape of the entry data. A change of the shape raises the version,
-    # and then a new async_migrate_entry in __init__.py must move the old entries.
+    # Each change of the entry data shape needs a new VERSION and async_migrate_entry
     VERSION = 1
     MINOR_VERSION = 1
 
@@ -145,8 +144,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         data_schema = vol.Schema(
             {
-                # Without a default, the frontend would preselect the first
-                # provider, and the user could add it without a look
+                # default=None keeps the frontend from picking a provider for the user
                 vol.Required(CONF_PROVIDER, default=None): SelectSelector(
                     SelectSelectorConfig(
                         options=provider_options,
@@ -163,11 +161,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_entry_title(self, data: Mapping[str, Any]) -> str:
         """
-        Return the title that the integration gives an entry with this data.
+        Return the device name in the language of the server, as the entry title.
 
-        The title is the device name in the language of the server, so that the
-        entries differ on the page of the integration. An E-Svitlo title has no
-        address, because the debug log shows the title of the entry.
+        Thus the entries differ on the page of the integration. An E-Svitlo title
+        has no address, because the debug log shows the title.
         """
         names = await async_get_translations(
             self.hass, self.hass.config.language, "common", [DOMAIN]
@@ -181,8 +178,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             return f"{provider_name} E-Svitlo"
         if provider_type == PROVIDER_TYPE_YASNO:
             api = YasnoApi(self.hass)
-            # The regions come from the class cache, if a flow or an entry
-            # fetched them before
+            # The regions come from the class cache, if a flow or an entry got them
             await api.fetch_yasno_regions()
             region_id = data.get(CONF_REGION)
             region = api.get_region_by_id(region_id) if region_id else None
@@ -221,14 +217,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if self.source == SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
-            # A title that the integration gave follows the group, and a title
-            # of the user stays. NAME is the title that the earlier versions gave.
+            # A title of the user stays, a title of the integration follows the group
             title = entry.title
             if title in (NAME, await self._async_entry_title(entry.data)):
                 title = await self._async_entry_title(self.data)
-            # The update listener of the entry reloads it with the new group.
-            # An explicit reason keeps the text of this integration: without
-            # it, the 2026.10 development core shows the core translation.
+            # The update listener reloads it, and the reason keeps the integration text
             # noinspection PyTypeChecker
             return self.async_update_and_abort(
                 entry,

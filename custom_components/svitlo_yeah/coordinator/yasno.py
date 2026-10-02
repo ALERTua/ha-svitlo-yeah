@@ -58,8 +58,7 @@ class YasnoCoordinator(IntegrationCoordinator):
         self._region: YasnoRegion | None = None
         # Whether the region was looked up among the regions that Yasno gave
         self._source_region_checked = False
-        # One API for the life of the coordinator, so that a failed request
-        # keeps the planned outages of the last successful one.
+        # One API for the coordinator, so a failed request keeps the last outages
         self.api = YasnoApi(
             hass,
             region_id=self.region_id,
