@@ -97,8 +97,9 @@ class TestESvitloClientBase:
             (500, None, None, LoginResult.UNREACHABLE),
             (None, None, ClientError(), LoginResult.UNREACHABLE),
             (None, None, TimeoutError(), LoginResult.UNREACHABLE),
+            (200, ValueError("not JSON"), None, LoginResult.UNREACHABLE),
         ],
-        ids=["accepted", "refused", "http_500", "client_error", "timeout"],
+        ids=["accepted", "refused", "http_500", "client_error", "timeout", "not_json"],
     )
     async def test_try_login_tells_refused_from_unreachable(
         self, client, mock_session_post, status, body, error, expected
@@ -108,10 +109,24 @@ class TestESvitloClientBase:
             mock_session_post.side_effect = error
         else:
             mock_response = AsyncMock(status=status)
-            mock_response.json = AsyncMock(return_value=body)
+            if isinstance(body, Exception):
+                mock_response.json = AsyncMock(side_effect=body)
+            else:
+                mock_response.json = AsyncMock(return_value=body)
             mock_session_post.return_value.__aenter__.return_value = mock_response
 
         assert await client.try_login() is expected
+
+    async def test_request_answer_that_is_not_json_is_no_answer(
+        self, client, mock_session_post
+    ):
+        """A body that is not JSON gives no data, as a network error does."""
+        client.is_authenticated = True
+        mock_response = AsyncMock(status=200)
+        mock_response.json = AsyncMock(side_effect=ValueError("not JSON"))
+        mock_session_post.return_value.__aenter__.return_value = mock_response
+
+        assert await client.get_accounts() is None
 
 
 @pytest.mark.asyncio

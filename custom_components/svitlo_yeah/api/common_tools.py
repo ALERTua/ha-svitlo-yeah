@@ -3,12 +3,17 @@
 import datetime
 import logging
 
+import aiohttp
 from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.const import TZ_UA
 from custom_components.svitlo_yeah.models import PlannedOutageEvent
 
 LOGGER = logging.getLogger(__name__)
+
+# A request without a usable answer: no connection, a timeout, or a body
+# that is not JSON
+REQUEST_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
 
 
 def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:

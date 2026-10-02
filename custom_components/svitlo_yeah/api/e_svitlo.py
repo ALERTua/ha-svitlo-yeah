@@ -6,14 +6,15 @@ from enum import Enum
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-import aiohttp
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 if TYPE_CHECKING:
+    import aiohttp
     from homeassistant.core import HomeAssistant
 
     from custom_components.svitlo_yeah.models import ESvitloProvider, PlannedOutageEvent
 
+from custom_components.svitlo_yeah.api.common_tools import REQUEST_ERRORS
 from custom_components.svitlo_yeah.const import (
     E_SVITLO_ERROR_NOT_LOGGED_IN,
     E_SVITLO_SUMY_BASE_URL,
@@ -100,7 +101,7 @@ class ESvitloClient:
                 # The coordinator logs once when E-Svitlo stops answering
                 LOGGER.debug("E-Svitlo login HTTP error: %s", response.status)
                 return LoginResult.UNREACHABLE
-        except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
+        except REQUEST_ERRORS:
             LOGGER.debug("Exception during E-Svitlo login", exc_info=True)
             return LoginResult.UNREACHABLE
 
@@ -134,7 +135,7 @@ class ESvitloClient:
                     return None
 
                 return result
-        except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
+        except REQUEST_ERRORS:
             LOGGER.debug(
                 "Exception during E-Svitlo request to %s", endpoint, exc_info=True
             )
