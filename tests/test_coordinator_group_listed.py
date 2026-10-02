@@ -271,7 +271,7 @@ class TestGroupNotListedIssue:
 
     async def test_missing_group_creates_the_issue(self, dtek, create_issue):
         """A missing group creates a warning issue that names group and source."""
-        dtek.translations = {"component.svitlo_yeah.common.kyiv_region": "Kyiv Region"}
+        dtek.translations = {"component.svitlo_yeah.common.kyiv_region": "Kyiv Oblast"}
 
         await _update_dtek(dtek, FetchResult.FRESH, listed=False)
 
@@ -285,7 +285,7 @@ class TestGroupNotListedIssue:
             translation_key="group_not_listed",
             translation_placeholders={
                 "group": "3.1",
-                "provider": "Kyiv Region",
+                "provider": "Kyiv Oblast",
                 "integration": "Svitlo Yeah!",
             },
         )

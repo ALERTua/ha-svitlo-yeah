@@ -172,3 +172,22 @@ def test_each_dtek_provider_has_a_name(language):
     """Each DTEK provider has a name, which device names and repair issues use."""
     common = _load(language)["common"]
     assert {p for p in DTEK_PROVIDER_URLS if not common.get(p)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_provider_option_names_the_region_of_its_devices(language):
+    """The provider list names the region as the devices do, for example Kyiv Oblast."""
+    texts = _load(language)
+    options = texts["selector"]["provider"]["options"]
+    regions = {
+        key: key.split("_", 1)[1]
+        for key in options
+        if key.startswith(("dtekjsonprovider_", "esvitloprovider_"))
+    }
+    assert len(regions) == len(DTEK_PROVIDER_URLS) + 1  # and E-Svitlo Sumy
+
+    assert [
+        key
+        for key, region in regions.items()
+        if texts["common"][region] not in options[key]
+    ] == []
