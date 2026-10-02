@@ -7,6 +7,7 @@ AGENTS.md tells why, in «Old states until new data».
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 from aiohttp import ClientError
@@ -156,13 +157,16 @@ async def test_restart_without_an_answer_shows_the_kept_schedule(
 ):
     """After a restart, the kept schedule gives the old states until an answer comes."""
     fact = fact_with_an_outage_today(datetime.now(UTC) - timedelta(hours=2))
+    # Group 1.1 has no power all day on each day of the week
+    all_day = {str(hour): "no" for hour in range(1, 25)}
+    preset = {"data": {"GPV1.1": {str(day): all_day for day in range(1, 8)}}}
     changed = dt_utils.now() - timedelta(hours=3)
     for url in KYIV_REGION_URLS:
         aioclient_mock.get(url, exc=ClientError())
     entry = MockConfigEntry(domain=DOMAIN, data=DTEK_KYIV_REGION_1_1)
     entry.add_to_hass(hass)
     hass_storage[store_key(entry.entry_id)] = _kept(
-        {"fact": fact, "preset": {}}, outage_data_last_changed=changed.isoformat()
+        {"fact": fact, "preset": preset}, outage_data_last_changed=changed.isoformat()
     )
 
     coordinator = await _set_up(hass, entry)
@@ -170,6 +174,51 @@ async def test_restart_without_an_answer_shows_the_kept_schedule(
     assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
     assert coordinator.schedule_updated_on is not None
     assert coordinator.outage_data_last_changed == changed
+    now = dt_utils.now()
+    assert coordinator.get_scheduled_events_between(now, now + timedelta(days=1))
+    await _unload(hass, entry)
+
+
+async def test_restart_without_an_answer_keeps_the_missing_group(
+    hass, aioclient_mock, hass_storage
+):
+    """After a restart, a group that the source lacked stays missing until an answer."""
+    fact = fact_with_an_outage_today(datetime.now(UTC) - timedelta(hours=2))
+    dtek_answers(aioclient_mock)
+    entry = MockConfigEntry(domain=DOMAIN, data=DTEK_KYIV_REGION_1_1)
+    entry.add_to_hass(hass)
+    hass_storage[store_key(entry.entry_id)] = _kept(
+        {"fact": fact, "preset": {}}, group_listed=False
+    )
+
+    coordinator = await _set_up(hass, entry)
+
+    assert coordinator.group_listed is False
+    assert coordinator.current_state is None
+    issue_id = group_not_listed_issue_id(entry.entry_id)
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+    assert issue.translation_placeholders["provider"] == "Kyiv Region"
+    await _unload(hass, entry)
+
+
+async def test_the_same_answer_writes_no_store_again(
+    hass, aioclient_mock, hass_storage
+):
+    """The store changes only with the data: the same answer writes nothing."""
+    dtek_answers(aioclient_mock, fact_with_an_outage_today(datetime.now(UTC)))
+    entry = MockConfigEntry(domain=DOMAIN, data=DTEK_KYIV_REGION_1_1)
+    entry.add_to_hass(hass)
+    coordinator = await _set_up(hass, entry)
+    assert store_key(entry.entry_id) in hass_storage
+
+    with patch.object(
+        coordinator._store, "async_save", wraps=coordinator._store.async_save
+    ) as save:
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+
+    assert save.call_count == 0
     await _unload(hass, entry)
 
 

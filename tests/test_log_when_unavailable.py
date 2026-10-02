@@ -9,8 +9,8 @@ import logging
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.svitlo_yeah.const import DOMAIN
-from tests.helpers import PROVIDERS
+from custom_components.svitlo_yeah.const import CONF_ADDRESS_STR, DOMAIN
+from tests.helpers import E_SVITLO_ACCOUNT_101, PROVIDERS
 
 pytestmark = pytest.mark.usefixtures(
     "enable_custom_integrations", "empty_yasno_region_cache"
@@ -82,6 +82,10 @@ async def test_source_down_is_logged_once_and_back_once(
 
     assert _infos(caplog, BACK) == 1
     assert _infos(caplog, GONE) == 1
+    # The address of an E-Svitlo account is personal data, and README asks the
+    # user to attach the log to a public issue
+    address = E_SVITLO_ACCOUNT_101[CONF_ADDRESS_STR]
+    assert _infos(caplog, address) == 0
     await _unload(hass, entry)
 
 
