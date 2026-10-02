@@ -36,7 +36,7 @@ PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> bool:
     """Set up a new entry."""
-    LOGGER.info("Setup entry: %s", entry)
+    LOGGER.debug("Setup entry: %s", entry)
     provider_type = entry.options.get(
         CONF_PROVIDER_TYPE,
         entry.data.get(CONF_PROVIDER_TYPE),
@@ -75,7 +75,7 @@ async def async_unload_entry(
     entry: SvitloYeahConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
-    LOGGER.info("Unload entry: %s", entry)
+    LOGGER.debug("Unload entry: %s", entry)
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:

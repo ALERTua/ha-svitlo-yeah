@@ -1,6 +1,7 @@
 """Svitlo Yeah entity."""
 
 import datetime
+import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import callback
@@ -9,7 +10,6 @@ from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_utils
 
-from .api.dtek.json import LOGGER
 from .const import (
     CONF_PROVIDER_TYPE,
     DEVICE_MANUFACTURER,
@@ -21,6 +21,8 @@ from .coordinator.coordinator import IntegrationCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
+
+LOGGER = logging.getLogger(__name__)
 
 
 class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
@@ -45,13 +47,15 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
 
         # provider is optional
         if not all((self.coordinator.provider_name, self.coordinator.group)):
-            LOGGER.debug(f"""
-            Provider Type {provider_type}
-            translation_key: {translation_key}
-            region: {self.coordinator.region_name}
-            provider: {self.coordinator.provider_name}
-            group: {self.coordinator.group}
-            """)
+            LOGGER.debug(
+                "Device info without a provider or a group: provider type %s, "
+                "translation key %s, region %s, provider %s, group %s",
+                provider_type,
+                translation_key,
+                self.coordinator.region_name,
+                self.coordinator.provider_name,
+                self.coordinator.group,
+            )
 
         return DeviceInfo(
             translation_key=translation_key,
