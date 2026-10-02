@@ -39,7 +39,7 @@ def _client(provider, mock_session_post):
     """Create a client instance with mocked session."""
     hass_mock = MagicMock()
     with patch(
-        "custom_components.svitlo_yeah.api.e_svitlo.async_get_clientsession"
+        "custom_components.svitlo_yeah.api.e_svitlo.async_create_clientsession"
     ) as mock_helper:
         # The provided snippet seems to be a mix of client and coordinator setup.
         # Assuming the intent was to keep the client setup and potentially add

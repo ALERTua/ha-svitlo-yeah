@@ -7,11 +7,13 @@ from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_platform
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.svitlo_yeah import button, calendar, sensor
 from custom_components.svitlo_yeah.const import (
+    CONF_ACCOUNT_ID,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
@@ -23,7 +25,13 @@ from custom_components.svitlo_yeah.const import (
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
-from tests.helpers import PROVIDERS, YASNO_PLANNED_URL, yasno_outage_all_day_today
+from tests.helpers import (
+    E_SVITLO_ACCOUNT_101,
+    PROVIDERS,
+    YASNO_PLANNED_URL,
+    e_svitlo_answers,
+    yasno_outage_all_day_today,
+)
 
 pytestmark = pytest.mark.usefixtures(
     "enable_custom_integrations", "empty_yasno_region_cache"
@@ -112,6 +120,31 @@ async def test_device_without_a_provider_logs_from_the_entity_module(
     assert records
     assert {r.name for r in records} == {"custom_components.svitlo_yeah.entity"}
     assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_each_e_svitlo_entry_logs_in_with_its_own_session(hass, aioclient_mock):
+    """
+    Two E-Svitlo accounts do not share the cookies of one login.
+
+    The shared session of Home Assistant keeps the cookies of all integrations.
+    """
+    e_svitlo_answers(aioclient_mock, answer=True)
+    entries = []
+    for account in ("101", "102"):
+        entry = MockConfigEntry(
+            domain=DOMAIN, data={**E_SVITLO_ACCOUNT_101, CONF_ACCOUNT_ID: account}
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        entries.append(entry)
+    await hass.async_block_till_done()
+
+    first, second = (entry.runtime_data.api.session for entry in entries)
+    assert first is not second
+    assert async_get_clientsession(hass) not in (first, second)
+    for entry in entries:
+        assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
 
 
