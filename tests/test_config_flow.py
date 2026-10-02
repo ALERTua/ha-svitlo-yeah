@@ -9,6 +9,7 @@ from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.svitlo_yeah.const import (
@@ -159,6 +160,19 @@ async def _start_e_svitlo_flow(hass, aioclient_mock) -> dict:
     assert result["step_id"] == "esvitlo_auth"
     assert result["description_placeholders"]["esvitlo_url"] == E_SVITLO_SITE
     return result
+
+
+def _calls(aioclient_mock, url: str) -> int:
+    """Return how many requests went to this URL."""
+    return sum(1 for call in aioclient_mock.mock_calls if str(call[1]) == url)
+
+
+def _count_sessions():
+    """Count the HTTP sessions that the E-Svitlo clients create."""
+    return patch(
+        "custom_components.svitlo_yeah.api.e_svitlo.async_create_clientsession",
+        wraps=async_create_clientsession,
+    )
 
 
 def _serve_e_svitlo(aioclient_mock) -> None:
@@ -610,6 +624,16 @@ class TestDuplicateESvitloAccount:
         # The address is personal data, and the debug log shows the title
         assert result["title"] == "Sumy E-Svitlo"
 
+    async def test_one_setup_logs_in_once_in_one_session(self, hass, aioclient_mock):
+        """The steps of one flow share the client, its session and its login."""
+        with _count_sessions() as create_session:
+            result = await self._add_account(hass, aioclient_mock, "101")
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert create_session.call_count == 1
+        assert _calls(aioclient_mock, E_SVITLO_LOGIN_URL) == 1
+        assert _calls(aioclient_mock, E_SVITLO_ACCOUNTS_URL) == 1
+
     async def test_preselected_account_creates_the_entry(self, hass, aioclient_mock):
         """A submit without a choice sends the default, which the select accepts."""
         result = await _start_e_svitlo_flow(hass, aioclient_mock)
@@ -774,6 +798,24 @@ class TestESvitloReauth:
         assert _suggested(result, "username") == "u2"
         assert _suggested(result, "password") is None
         assert entry.data == E_SVITLO_ACCOUNT_101
+
+    async def test_attempts_share_one_session(self, hass, aioclient_mock):
+        """Each attempt logs in again, in the one session of the flow."""
+        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": False}})
+        _, result = await self._start(hass)
+
+        with _count_sessions() as create_session:
+            result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
+            result = await _configure(
+                hass, result, {**E_SVITLO_NEW_LOGIN, "username": "u2"}
+            )
+
+        assert result["errors"] == {"base": "invalid_auth"}
+        assert create_session.call_count == 1
+        logins = [
+            c for c in aioclient_mock.mock_calls if str(c[1]) == E_SVITLO_LOGIN_URL
+        ]
+        assert [c[2]["login_name"] for c in logins] == ["user", "u2"]
 
     @pytest.mark.parametrize(
         "accounts_answer",

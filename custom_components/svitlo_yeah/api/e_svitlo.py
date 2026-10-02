@@ -74,6 +74,12 @@ class ESvitloClient:
         # The result of the last login attempt, also when the server did not answer
         self.last_login: LoginResult | None = None
 
+    def use_login(self, user_name: str, password: str) -> None:
+        """Log in with these credentials at the next request, in the same session."""
+        self.user_name = user_name
+        self.pwd = password
+        self.is_authenticated = False
+
     async def login(self) -> bool:
         """Authenticate with E-Svitlo API."""
         return await self.try_login() is LoginResult.OK
