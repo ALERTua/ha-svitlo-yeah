@@ -3,8 +3,6 @@
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.util import dt as dt_utils
-
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
@@ -13,7 +11,6 @@ from custom_components.svitlo_yeah.const import (
     common_translation_key,
 )
 from custom_components.svitlo_yeah.coordinator.coordinator import (
-    CHANGE_CHECK_WINDOW,
     IntegrationCoordinator,
 )
 from custom_components.svitlo_yeah.models import (
@@ -63,27 +60,20 @@ class DtekCoordinatorBase(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:
+    async def _async_fetch(self) -> FetchResult:
         """Fetch data from DTEK API."""
-        await self.async_fetch_translations()
-
-        now = dt_utils.now()
         result = await self.api.fetch_data()
         LOGGER.debug("Fetched %s data for %s", result, self)
-        # The entry can be unloaded or removed while the source answers
-        if self._shutdown_requested:
-            return
+        return result
+
+    async def _async_use_answer(self, answer: FetchResult) -> None:
+        """Keep whether the source answered, and whether fresh data lists the group."""
         # An outdated schedule is an answer of the source, not a failure
-        self._set_last_fetch_failed(failed=result is FetchResult.UNAVAILABLE)
+        self._set_last_fetch_failed(failed=answer is FetchResult.UNAVAILABLE)
 
         # Only fresh data can tell whether the source still lists the group.
-        if result is FetchResult.FRESH:
+        if answer is FetchResult.FRESH:
             await self._async_update_group_listed(listed=self.api.is_group_listed())
-
-        # Check if outage data has changed (used for last_data_change attribute)
-        current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
-        self.check_outage_data_changed(current_events, now)
-        await self._async_store_last_data()
 
     @property
     def provider_name(self) -> str:

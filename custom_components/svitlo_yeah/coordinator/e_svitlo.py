@@ -17,10 +17,11 @@ from custom_components.svitlo_yeah.const import (
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     ESvitloProvider,
+    PlannedOutageEvent,
     PlannedOutageEventType,
 )
 
-from .coordinator import CHANGE_CHECK_WINDOW, IntegrationCoordinator
+from .coordinator import IntegrationCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
@@ -85,12 +86,9 @@ class ESvitloCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:
-        """Fetch data from E-Svitlo API."""
+    async def _async_fetch(self) -> list[PlannedOutageEvent] | None:
+        """Fetch the disconnections from E-Svitlo API, or None without an answer."""
         LOGGER.debug("Updating E-Svitlo data")
-
-        # Fetch translations
-        await self.async_fetch_translations()
 
         # Ensure we have user info (including group) before fetching disconnections
         if not self.api.user_id or not self.api.group:
@@ -100,29 +98,17 @@ class ESvitloCoordinator(IntegrationCoordinator):
         if self.api.group:
             self.group = self.api.group
 
-        # Get disconnections data
-        events = await self.api.get_disconnections()
-        # The entry can be unloaded or removed while the server answers
-        if self._shutdown_requested:
-            return
+        return await self.api.get_disconnections()
+
+    async def _async_use_answer(self, answer: list[PlannedOutageEvent] | None) -> None:
+        """Keep whether the server answered, and whether it refused the login."""
         # A refused login is an answer, and after it each poll logs in again
         refused = self.api.last_login is LoginResult.REJECTED
-        self._set_last_fetch_failed(failed=events is None and not refused)
+        self._set_last_fetch_failed(failed=answer is None and not refused)
         self._set_login_rejected(rejected=self.api.login_rejected)
-
-        if events is not None:
-            LOGGER.debug(
-                "Successfully updated E-Svitlo data with %d events", len(events)
-            )
-            # Check if outage data has changed
-            now = dt_utils.now()
-            current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
-            self.check_outage_data_changed(current_events, now)
-        else:
+        if answer is None:
+            # The client keeps the last schedule
             LOGGER.debug("Failed to fetch E-Svitlo data")
-            # Keep existing data if fetch fails
-
-        await self._async_store_last_data()
 
     def _set_login_rejected(self, *, rejected: bool) -> None:
         """
