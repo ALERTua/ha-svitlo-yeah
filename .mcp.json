@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "ha-test": {
-      "type": "http",
-      "url": "http://127.0.0.1:8123/api/mcp",
-      "headersHelper": "uv run --no-project python .claude/ha_test_mcp_headers.py"
-    }
-  }
-}
