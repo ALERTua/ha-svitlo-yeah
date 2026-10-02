@@ -71,6 +71,8 @@ Before you start, find your outage group on the website of your provider. For Su
 
 Each region and group is a separate entry. To change the group of a DTEK or Yasno entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
 
+The integration gives a new entry the name of its device in the language of your Home Assistant, for example «Київ ДТЕК 52.1». The name of an E-Svitlo entry has no address, for example «Суми E-Svitlo». Reconfigure puts the new group into a name that the integration gave, and keeps a name that you gave. An entry from an earlier version keeps the name «Svitlo Yeah | Світло Є» until you rename it or Reconfigure changes its group.
+
 <details>
 <summary>Screenshots of the setup</summary>
 
