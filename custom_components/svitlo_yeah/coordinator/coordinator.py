@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+# How far ahead the next-outage sensors and the diagnostics look
 TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
 # Longer than the schedule of any source (today and tomorrow), so that the
 # check of a change sees each future outage
