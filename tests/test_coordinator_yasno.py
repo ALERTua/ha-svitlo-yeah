@@ -71,10 +71,17 @@ def _coordinator(hass, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "error", [ClientConnectionError(), TimeoutError()], ids=["connection", "timeout"]
+    "failure",
+    [
+        {"exc": ClientConnectionError()},
+        {"exc": TimeoutError()},
+        # A proxy can answer 200 with a page that is not JSON
+        {"text": "<html>502</html>", "headers": {"Content-Type": "application/json"}},
+    ],
+    ids=["connection", "timeout", "not_json"],
 )
 async def test_failed_request_keeps_the_schedule(
-    hass, aioclient_mock, coordinator, error
+    hass, aioclient_mock, coordinator, failure
 ):
     """A failed request leaves the running outage and fires no change event."""
     aioclient_mock.get(PLANNED_URL, json=_outage_all_day_today())
@@ -83,9 +90,10 @@ async def test_failed_request_keeps_the_schedule(
 
     changes = async_capture_events(hass, EVENT_DATA_CHANGED)
     aioclient_mock.clear_requests()
-    aioclient_mock.get(PLANNED_URL, exc=error)
+    aioclient_mock.get(PLANNED_URL, **failure)
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 
     assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert coordinator.last_fetch_failed
     assert changes == []

@@ -24,7 +24,7 @@ from custom_components.svitlo_yeah.models import (
     YasnoRegion,
 )
 
-from .common_tools import _merge_adjacent_events, parse_timestamp
+from .common_tools import REQUEST_ERRORS, _merge_adjacent_events, parse_timestamp
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,7 +157,7 @@ class YasnoApi:
                 response.raise_for_status()
                 return await response.json()
 
-        except (aiohttp.ClientError, TimeoutError):  # fmt: skip  # remove in 2027
+        except REQUEST_ERRORS:
             # The coordinator logs once when Yasno stops answering
             LOGGER.debug("Error fetching data from %s", url, exc_info=True)
             return None
