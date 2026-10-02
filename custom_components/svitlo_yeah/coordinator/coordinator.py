@@ -138,6 +138,12 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         """Give the kept data back to the coordinator and its API."""
         self._stored = stored
         self._restore_source_data(stored["source"])
+        # The first answer counts as a change only when it differs from the
+        # kept schedule, which can change while Home Assistant is down
+        now = dt_utils.now()
+        self.initialize_outage_data_tracking(
+            self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
+        )
         if changed := stored.get("outage_data_last_changed"):
             self.outage_data_last_changed = dt_utils.parse_datetime(changed)
         # After a Reconfigure, the kept answer is about another group
