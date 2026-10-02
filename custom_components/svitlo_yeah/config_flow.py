@@ -202,7 +202,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     reason="reconfigure_successful",
                 )
 
-            LOGGER.info("async_step_group: Done. Creating entry from %s", self.data)
+            LOGGER.debug("async_step_group: Done. Creating entry from %s", self.data)
             # noinspection PyTypeChecker
             return self.async_create_entry(title=NAME, data=self.data)
 

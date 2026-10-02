@@ -1,6 +1,9 @@
 """The config flow and the entry setup on a real Home Assistant (the hass fixture)."""
 
+import logging
+
 import pytest
+from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_platform
@@ -20,13 +23,14 @@ from custom_components.svitlo_yeah.const import (
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
-from tests.helpers import PROVIDERS
+from tests.helpers import PROVIDERS, YASNO_PLANNED_URL, yasno_outage_all_day_today
 
 pytestmark = pytest.mark.usefixtures(
     "enable_custom_integrations", "empty_yasno_region_cache"
 )
 
 KYIV_REGIONS = [{"id": 25, "value": "Київ", "dsos": [{"id": 902, "name": "ДТЕК"}]}]
+INTEGRATION_LOGGER = "custom_components.svitlo_yeah"
 
 
 def _planned_outages(*groups: str) -> dict:
@@ -38,8 +42,14 @@ def _planned_outages(*groups: str) -> dict:
     return {group: {"today": day, "updatedOn": today.isoformat()} for group in groups}
 
 
-async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock):
-    """The user picks a Yasno provider and a group, and the entry sets up."""
+async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock, caplog):
+    """
+    The user picks a Yasno provider and a group, and the entry sets up.
+
+    The flow, the setup and the unload are not news for the user, so the
+    integration writes no info line on the way.
+    """
+    caplog.set_level(logging.INFO, logger=INTEGRATION_LOGGER)
     aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=KYIV_REGIONS)
     aioclient_mock.get(
         YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=25, dso_id=902),
@@ -71,6 +81,34 @@ async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock):
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
+
+    assert [
+        r.getMessage()
+        for r in caplog.records
+        if r.name.startswith(INTEGRATION_LOGGER) and r.levelno >= logging.INFO
+    ] == []
+
+
+async def test_device_without_a_provider_logs_from_the_entity_module(
+    hass, aioclient_mock, caplog
+):
+    """Without the Yasno regions the device has no provider name, and entity.py says so in its own log."""
+    caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
+    aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
+    entry = MockConfigEntry(domain=DOMAIN, data=PROVIDERS["yasno"][0])
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    records = [
+        r for r in caplog.records if "Device info without a provider" in r.getMessage()
+    ]
+    assert records
+    assert {r.name for r in records} == {"custom_components.svitlo_yeah.entity"}
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
 
 
 async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
