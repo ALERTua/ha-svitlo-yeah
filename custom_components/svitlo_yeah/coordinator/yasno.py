@@ -72,6 +72,8 @@ class YasnoCoordinator(IntegrationCoordinator):
         self.group = group
 
         self._region: YasnoRegion | None = None
+        # Whether the region was looked up among the regions that Yasno gave
+        self._source_region_checked = False
         # One API for the life of the coordinator, so that a failed request
         # keeps the planned outages of the last successful one.
         self.api = YasnoApi(
@@ -154,10 +156,12 @@ class YasnoCoordinator(IntegrationCoordinator):
 
     @property
     def region(self) -> YasnoRegion | None:
-        """Get the configured region."""
-        if not self._region:
-            self._region = self.api.get_region_by_id(self.region_id)
-            LOGGER.debug("Caching region to %s", self._region)
+        """Get the region that Yasno gives, or the kept one while Yasno gives none."""
+        if not self._source_region_checked and self.api.regions:
+            self._source_region_checked = True
+            if region := self.api.get_region_by_id(self.region_id):
+                self._region = region
+                LOGGER.debug("Caching region to %s", self._region)
         return self._region
 
     @property
