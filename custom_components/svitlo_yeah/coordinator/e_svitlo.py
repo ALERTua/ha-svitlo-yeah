@@ -97,39 +97,38 @@ class ESvitloCoordinator(IntegrationCoordinator):
         await self.async_fetch_translations()
 
         # Ensure we have user info (including group) before fetching disconnections
-        if isinstance(self.api, ESvitloClient):
-            if not self.api.user_id or not self.api.group:
-                await self.api.get_user_info()
+        if not self.api.user_id or not self.api.group:
+            await self.api.get_user_info()
 
-            # Update group from API if available
-            if self.api.group:
-                self.group = self.api.group
+        # Update group from API if available
+        if self.api.group:
+            self.group = self.api.group
 
-            # Get disconnections data
-            events = await self.api.get_disconnections()
-            # The entry can be unloaded or removed while the server answers
-            if self._shutdown_requested:
-                return
-            # A refused login is an answer of the server, not a missing answer.
-            # After a refusal, each poll logs in again, so the last login is of
-            # this poll.
-            refused = self.api.last_login is LoginResult.REJECTED
-            self._set_last_fetch_failed(failed=events is None and not refused)
-            self._set_login_rejected(rejected=self.api.login_rejected)
+        # Get disconnections data
+        events = await self.api.get_disconnections()
+        # The entry can be unloaded or removed while the server answers
+        if self._shutdown_requested:
+            return
+        # A refused login is an answer of the server, not a missing answer.
+        # After a refusal, each poll logs in again, so the last login is of
+        # this poll.
+        refused = self.api.last_login is LoginResult.REJECTED
+        self._set_last_fetch_failed(failed=events is None and not refused)
+        self._set_login_rejected(rejected=self.api.login_rejected)
 
-            if events is not None:
-                LOGGER.debug(
-                    "Successfully updated E-Svitlo data with %d events", len(events)
-                )
-                # Check if outage data has changed
-                now = dt_utils.now()
-                current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
-                self.check_outage_data_changed(current_events, now)
-            else:
-                LOGGER.debug("Failed to fetch E-Svitlo data")
-                # Keep existing data if fetch fails
+        if events is not None:
+            LOGGER.debug(
+                "Successfully updated E-Svitlo data with %d events", len(events)
+            )
+            # Check if outage data has changed
+            now = dt_utils.now()
+            current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
+            self.check_outage_data_changed(current_events, now)
+        else:
+            LOGGER.debug("Failed to fetch E-Svitlo data")
+            # Keep existing data if fetch fails
 
-            await self._async_store_last_data()
+        await self._async_store_last_data()
 
     def _set_login_rejected(self, *, rejected: bool) -> None:
         """

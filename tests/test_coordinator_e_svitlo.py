@@ -48,6 +48,8 @@ def coordinator(mock_hass, mock_entry):
     ) as mock_client_cls:
         client_instance = mock_client_cls.return_value
         client_instance.get_updated_on.return_value = dt_utils.now()
+        client_instance.login_rejected = False
+        client_instance.last_login = None
 
         coord = ESvitloCoordinator(mock_hass, mock_entry)
         coord.client = client_instance
@@ -58,14 +60,14 @@ def coordinator(mock_hass, mock_entry):
 
 @pytest.mark.asyncio
 async def test_update_failure(coordinator):
-    """Test data update failure."""
+    """A poll without an answer raises nothing, and counts as no answer."""
     coordinator.translations = {}
     coordinator.client.get_disconnections = AsyncMock(return_value=None)
 
-    # helper for async update
     await coordinator._async_update_data()
-    # Should not raise, just log warning
-    assert coordinator.data is None  # Or whatever default is, since update failed
+
+    assert coordinator.last_fetch_failed
+    assert not coordinator.login_rejected
 
 
 @pytest.mark.parametrize("with_address", [True, False], ids=["address", "no_address"])

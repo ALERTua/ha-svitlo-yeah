@@ -121,9 +121,6 @@ def _parse_day_schedule(day_data: dict, dt: datetime) -> list[PlannedOutageEvent
     return events
 
 
-# noinspection PyUnusedLocal
-
-
 class YasnoApi:
     """Class to interact with Yasno API."""
 
