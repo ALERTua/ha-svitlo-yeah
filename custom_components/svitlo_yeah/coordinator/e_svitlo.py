@@ -5,13 +5,11 @@ from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient, LoginResult
 from custom_components.svitlo_yeah.const import (
     CONF_ACCOUNT_ID,
-    DOMAIN,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
@@ -41,19 +39,14 @@ class ESvitloCoordinator(IntegrationCoordinator):
         """Initialize the E-Svitlo coordinator."""
         super().__init__(hass, config_entry)
 
-        username = config_entry.data.get(CONF_USERNAME)
-        password = config_entry.data.get(CONF_PASSWORD)
-        if not username or not password:
-            # The config flow always writes the login, so the user adds the entry again
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="entry_without_login",
-            )
-
         # Create provider from config entry data
         self.provider: ESvitloProvider = ESvitloProvider(
-            user_name=username,
-            password=password,
+            user_name=self._required_setting(
+                CONF_USERNAME, translation_key="entry_without_login"
+            ),
+            password=self._required_setting(
+                CONF_PASSWORD, translation_key="entry_without_login"
+            ),
             account_id=config_entry.data.get(CONF_ACCOUNT_ID),
         )
 

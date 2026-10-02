@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_utils
 
@@ -39,37 +38,22 @@ class YasnoCoordinator(IntegrationCoordinator):
     """Class to manage fetching Yasno outages data."""
 
     api: YasnoApi
+    provider_id: int
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         super().__init__(hass, config_entry)
         self.translations = {}
 
-        # Get configuration values
-        region_id = config_entry.data.get(CONF_REGION)
-        provider_id = config_entry.data.get(CONF_PROVIDER)
-        group = config_entry.data.get(CONF_GROUP)
-
-        # The config flow always writes these settings, so a broken entry
-        # cannot load until the user adds it again
-        if not region_id:
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="entry_without_region",
-            )
-        if not provider_id:
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="entry_without_provider",
-            )
-        if not group:
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="entry_without_group",
-            )
-        self.region_id = region_id
-        self.provider_id = provider_id
-        self.group = group
+        self.region_id = self._required_setting(
+            CONF_REGION, translation_key="entry_without_region"
+        )
+        self.provider_id = self._required_setting(
+            CONF_PROVIDER, translation_key="entry_without_provider"
+        )
+        self.group = self._required_setting(
+            CONF_GROUP, translation_key="entry_without_group"
+        )
 
         self._region: YasnoRegion | None = None
         # Whether the region was looked up among the regions that Yasno gave

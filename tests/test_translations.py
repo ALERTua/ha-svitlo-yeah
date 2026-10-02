@@ -78,7 +78,11 @@ def _exception_keys() -> set[str]:
         for path in TRANSLATIONS.parent.rglob("*.py")
         for call in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
         if isinstance(call, ast.Call)
-        and any(k.arg == "translation_domain" for k in call.keywords)
+        and (
+            any(k.arg == "translation_domain" for k in call.keywords)
+            # The coordinators stop the setup of a broken entry through it
+            or getattr(call.func, "attr", None) == "_required_setting"
+        )
         for keyword in call.keywords
         if keyword.arg == "translation_key" and isinstance(keyword.value, ast.Constant)
     }

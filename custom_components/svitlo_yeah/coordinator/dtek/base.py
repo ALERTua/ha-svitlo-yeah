@@ -3,14 +3,12 @@
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.dtek.base import FetchResult
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
-    DOMAIN,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
 from custom_components.svitlo_yeah.coordinator.coordinator import (
@@ -41,30 +39,18 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     config_entry: ConfigEntry
     api: DtekAPIBase
     region_name: str = ""
+    provider_id: str
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         super().__init__(hass, config_entry)
         self.translations = {}
-
-        # Get configuration
-        provider_id = config_entry.data.get(CONF_PROVIDER)
-        # The config flow always writes these settings, so a broken entry
-        # cannot load until the user adds it again
-        if not provider_id:
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="entry_without_provider",
-            )
-
-        group = config_entry.data.get(CONF_GROUP)
-        if not group:
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="entry_without_group",
-            )
-        self.provider_id = provider_id
-        self.group = group
+        self.provider_id = self._required_setting(
+            CONF_PROVIDER, translation_key="entry_without_provider"
+        )
+        self.group = self._required_setting(
+            CONF_GROUP, translation_key="entry_without_group"
+        )
 
     @property
     def event_name_map(self) -> dict:
