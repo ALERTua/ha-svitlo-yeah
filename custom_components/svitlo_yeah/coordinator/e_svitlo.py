@@ -63,16 +63,19 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
     @property
     def region_name(self) -> str:
-        """Get the configured region name."""
-        return self.provider.region_name
+        """Get the region name in the language of the server, as the entry title has."""
+        key = f"component.svitlo_yeah.common.{self.provider.region_name}"
+        return self.translations.get(key, self.provider.region_name)
 
     @property
     def provider_name(self) -> str:
-        """Get the configured provider name."""
-        return self.config_entry.data.get(
-            "address_str",
-            f"E-Svitlo ({self.provider.user_name})",
-        )
+        """
+        Name the provider without the account.
+
+        The device name goes into each entity id, and the log shows them, so
+        the address and the username of the account stay out.
+        """
+        return "E-Svitlo"
 
     @property
     def event_name_map(self) -> dict:

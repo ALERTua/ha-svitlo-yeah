@@ -68,12 +68,16 @@ async def test_update_failure(coordinator):
     assert coordinator.data is None  # Or whatever default is, since update failed
 
 
-def test_provider_name_with_address(coordinator):
-    """Test provider_name returns address."""
-    assert coordinator.provider_name == "Test Addr"
+@pytest.mark.parametrize("with_address", [True, False], ids=["address", "no_address"])
+def test_provider_name_has_no_account(coordinator, mock_entry, with_address):
+    """Neither the address nor the username of the account names the provider."""
+    if not with_address:
+        del mock_entry.data["address_str"]
+    assert coordinator.provider_name == "E-Svitlo"
 
 
-def test_provider_name_fallback(coordinator, mock_entry):
-    """Test provider_name fallback."""
-    mock_entry.data = {}
-    assert coordinator.provider_name == "E-Svitlo (user)"
+def test_region_name_in_the_language_of_the_server(coordinator):
+    """The region has its translated name, and its key until the texts come."""
+    assert coordinator.region_name == "sumy"
+    coordinator.translations = {"component.svitlo_yeah.common.sumy": "Суми"}
+    assert coordinator.region_name == "Суми"
