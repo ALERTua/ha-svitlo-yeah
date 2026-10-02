@@ -51,6 +51,8 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 E_SVITLO_URL = "https://sm.e-svitlo.com.ua/"
+# The checkbox of the form that accepts outdated DTEK data
+CONF_ACKNOWLEDGE = "acknowledge"
 
 
 def _esvitlo_login_schema() -> vol.Schema:
@@ -86,6 +88,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize config flow."""
         self.available_providers: dict[str, BaseProvider] = {}
         self.data: dict[str, Any] = {}
+        # Whether the user accepted the outdated DTEK data in this flow
+        self._stale_ack = False
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Handle the initial step: select provider."""
@@ -192,7 +196,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """Create the entry with the chosen group, or give the group to the entry."""
         LOGGER.debug("async_step_group: User input: %s", user_input)
         self.data.update(user_input)  # add group to the config
-        self.data.pop("_stale_ack", None)  # flow-local flag, do not persist
 
         if self.source == SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
@@ -286,7 +289,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                         # One source on each line of the text
                         description_placeholders={"urls": "\n".join(urls)},
                     )
-                if result is FetchResult.STALE and not self.data.get("_stale_ack"):
+                if result is FetchResult.STALE and not self._stale_ack:
                     # noinspection PyTypeChecker
                     return await self.async_step_stale_confirm()
                 group_labels = temp_api.get_dtek_region_group_labels()
@@ -345,14 +348,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """Warn about stale DTEK JSON data and require acknowledgement."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            if user_input.get("acknowledge"):
-                self.data["_stale_ack"] = True
+            if user_input.get(CONF_ACKNOWLEDGE):
+                self._stale_ack = True
                 # noinspection PyTypeChecker
                 return await self.async_step_group()
-            errors["acknowledge"] = "acknowledge_required"
+            errors[CONF_ACKNOWLEDGE] = "acknowledge_required"
 
         data_schema = vol.Schema(
-            {vol.Required("acknowledge", default=False): bool},
+            {vol.Required(CONF_ACKNOWLEDGE, default=False): bool},
         )
 
         # noinspection PyTypeChecker
