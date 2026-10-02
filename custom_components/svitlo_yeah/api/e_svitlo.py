@@ -7,7 +7,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import aiohttp
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -43,7 +43,10 @@ class ESvitloClient:
     def __init__(self, hass: HomeAssistant, provider: ESvitloProvider) -> None:
         """Initialize the E-Svitlo client."""
         self.hass = hass
-        self.session: aiohttp.ClientSession = async_get_clientsession(hass)
+        # The requests after the login carry no token, so the server knows the
+        # login from the cookies of the session. An own session keeps the login
+        # of each account apart from the other accounts and integrations.
+        self.session: aiohttp.ClientSession = async_create_clientsession(hass)
         self.user_name = provider.user_name
         self.pwd = provider.password
         self.is_authenticated = False

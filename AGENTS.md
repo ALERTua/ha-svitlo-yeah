@@ -123,11 +123,7 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
 
 ### Providers & data sources
 
-Outage data comes from several providers, each with its own `api/` client and
-`coordinator/`: Yasno, E-Svitlo, and DTEK. DTEK and several oblasts are served by
-**JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses
-`aiohttp` through HA's `async_get_clientsession(hass)` — there is no bespoke HTTP
-stack. See `README.md` for the authoritative region → provider → source table.
+Outage data comes from several providers, each with its own `api/` client and `coordinator/`: Yasno, E-Svitlo, and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the session helpers of Home Assistant, and there is no bespoke HTTP stack. The DTEK and Yasno clients use the shared session of `async_get_clientsession(hass)`. Each E-Svitlo client creates its own session with `async_create_clientsession(hass)`, because the server knows the login from the cookies, and the shared session keeps the cookies of all integrations (rule `inject-websession`). See `README.md` for the authoritative region → provider → source table.
 
 ### Old states until new data
 
