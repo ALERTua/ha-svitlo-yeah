@@ -1,6 +1,5 @@
 """Diagnostics of a Svitlo Yeah entry, for a bug report."""
 
-import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -8,8 +7,11 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.util import dt as dt_utils
 
 from .const import CONF_ACCOUNT_ID, CONF_ADDRESS_STR
+from .coordinator.coordinator import TIMEFRAME_TO_CHECK
 
 if TYPE_CHECKING:
+    import datetime
+
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.core import HomeAssistant
 
@@ -17,7 +19,6 @@ if TYPE_CHECKING:
 
 # The E-Svitlo login, the personal account and its address identify a person
 TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCOUNT_ID, CONF_ADDRESS_STR}
-LOOK_AHEAD = datetime.timedelta(hours=24)
 
 
 def _iso(value: datetime.datetime | datetime.date | None) -> str | None:
@@ -41,7 +42,7 @@ async def async_get_config_entry_diagnostics(
     """
     Return the entry settings without personal data, and what the coordinator knows.
 
-    The name of an E-Svitlo provider is the address, so the provider name is not here.
+    The events are those of the next-outage sensors: the next TIMEFRAME_TO_CHECK.
     """
     coordinator = entry.runtime_data
     now = dt_utils.now()
@@ -64,10 +65,13 @@ async def async_get_config_entry_diagnostics(
             "outage_data_last_changed": _iso(coordinator.outage_data_last_changed),
         },
         "events": [
-            _event(e) for e in coordinator.get_events_between(now, now + LOOK_AHEAD)
+            _event(e)
+            for e in coordinator.get_events_between(now, now + TIMEFRAME_TO_CHECK)
         ],
         "scheduled_events": [
             _event(e)
-            for e in coordinator.get_scheduled_events_between(now, now + LOOK_AHEAD)
+            for e in coordinator.get_scheduled_events_between(
+                now, now + TIMEFRAME_TO_CHECK
+            )
         ],
     }
