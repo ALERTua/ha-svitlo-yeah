@@ -198,7 +198,7 @@ async def test_restart_without_an_answer_keeps_the_missing_group(
     issue_id = group_not_listed_issue_id(entry.entry_id)
     issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
     assert issue is not None
-    assert issue.translation_placeholders["provider"] == "Kyiv Region"
+    assert issue.translation_placeholders["provider"] == "Kyiv Oblast"
     await _unload(hass, entry)
 
 

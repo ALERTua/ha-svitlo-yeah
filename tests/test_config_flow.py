@@ -283,7 +283,7 @@ class TestSetupWithRealProviderApis:
         # The consent is a flag of the flow, so the entry data does not keep it.
         assert result["data"] == DTEK_KYIV_REGION_1_1
         assert hass.config_entries.async_entries(DOMAIN)[0].data == DTEK_KYIV_REGION_1_1
-        assert result["title"] == "Kyiv Region 1.1"
+        assert result["title"] == "Kyiv Oblast 1.1"
 
     async def test_dtek_dnipro_labels_the_cek_groups(self, hass, aioclient_mock):
         """A group that the source names without its number gets a label."""
@@ -440,8 +440,8 @@ class TestEntryTitle:
     @pytest.mark.parametrize(
         ("title", "new_title"),
         [
-            ("Kyiv Region 1.1", "Kyiv Region 2.2"),
-            (NAME, "Kyiv Region 2.2"),
+            ("Kyiv Oblast 1.1", "Kyiv Oblast 2.2"),
+            (NAME, "Kyiv Oblast 2.2"),
             ("Дача", "Дача"),
         ],
         ids=["title_of_the_integration", "title_of_earlier_versions", "own_title"],
