@@ -1,0 +1,98 @@
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: The integration has no service actions.
+  appropriate-polling: done
+  brands: done
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency: done
+  docs-actions:
+    status: exempt
+    comment: The integration has no service actions.
+  docs-conditions:
+    status: exempt
+    comment: The integration has no conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: |
+      The integration has no triggers. The README describes the
+      svitlo_yeah_data_changed event, which an event trigger can use.
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup:
+    status: todo
+    comment: |
+      Not followed on purpose. An entry that retries its setup has unavailable
+      entities after a restart, and the entities must keep their old states
+      until new data comes (AGENTS.md, "Old states until new data").
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters:
+    status: exempt
+    comment: The integration has no options flow.
+  docs-installation-parameters: done
+  entity-unavailable:
+    status: todo
+    comment: |
+      Not followed on purpose, for the reason of test-before-setup. One log
+      line tells when a source stops answering, and the refresh button
+      reports it.
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage: done
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: The integration reads cloud services, so the network has nothing to discover.
+  discovery-update-info:
+    status: exempt
+    comment: The integration has no discovery.
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: Each entry has one device, which the entry creates.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: exempt
+    comment: Each entity is a part of the main use of the integration.
+  entity-translations: done
+  exception-translations: done
+  icon-translations: done
+  reconfiguration-flow: done
+  repair-issues: done
+  stale-devices:
+    status: exempt
+    comment: Each entry has one device, which Home Assistant removes with the entry.
+
+  # Platinum
+  async-dependency: done
+  inject-websession: done
+  strict-typing:
+    status: todo
+    comment: |
+      The ty hook of pre-commit checks custom_components without errors, but
+      mypy does not run in its strict mode.

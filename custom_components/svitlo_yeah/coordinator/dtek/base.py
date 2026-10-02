@@ -76,7 +76,6 @@ class DtekCoordinatorBase(IntegrationCoordinator):
         """Fetch data from DTEK API."""
         await self.async_fetch_translations()
 
-        # Coordinator-level caching (per provider)
         now = dt_utils.now()
         result = await self.api.fetch_data()
         LOGGER.debug("Fetched %s data for %s", result, self)

@@ -27,6 +27,7 @@ require a running Home Assistant instance (`hass`).
   - `entity.py`, `sensor.py`, `calendar.py`, `button.py` — HA entity platforms.
   - `config_flow.py` — UI setup/options flow.
   - `models/`, `const.py`, `manifest.json`, `translations/`, `icons.json`.
+  - `quality_scale.yaml` — the status of each rule of the [integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/), in the format of Home Assistant core. hassfest skips this file for a custom integration, so no tool checks it. When a change makes a rule done, or breaks a done rule, change its status in the same commit.
   - `brand/` — the icon and the logo that Home Assistant and HACS show. They are copies of `icons/*.png`, which the README uses. If you change an image, change both copies: `tests/test_icons.py` makes sure that they are equal.
 - `tests/` — pytest suite (`pytest-asyncio`, `freezegun`, `pytest-homeassistant-custom-component`).
   - `tests/e2e/` — e2e tests with real network access (see "Testing").
