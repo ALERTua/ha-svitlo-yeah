@@ -5,6 +5,7 @@ One reauthentication starts, the old states stay, and the polls go on.
 """
 
 import logging
+from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
@@ -20,6 +21,7 @@ from custom_components.svitlo_yeah.const import (
 from custom_components.svitlo_yeah.models import ConnectivityState
 from tests.helpers import (
     E_SVITLO_ACCOUNT_101,
+    E_SVITLO_ACCOUNTS_URL,
     E_SVITLO_DETAILS_URL,
     E_SVITLO_DISCONNECTIONS_URL,
     E_SVITLO_LOGIN_URL,
@@ -156,4 +158,47 @@ async def test_refused_login_at_the_first_start_asks_once(hass, aioclient_mock, 
     assert len(_reauth_flows(hass)) == 1
     assert _messages(caplog, logging.WARNING, "refused the login") == 1
     assert _messages(caplog, logging.INFO, "does not answer") == 0
+    await _unload(hass, entry)
+
+
+@pytest.mark.parametrize(
+    ("password", "reloads"),
+    [("new secret", 1), (E_SVITLO_ACCOUNT_101["password"], 0)],
+    ids=["new_login", "same_login"],
+)
+async def test_reauth_reloads_a_loaded_entry_only_for_a_new_login(
+    hass, aioclient_mock, caplog, password, reloads
+):
+    """
+    A new login reloads the entry once, through its update listener.
+
+    The same login changes nothing. Home Assistant reports no misuse of the listener.
+    """
+    e_svitlo_answers(aioclient_mock, answer=True)
+    aioclient_mock.post(
+        E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": [{"a": "101"}]}}
+    )
+    entry = await _set_up(hass)
+    coordinator = entry.runtime_data
+    calls = []
+    real_reload = hass.config_entries.async_reload
+
+    async def counting_reload(entry_id: str) -> bool:
+        calls.append(entry_id)
+        return await real_reload(entry_id)
+
+    with patch.object(hass.config_entries, "async_reload", counting_reload):
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"username": E_SVITLO_ACCOUNT_101["username"], "password": password},
+        )
+        await hass.async_block_till_done()
+
+    assert result["reason"] == "reauth_successful"
+    assert entry.data["password"] == password
+    assert len(calls) == reloads
+    assert (entry.runtime_data is coordinator) == (reloads == 0)
+    assert entry.state is ConfigEntryState.LOADED
+    assert not [r for r in caplog.records if "update listener" in r.getMessage()]
     await _unload(hass, entry)
