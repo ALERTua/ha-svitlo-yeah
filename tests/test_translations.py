@@ -124,7 +124,7 @@ def test_each_form_error_has_a_text(language):
 
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_each_exception_has_a_text(language):
-    """Each translated exception has a text, because the UI shows a bare key without it."""
+    """Each translated exception has a text: without it, the UI shows a bare key."""
     keys = _exception_keys()
     assert keys  # the parser found the exceptions of the integration
 

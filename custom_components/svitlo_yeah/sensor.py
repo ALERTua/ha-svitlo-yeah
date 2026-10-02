@@ -77,7 +77,7 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,
+    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
     config_entry: SvitloYeahConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:

@@ -1,7 +1,7 @@
 """Calendar platform for Svitlo Yeah integration."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from homeassistant.components.calendar import (
     CalendarEntity,
@@ -28,7 +28,7 @@ PARALLEL_UPDATES = 0
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,
+    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
     config_entry: SvitloYeahConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
@@ -75,6 +75,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         """Return current or next event."""
         return self.coordinator.get_current_event()
 
+    @override
     async def async_get_events(
         self,
         hass: HomeAssistant,
@@ -119,6 +120,7 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
         # For scheduled outages, we don't show current events initially
         return None
 
+    @override
     async def async_get_events(
         self,
         hass: HomeAssistant,

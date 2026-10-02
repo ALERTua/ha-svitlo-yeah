@@ -368,7 +368,9 @@ class TestCoordinatorScheduledEvents:
 
         # Mock translations
         coordinator.translations = {
-            "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
+            "component.svitlo_yeah.common.event_name_scheduled_outage": (
+                "Scheduled Outage"
+            )
         }
 
         events = coordinator.get_scheduled_events_between(start_date, end_date)
@@ -402,7 +404,9 @@ class TestCoordinatorScheduledEvents:
         coordinator.group = "1.1"  # Set group for _group_str
         names = {PlannedOutageEventType.DEFINITE: f"Planned Outage {coordinator.group}"}
         coordinator.translations = {
-            "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
+            "component.svitlo_yeah.common.event_name_scheduled_outage": (
+                "Scheduled Outage"
+            )
         }
 
         # Test regular calendar event; only this block replaces the names
@@ -472,7 +476,8 @@ class TestCoordinatorEventToState:
 
         result = coordinator._event_to_state(None)
         assert result == ConnectivityState.STATE_NORMAL, (
-            f"{coordinator_class.__name__}._event_to_state(None) should return STATE_NORMAL"
+            f"{coordinator_class.__name__}._event_to_state(None) "
+            "should return STATE_NORMAL"
         )
 
     @pytest.mark.parametrize(
@@ -526,7 +531,7 @@ class TestESvitloEventNames:
     """E-Svitlo names its events without the group."""
 
     def test_scheduled_event_name_has_no_group(self):
-        """The group of E-Svitlo comes from the account, so the name does not repeat it."""
+        """E-Svitlo takes the group from the account, so the name does not repeat it."""
         coordinator = object.__new__(ESvitloCoordinator)
         coordinator.group = "4.1"
         coordinator.translations = {
@@ -544,7 +549,7 @@ class TestESvitloEventNames:
         assert result.summary == "Графікове відключення"
 
     def test_event_without_a_name_gets_the_name_of_its_type(self, caplog):
-        """Without a translated name, the event is named after its type, with a warning."""
+        """Without a translation, the event gets the name of its type and a warning."""
         coordinator = object.__new__(ESvitloCoordinator)
         coordinator.translations = {}
         now = dt_utils.now()

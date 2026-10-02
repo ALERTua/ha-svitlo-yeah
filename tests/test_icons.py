@@ -1,4 +1,8 @@
-"""The entities take their icons from icons.json (gold icon-translations), and the integration ships its brand images."""
+"""
+The entities take their icons from icons.json (gold icon-translations).
+
+The integration also ships its brand images.
+"""
 
 import json
 import re
@@ -41,7 +45,11 @@ def test_each_entity_has_an_icon_and_each_icon_an_entity():
 
 
 def test_electricity_shows_each_outage_with_its_own_icon():
-    """An outage looks different from the power that is on, and each kind of outage differs."""
+    """
+    An outage looks different from the power that is on.
+
+    Each kind of outage has its own icon.
+    """
     electricity = ICONS["sensor"]["electricity"]
     states = electricity["state"]
 
@@ -51,7 +59,7 @@ def test_electricity_shows_each_outage_with_its_own_icon():
 
 
 def test_brand_folder_has_the_images_of_the_integration():
-    """The brand folder gives Home Assistant and HACS the icon and the logo of the integration."""
+    """The brand folder gives Home Assistant and HACS the icon and the logo."""
     names = {"icon.png", "icon@2x.png", "logo.png", "logo@2x.png"}
 
     assert {path.name for path in BRAND.iterdir()} == names

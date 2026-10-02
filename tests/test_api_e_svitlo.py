@@ -41,7 +41,8 @@ def _client(provider, mock_session_post):
         "custom_components.svitlo_yeah.api.e_svitlo.async_get_clientsession"
     ) as mock_helper:
         # The provided snippet seems to be a mix of client and coordinator setup.
-        # Assuming the intent was to keep the client setup and potentially add coordinator setup elsewhere.
+        # Assuming the intent was to keep the client setup and potentially add
+        # coordinator setup elsewhere.
         # For now, faithfully applying the client-related part of the snippet.
         mock_helper.return_value = MagicMock()
         mock_helper.return_value.post = mock_session_post
@@ -145,7 +146,8 @@ class TestESvitloClientData:
         resp_data.json = AsyncMock(return_value=data)
 
         # Sequence: get_accounts (fail) -> login -> get_accounts (success)
-        # Note: logic calls login() which does a POST, then get_accounts() which does a POST
+        # Note: logic calls login() which does a POST, then get_accounts(),
+        # which does a POST
         mock_session_post.return_value.__aenter__.side_effect = [
             resp_expired,
             resp_login,
@@ -375,7 +377,8 @@ class TestESvitloClientDisconnections:
         mock_resp.json = AsyncMock(return_value={"data": {"login": True}})
         mock_session_post.return_value.__aenter__.return_value = mock_resp
 
-        # _ensure_connection is called internally by getters, but we can call it if exposed
+        # _ensure_connection is called internally by getters, but we can call it
+        # if exposed
         # or verify side effect via get_disconnections
         await client.get_disconnections()
         assert client.is_authenticated is True

@@ -10,6 +10,7 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
 )
+from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
@@ -162,49 +163,54 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # noinspection PyTypeChecker
         return self.async_show_form(step_id="user", data_schema=data_schema)
 
+    @callback
+    def _async_save_group(self, user_input: dict) -> ConfigFlowResult:
+        """Create the entry with the chosen group, or give the group to the entry."""
+        LOGGER.debug("async_step_group: User input: %s", user_input)
+        self.data.update(user_input)  # add group to the config
+        self.data.pop("_stale_ack", None)  # flow-local flag, do not persist
+
+        if self.source == SOURCE_RECONFIGURE:
+            entry = self._get_reconfigure_entry()
+            if self.data[CONF_GROUP] == get_config_value(entry, CONF_GROUP):
+                # noinspection PyTypeChecker
+                return self.async_abort(reason="reconfigure_unchanged")
+
+        # One entry for each provider and group: a second one only repeats it
+        self._async_abort_entries_match(
+            {
+                key: self.data[key]
+                for key in (
+                    CONF_PROVIDER_TYPE,
+                    CONF_REGION,
+                    CONF_PROVIDER,
+                    CONF_GROUP,
+                )
+                if key in self.data
+            }
+        )
+
+        if self.source == SOURCE_RECONFIGURE:
+            # The update listener of the entry reloads it with the new group.
+            # An explicit reason keeps the text of this integration: without
+            # it, the 2026.10 development core shows the core translation.
+            # noinspection PyTypeChecker
+            return self.async_update_and_abort(
+                self._get_reconfigure_entry(),
+                data_updates={CONF_GROUP: self.data[CONF_GROUP]},
+                reason="reconfigure_successful",
+            )
+
+        LOGGER.debug("async_step_group: Done. Creating entry from %s", self.data)
+        # noinspection PyTypeChecker
+        return self.async_create_entry(title=NAME, data=self.data)
+
     async def async_step_group(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step: select group."""
         if user_input is not None:
-            LOGGER.debug("async_step_group: User input: %s", user_input)
-            self.data.update(user_input)  # add group to the config
-            self.data.pop("_stale_ack", None)  # flow-local flag, do not persist
-
-            if self.source == SOURCE_RECONFIGURE:
-                entry = self._get_reconfigure_entry()
-                if self.data[CONF_GROUP] == get_config_value(entry, CONF_GROUP):
-                    # noinspection PyTypeChecker
-                    return self.async_abort(reason="reconfigure_unchanged")
-
-            # One entry for each provider and group: a second one only repeats it
-            self._async_abort_entries_match(
-                {
-                    key: self.data[key]
-                    for key in (
-                        CONF_PROVIDER_TYPE,
-                        CONF_REGION,
-                        CONF_PROVIDER,
-                        CONF_GROUP,
-                    )
-                    if key in self.data
-                }
-            )
-
-            if self.source == SOURCE_RECONFIGURE:
-                # The update listener of the entry reloads it with the new group.
-                # An explicit reason keeps the text of this integration: without
-                # it, the 2026.10 development core shows the core translation.
-                # noinspection PyTypeChecker
-                return self.async_update_and_abort(
-                    self._get_reconfigure_entry(),
-                    data_updates={CONF_GROUP: self.data[CONF_GROUP]},
-                    reason="reconfigure_successful",
-                )
-
-            LOGGER.debug("async_step_group: Done. Creating entry from %s", self.data)
-            # noinspection PyTypeChecker
-            return self.async_create_entry(title=NAME, data=self.data)
+            return self._async_save_group(user_input)
 
         LOGGER.debug("async_step_user: No User input yet")
 
@@ -287,7 +293,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reconfigure(
-        self, user_input: dict | None = None
+        self,
+        user_input: dict | None = None,  # noqa: ARG002  # the flow manager passes it
     ) -> ConfigFlowResult:
         """Let the user pick another group for an existing entry."""
         entry = self._get_reconfigure_entry()
@@ -371,7 +378,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reauth(
-        self, entry_data: Mapping[str, Any]
+        self,
+        entry_data: Mapping[str, Any],  # noqa: ARG002  # the flow manager passes it
     ) -> ConfigFlowResult:
         """Ask for the E-Svitlo login again, after the server refused it."""
         # noinspection PyTypeChecker

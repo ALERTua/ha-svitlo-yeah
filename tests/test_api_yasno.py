@@ -553,7 +553,7 @@ class TestYasnoApiScheduledEvents:
         assert events[0].event_type == PlannedOutageEventType.DEFINITE
 
     def test_get_scheduled_events_emergency_shutdowns(self, api, today):
-        """Test getting scheduled events with EmergencyShutdowns status - now ignored."""
+        """Test scheduled events with the EmergencyShutdowns status: now ignored."""
         api.planned_outage_data = {
             TEST_GROUP: {
                 "today": {
@@ -629,7 +629,7 @@ class TestYasnoApiUnusualDays:
         assert api.get_updated_on() is None
 
     def test_current_event_of_an_emergency_day(self, api, emergency_outage_data, today):
-        """During an emergency day, the all-day event of that date is the current one."""
+        """On an emergency day, the all-day event of that date is the current one."""
         api.planned_outage_data = emergency_outage_data
 
         event = api.get_current_event(today.replace(hour=12))

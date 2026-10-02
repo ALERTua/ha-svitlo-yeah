@@ -83,7 +83,7 @@ class TestJsonDtekAPIFetchData:
     """Test JSON data fetching methods."""
 
     async def test_fetch_data_no_fallback_when_stale(self, api):
-        """Test that when all sources are stale, data remains None (no fallback implemented)."""
+        """When all sources are stale, the data stays None: there is no fallback."""
         stale_data = create_sample_json_data(
             datetime.now(UTC) - timedelta(days=1000)
         )  # 2+ days old

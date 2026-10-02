@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
-TOKEN_NAME = "HA_TEST_TOKEN"
+TOKEN_NAME = "HA_TEST_TOKEN"  # noqa: S105  # the name of the .env line, not the token
 
 
 def read_token(env_file: Path) -> str | None:

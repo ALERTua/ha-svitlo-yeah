@@ -1,4 +1,8 @@
-"""A source that stops answering is logged once, and once when it answers again (silver log-when-unavailable)."""
+"""
+A source that stops answering is logged once, and once when it is back.
+
+This is the silver rule log-when-unavailable.
+"""
 
 import logging
 
@@ -40,7 +44,7 @@ def _problems(caplog) -> list[str]:
 async def _set_up(hass, aioclient_mock, provider: str, *, answer: bool):
     """Set up an entry of the provider, and return the entry and its coordinator."""
     data, answers = PROVIDERS[provider]
-    answers(aioclient_mock, answer)
+    answers(aioclient_mock, answer=answer)
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -57,14 +61,14 @@ async def _unload(hass, entry: MockConfigEntry) -> None:
 async def test_source_down_is_logged_once_and_back_once(
     hass, aioclient_mock, caplog, provider
 ):
-    """Two failed polls give one info line, the first answer after them gives one more."""
+    """Two failed polls give one info line, and the next answer gives one more."""
     caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
     entry, coordinator = await _set_up(hass, aioclient_mock, provider, answer=True)
     _, answers = PROVIDERS[provider]
     assert _infos(caplog, GONE) == 0
 
     aioclient_mock.clear_requests()
-    answers(aioclient_mock, False)
+    answers(aioclient_mock, answer=False)
     await coordinator.async_refresh()
     await coordinator.async_refresh()
 
@@ -72,7 +76,7 @@ async def test_source_down_is_logged_once_and_back_once(
     assert _problems(caplog) == []
 
     aioclient_mock.clear_requests()
-    answers(aioclient_mock, True)
+    answers(aioclient_mock, answer=True)
     await coordinator.async_refresh()
     await coordinator.async_refresh()
 
@@ -85,7 +89,7 @@ async def test_source_down_is_logged_once_and_back_once(
 async def test_new_entry_without_an_answer_logs_once(
     hass, aioclient_mock, caplog, provider
 ):
-    """A source that does not answer at the first start gives one info line, no error."""
+    """A source without an answer at the first start gives one info line, no error."""
     caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
     entry, coordinator = await _set_up(hass, aioclient_mock, provider, answer=False)
 

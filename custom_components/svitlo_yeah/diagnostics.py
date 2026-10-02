@@ -34,10 +34,11 @@ def _event(event: CalendarEvent) -> dict[str, Any]:
 
 # noinspection PyUnusedLocal
 async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: SvitloYeahConfigEntry
+    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
+    entry: SvitloYeahConfigEntry,
 ) -> dict[str, Any]:
     """
-    Return the settings of the entry without personal data, and what the coordinator knows.
+    Return the entry settings without personal data, and what the coordinator knows.
 
     The name of an E-Svitlo provider is the address, so the provider name is not here.
     """
