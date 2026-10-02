@@ -64,6 +64,13 @@ def _ends_after(event: PlannedOutageEvent, now: datetime.datetime) -> bool:
     return event.end > now.astimezone(TZ_UA).date()
 
 
+def _start_moment(event: PlannedOutageEvent | CalendarEvent) -> datetime.datetime:
+    """Return when the event starts; an all-day event starts at its Kyiv midnight."""
+    if isinstance(event.start, datetime.datetime):
+        return event.start
+    return datetime.datetime.combine(event.start, datetime.time.min, tzinfo=TZ_UA)
+
+
 def store_key(entry_id: str) -> str:
     """Return the key of the store that keeps the last data of an entry."""
     return f"{DOMAIN}.{entry_id}"
@@ -292,7 +299,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         now = dt_utils.as_local(dt_utils.now())
         # The date of an all-day event is a day in Kyiv
         now_date = now.astimezone(TZ_UA).date()
-        for event in sorted(events, key=lambda _: _.start):
+        # A date and a datetime cannot be compared, so the sort uses moments
+        for event in sorted(events, key=_start_moment):
             comparison_time = now_date if event.all_day else now
             if event.start > comparison_time:
                 return event.start
