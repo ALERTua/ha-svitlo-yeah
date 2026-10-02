@@ -30,6 +30,7 @@ from custom_components.svitlo_yeah.models import (
     YasnoRegion,
 )
 from custom_components.svitlo_yeah.sensor import SENSORS, IntegrationSensor
+from tests.helpers import YASNO_KYIV
 
 LOGGER_NAME = "custom_components.svitlo_yeah.coordinator.coordinator"
 ELECTRICITY = next(s for s in SENSORS if s.key == "electricity")
@@ -37,13 +38,7 @@ ISSUE_ID = "group_not_listed_test_entry"
 TRANSLATIONS = Path(__file__).parent.parent / (
     "custom_components/svitlo_yeah/translations"
 )
-YASNO_KYIV = YasnoRegion.from_dict(
-    {
-        "id": 25,
-        "value": "Київ",
-        "dsos": [{"id": 902, "name": "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"}],
-    }
-)
+YASNO_KYIV_REGION = YasnoRegion.from_dict(YASNO_KYIV)
 
 
 @pytest.fixture(autouse=True, name="create_issue")
@@ -197,7 +192,7 @@ async def _update_yasno(coordinator, *, listed: bool | None):
     api.fetch_data = AsyncMock()
     api.is_group_listed = MagicMock(return_value=listed)
     api.get_events = MagicMock(return_value=[])
-    api.get_region_by_id = MagicMock(return_value=YASNO_KYIV)
+    api.get_region_by_id = MagicMock(return_value=YASNO_KYIV_REGION)
     coordinator.api = api
     await coordinator._async_update_data()
 
