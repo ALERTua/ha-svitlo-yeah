@@ -7,6 +7,7 @@ import pytest
 import voluptuous as vol
 from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -19,13 +20,18 @@ from custom_components.svitlo_yeah.const import (
     CONF_REGION,
     DOMAIN,
     DTEK_PROVIDER_URLS,
-    E_SVITLO_SUMY_BASE_URL,
     NAME,
-    PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
-    PROVIDER_TYPE_YASNO,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
+)
+from tests.helpers import (
+    DTEK_KYIV_REGION_1_1,
+    E_SVITLO_ACCOUNT_101,
+    E_SVITLO_ACCOUNTS_URL,
+    E_SVITLO_LOGIN_URL,
+    YASNO_KYIV_1_1,
+    YASNO_PLANNED_URL,
 )
 
 pytestmark = pytest.mark.usefixtures(
@@ -40,9 +46,6 @@ YASNO_REGION_ID = 25
 YASNO_OTHER_REGION_ID = 3
 YASNO_DSO_ID = 902
 YASNO_KEY = f"yasnoprovider_{YASNO_REGION_ID}_{YASNO_DSO_ID}"
-YASNO_PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(
-    region_id=YASNO_REGION_ID, dso_id=YASNO_DSO_ID
-)
 YASNO_REGIONS = [
     {
         "hasCities": False,
@@ -58,36 +61,17 @@ YASNO_REGIONS = [
     },
 ]
 
-DTEK_KYIV_REGION_1_1 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
-    CONF_PROVIDER: "kyiv_region",
-    CONF_GROUP: "1.1",
-}
-YASNO_KYIV_1_1 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
-    CONF_PROVIDER: YASNO_DSO_ID,
-    CONF_REGION: YASNO_REGION_ID,
-    CONF_GROUP: "1.1",
-}
-
 E_SVITLO_KEY = "esvitloprovider_sumy"
 # The login forms name the site of the personal cabinet
 E_SVITLO_SITE = "https://sm.e-svitlo.com.ua/"
-E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
-E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
-E_SVITLO_CREDENTIALS = {"username": "user", "password": "secret"}
-E_SVITLO_NEW_LOGIN = {"username": "user", "password": "new secret"}
+E_SVITLO_CREDENTIALS = {
+    key: E_SVITLO_ACCOUNT_101[key] for key in (CONF_USERNAME, CONF_PASSWORD)
+}
+E_SVITLO_NEW_LOGIN = {**E_SVITLO_CREDENTIALS, CONF_PASSWORD: "new secret"}
 E_SVITLO_ACCOUNTS = [
     {"a": 101, "address": "Суми, вул. Перша, 1", "ls": "5001"},
     {"a": 102, "address": "Суми, вул. Друга, 2", "ls": "5002"},
 ]
-E_SVITLO_ACCOUNT_101 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO,
-    CONF_PROVIDER: "sumy",
-    **E_SVITLO_CREDENTIALS,
-    CONF_ACCOUNT_ID: "101",
-    CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
-}
 
 
 def _dtek_feed(
