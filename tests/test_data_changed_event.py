@@ -18,6 +18,7 @@ from custom_components.svitlo_yeah.const import (
 )
 from tests.helpers import (
     DTEK_KYIV_REGION_1_1,
+    YASNO_KYIV,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
     dtek_answers,
@@ -103,5 +104,68 @@ async def test_changed_yasno_schedule_without_the_regions(
         "sensor", DOMAIN, f"{entry.entry_id}_electricity"
     )
     assert hass.states.get(electricity).state != "unavailable"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+def _yasno_today_and_tomorrow(today_slots: list, tomorrow_slots: list) -> dict:
+    """Build a Yasno answer for group 1.1 with outages today and tomorrow."""
+    today = dt_utils.start_of_local_day()
+    tomorrow = today + timedelta(days=1)
+
+    def day(date, slots):
+        return {
+            "slots": [{"start": s, "end": e, "type": "Definite"} for s, e in slots],
+            "date": date.isoformat(),
+            "status": "ScheduleApplies",
+        }
+
+    return {
+        "1.1": {
+            "today": day(today, today_slots),
+            "tomorrow": day(tomorrow, tomorrow_slots),
+            "updatedOn": today.isoformat(),
+        }
+    }
+
+
+async def test_the_same_schedule_fires_no_event_all_day(hass, aioclient_mock, freezer):
+    """
+    The same answer of the source is no change, whatever the time of the poll.
+
+    An outage that ends, or an outage of tomorrow that comes into the next 24
+    hours, does not change the schedule.
+    """
+    freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=9))
+    answer = _yasno_today_and_tomorrow([(600, 720)], [(900, 960)])
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    aioclient_mock.get(YASNO_PLANNED_URL, json=answer)
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    changes = async_capture_events(hass, EVENT_DATA_CHANGED)
+
+    # After the outage of today, after tomorrow came into the next 24 hours,
+    # and late in the evening
+    for hours in (13, 16, 23.5):
+        freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=hours))
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+    assert changes == []
+    assert coordinator.outage_data_last_changed is None
+
+    # A real change of the source
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    aioclient_mock.get(
+        YASNO_PLANNED_URL,
+        json=_yasno_today_and_tomorrow([(600, 720)], [(900, 1020)]),
+    )
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert len(changes) == 1
+    assert coordinator.outage_data_last_changed is not None
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

@@ -1,6 +1,5 @@
 """Base class for DTEK Coordinator implementations."""
 
-import datetime
 import logging
 from typing import TYPE_CHECKING
 
@@ -14,7 +13,10 @@ from custom_components.svitlo_yeah.const import (
     DOMAIN,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
 )
-from custom_components.svitlo_yeah.coordinator.coordinator import IntegrationCoordinator
+from custom_components.svitlo_yeah.coordinator.coordinator import (
+    CHANGE_CHECK_WINDOW,
+    IntegrationCoordinator,
+)
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEventType,
@@ -22,6 +24,8 @@ from custom_components.svitlo_yeah.models import (
 from custom_components.svitlo_yeah.models.providers import DTEKJsonProvider
 
 if TYPE_CHECKING:
+    import datetime
+
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
@@ -87,8 +91,8 @@ class DtekCoordinatorBase(IntegrationCoordinator):
             await self._async_update_group_listed(listed=self.api.is_group_listed())
 
         # Check if outage data has changed (used for last_data_change attribute)
-        current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
-        self.check_outage_data_changed(current_events)
+        current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
+        self.check_outage_data_changed(current_events, now)
         await self._async_store_last_data()
 
     @property

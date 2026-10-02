@@ -218,7 +218,7 @@ class TestCheckOutageDataChanged:
             )
         ]
 
-        result = coordinator.check_outage_data_changed(events)
+        result = coordinator.check_outage_data_changed(events, now)
 
         assert result is False
         assert (
@@ -240,10 +240,10 @@ class TestCheckOutageDataChanged:
         ]
 
         # First call
-        coordinator.check_outage_data_changed(events)
+        coordinator.check_outage_data_changed(events, now)
 
         # Second call with same data
-        result = coordinator.check_outage_data_changed(events)
+        result = coordinator.check_outage_data_changed(events, now)
 
         assert result is False
         assert coordinator._previous_outage_events == events
@@ -270,13 +270,13 @@ class TestCheckOutageDataChanged:
         ]
 
         # First call
-        coordinator.check_outage_data_changed(original_events)
+        coordinator.check_outage_data_changed(original_events, now)
 
         # Clear the mock to check new calls
         coordinator.hass.bus.async_fire.reset_mock()
 
         # Second call with different data
-        result = coordinator.check_outage_data_changed(new_events)
+        result = coordinator.check_outage_data_changed(new_events, now)
 
         assert result is True
         assert coordinator._previous_outage_events == new_events
@@ -320,7 +320,7 @@ class TestCheckOutageDataChanged:
         ]
 
         # First call
-        coordinator.check_outage_data_changed(events)
+        coordinator.check_outage_data_changed(events, now)
 
         # Sorted events
         sorted_events = [
@@ -339,11 +339,36 @@ class TestCheckOutageDataChanged:
         ]
 
         # Call with same events in different order
-        result = coordinator.check_outage_data_changed(events)
+        result = coordinator.check_outage_data_changed(events, now)
 
         # Should be False because they get sorted and are the same
         assert result is False
         assert coordinator._previous_outage_events == sorted_events
+
+    def test_an_outage_that_ended_is_no_change(self, coordinator):
+        """An outage that ended since the last check changes nothing, also all-day."""
+        now = dt_utils.now()
+        future = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=now + timedelta(hours=1),
+            end=now + timedelta(hours=2),
+        )
+        ended = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=now - timedelta(hours=2),
+            end=now - timedelta(hours=1),
+        )
+        # An all-day event ends at the start of its end date
+        ended_all_day = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.EMERGENCY,
+            start=now.date() - timedelta(days=1),
+            end=now.date(),
+            all_day=True,
+        )
+        coordinator.check_outage_data_changed([ended, ended_all_day, future], now)
+
+        assert coordinator.check_outage_data_changed([future], now) is False
+        coordinator.hass.bus.async_fire.assert_not_called()
 
 
 class TestCoordinatorScheduledEvents:

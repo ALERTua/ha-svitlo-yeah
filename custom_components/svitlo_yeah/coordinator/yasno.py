@@ -4,11 +4,11 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import datetime
+
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-
-import datetime
 
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.translation import async_get_translations
@@ -30,7 +30,7 @@ from custom_components.svitlo_yeah.models import (
     YasnoRegion,
 )
 
-from .coordinator import IntegrationCoordinator
+from .coordinator import CHANGE_CHECK_WINDOW, IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
 
@@ -105,8 +105,8 @@ class YasnoCoordinator(IntegrationCoordinator):
 
         # Check if outage data has changed (used for last_data_change attribute)
         now = dt_utils.now()
-        current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
-        self.check_outage_data_changed(current_events)
+        current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
+        self.check_outage_data_changed(current_events, now)
         await self._async_store_last_data()
 
     def _source_data(self) -> dict | None:

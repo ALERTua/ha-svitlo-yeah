@@ -41,6 +41,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
+# Longer than the schedule of any source (today and tomorrow), so that the
+# check of a change sees each future outage
+CHANGE_CHECK_WINDOW = datetime.timedelta(days=7)
 
 # The store keeps the last data of an entry across a restart (AGENTS.md, «Old
 # states until new data»)
@@ -50,6 +53,13 @@ STORE_VERSION = 1
 def group_not_listed_issue_id(entry_id: str) -> str:
     """Return the id of the repair issue about a group that the source lacks."""
     return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
+
+
+def _ends_after(event: PlannedOutageEvent, now: datetime.datetime) -> bool:
+    """Return whether the event ends after now (an all-day one at its end date)."""
+    if isinstance(event.end, datetime.datetime):
+        return event.end > now
+    return event.end > now.date()
 
 
 def store_key(entry_id: str) -> str:
@@ -476,9 +486,13 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         LOGGER.debug("Fired %s event for %s", EVENT_DATA_CHANGED, self.group)
 
     def check_outage_data_changed(
-        self, current_events: list[PlannedOutageEvent]
+        self, current_events: list[PlannedOutageEvent], now: datetime.datetime
     ) -> bool:
-        """Check if outage data has changed and update last changed timestamp."""
+        """
+        Check whether the outages that end after now changed, and record the time.
+
+        An outage that ended since the last check is no change of the schedule.
+        """
         # Sort events for comparison. isoformat due to datetime and date objects
         sorted_current = sorted(
             current_events,
@@ -490,8 +504,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             self.initialize_outage_data_tracking(sorted_current)
             return False
 
-        # Compare with previous events
-        if sorted_current != self._previous_outage_events:
+        previous = [e for e in self._previous_outage_events if _ends_after(e, now)]
+        if sorted_current != previous:
             self._previous_outage_events = sorted_current
             self.outage_data_last_changed = dt_utils.now()
             LOGGER.debug("Outage data changed at %s", self.outage_data_last_changed)
