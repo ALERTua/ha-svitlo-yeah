@@ -25,6 +25,7 @@ from custom_components.svitlo_yeah.const import (
     YASNO_REGIONS_ENDPOINT,
 )
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
+from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
 from tests.helpers import (
     E_SVITLO_ACCOUNT_101,
     PROVIDERS,
@@ -279,26 +280,54 @@ async def test_changed_data_reload_the_entry(hass, aioclient_mock):
     await hass.async_block_till_done()
 
 
-async def test_settings_come_from_the_data_only(hass, aioclient_mock):
+@pytest.mark.parametrize(
+    ("provider", "coordinator_class", "options"),
+    [
+        (
+            "dtek",
+            DtekCoordinatorJson,
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO,
+                CONF_PROVIDER: "dnipro",
+                CONF_GROUP: "9.9",
+            },
+        ),
+        (
+            "yasno",
+            YasnoCoordinator,
+            {
+                CONF_PROVIDER_TYPE: PROVIDER_TYPE_DTEK_JSON,
+                CONF_REGION: 3,
+                CONF_PROVIDER: 301,
+                CONF_GROUP: "9.9",
+            },
+        ),
+    ],
+    ids=["dtek", "yasno"],
+)
+async def test_settings_come_from_the_data_only(
+    hass, aioclient_mock, provider, coordinator_class, options
+):
     """
     The options of an entry change nothing.
 
     Only the options flow of 0.5.0 and 0.5.1 wrote options, and such entries
     have no provider type, so they cannot load since 0.5.7.
     """
-    data, answers = PROVIDERS["dtek"]
+    data, answers = PROVIDERS[provider]
     answers(aioclient_mock, answer=True)
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data=data,
-        options={CONF_PROVIDER_TYPE: PROVIDER_TYPE_YASNO, CONF_GROUP: "9.9"},
-    )
+    entry = MockConfigEntry(domain=DOMAIN, data=data, options=options)
     entry.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert isinstance(entry.runtime_data, DtekCoordinatorJson)
-    assert entry.runtime_data.group == data[CONF_GROUP]
+    coordinator = entry.runtime_data
+    assert isinstance(coordinator, coordinator_class)
+    assert (coordinator.provider_id, coordinator.group) == (
+        data[CONF_PROVIDER],
+        data[CONF_GROUP],
+    )
+    assert getattr(coordinator, "region_id", None) == data.get(CONF_REGION)
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

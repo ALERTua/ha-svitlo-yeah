@@ -1,16 +1,25 @@
 """The refresh button reports a source without an answer (silver action-exceptions)."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from aiohttp import ClientError
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.svitlo_yeah.const import DOMAIN
+from custom_components.svitlo_yeah.const import DOMAIN, YASNO_REGIONS_ENDPOINT
 from custom_components.svitlo_yeah.models import ConnectivityState
-from tests.helpers import PROVIDERS, dtek_answers, fact_with_an_outage_today
+from tests.helpers import (
+    PROVIDERS,
+    YASNO_KYIV_1_1,
+    YASNO_PLANNED_URL,
+    dtek_answers,
+    fact_with_an_outage_today,
+    yasno_outage_all_day_today,
+)
 
 pytestmark = pytest.mark.usefixtures(
     "enable_custom_integrations", "empty_yasno_region_cache"
@@ -85,6 +94,25 @@ async def test_press_with_an_answer_succeeds(hass, aioclient_mock, provider):
     await _press(hass, entry)
 
     assert _electricity(hass, entry) == ConnectivityState.STATE_PLANNED_OUTAGE
+    await _unload(hass, entry)
+
+
+async def test_press_while_the_yasno_regions_fail_succeeds(
+    hass, aioclient_mock, caplog
+):
+    """The regions only name the device: a press that gets the outages succeeds."""
+    caplog.set_level(logging.INFO, logger="custom_components.svitlo_yeah")
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
+    aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _press(hass, entry)
+
+    assert _electricity(hass, entry) == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert "does not answer" not in caplog.text
     await _unload(hass, entry)
 
 

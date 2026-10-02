@@ -5,13 +5,63 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.components.calendar import CalendarEvent
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_utils
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.svitlo_yeah.calendar import PlannedOutagesCalendar
+from custom_components.svitlo_yeah.const import DOMAIN, YASNO_REGIONS_ENDPOINT
+from custom_components.svitlo_yeah.models import ConnectivityState
 from custom_components.svitlo_yeah.sensor import SENSORS, IntegrationSensor
+from tests.helpers import YASNO_KYIV, YASNO_KYIV_1_1, YASNO_PLANNED_URL, kyiv_midnight
 
 ELECTRICITY = next(s for s in SENSORS if s.key == "electricity")
+
+
+def _yasno_today(slots: list) -> dict:
+    """Build a Yasno answer for group 1.1 with these slots today."""
+    today = kyiv_midnight().isoformat()
+    day = {"slots": slots, "date": today, "status": "ScheduleApplies"}
+    return {"1.1": {"today": day, "updatedOn": today}}
+
+
+def _serve_yasno(aioclient_mock, slots: list) -> None:
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    aioclient_mock.get(YASNO_PLANNED_URL, json=_yasno_today(slots))
+
+
+@pytest.mark.usefixtures("enable_custom_integrations", "empty_yasno_region_cache")
+async def test_outage_that_an_update_brings_ends_on_time(hass, aioclient_mock, freezer):
+    """An outage that has begun when an update brings it ends at its end, not later."""
+    freezer.move_to(kyiv_midnight() + timedelta(hours=9))
+    _serve_yasno(aioclient_mock, [])
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    electricity = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_electricity"
+    )
+
+    # At 09:01 the answer brings an outage 09:00-09:10; the next poll is at 09:16
+    freezer.move_to(kyiv_midnight() + timedelta(hours=9, minutes=1))
+    _serve_yasno(aioclient_mock, [{"start": 540, "end": 550, "type": "Definite"}])
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(electricity).state == ConnectivityState.STATE_PLANNED_OUTAGE
+
+    freezer.move_to(kyiv_midnight() + timedelta(hours=9, minutes=10, seconds=2))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(electricity).state == ConnectivityState.STATE_NORMAL
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
 
 
 @pytest.mark.asyncio
