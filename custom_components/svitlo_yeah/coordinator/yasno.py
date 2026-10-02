@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 from homeassistant.helpers.translation import async_get_translations
-from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
@@ -29,7 +28,7 @@ from custom_components.svitlo_yeah.models import (
     YasnoRegion,
 )
 
-from .coordinator import CHANGE_CHECK_WINDOW, IntegrationCoordinator
+from .coordinator import IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,23 +79,14 @@ class YasnoCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:
-        """Fetch data from Svitlo Yeah API."""
-        await self.async_fetch_translations()
+    async def _async_fetch(self) -> bool:
+        """Fetch the planned outages, and tell whether Yasno answered."""
+        return await self.api.fetch_data()
 
-        # Fetch outages data (now async with aiohttp, not blocking)
-        answered = await self.api.fetch_data()
-        # The entry can be unloaded or removed while the source answers
-        if self._shutdown_requested:
-            return
-        self._set_last_fetch_failed(failed=not answered)
+    async def _async_use_answer(self, answer: bool) -> None:  # noqa: FBT001  # the answer of _async_fetch
+        """Keep whether Yasno answered, and whether its data lists the group."""
+        self._set_last_fetch_failed(failed=not answer)
         await self._async_update_group_listed(listed=self.api.is_group_listed())
-
-        # Check if outage data has changed (used for last_data_change attribute)
-        now = dt_utils.now()
-        current_events = self.api.get_events(now, now + CHANGE_CHECK_WINDOW)
-        self.check_outage_data_changed(current_events, now)
-        await self._async_store_last_data()
 
     def _source_data(self) -> dict | None:
         """Keep the planned outages, and the region that names the device."""

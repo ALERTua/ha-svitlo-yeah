@@ -166,6 +166,29 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             await self.async_fetch_translations()  # the repair issue names the provider
             await self._async_update_group_listed(listed=stored.get("group_listed"))
 
+    async def _async_update_data(self) -> None:
+        """Ask the source, and use its answer while the entry still exists."""
+        await self.async_fetch_translations()
+        answer = await self._async_fetch()
+        # The entry can be unloaded or removed while the source answers
+        if self._shutdown_requested:
+            return
+        await self._async_use_answer(answer)
+
+        now = dt_utils.now()
+        self.check_outage_data_changed(
+            self.api.get_events(now, now + CHANGE_CHECK_WINDOW), now
+        )
+        await self._async_store_last_data()
+
+    async def _async_fetch(self) -> Any:
+        """Ask the source, and return its answer for _async_use_answer."""
+        raise NotImplementedError
+
+    async def _async_use_answer(self, answer: Any) -> None:
+        """Keep whether the source answered, and what the answer says."""
+        raise NotImplementedError
+
     def _source_data(self) -> dict | None:
         """Return the data of the source to keep across a restart, or None."""
         raise NotImplementedError
