@@ -540,8 +540,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="esvitlo_account",
             data_schema=vol.Schema(
                 {
+                    # The frontend sends the default, so it is a value of the options
                     vol.Required(
-                        CONF_ACCOUNT_ID, default=next(iter(options.keys()))
+                        CONF_ACCOUNT_ID, default=str(next(iter(options)))
                     ): SelectSelector(
                         SelectSelectorConfig(
                             options=[

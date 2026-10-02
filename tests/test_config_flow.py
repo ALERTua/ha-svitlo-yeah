@@ -610,6 +610,17 @@ class TestDuplicateESvitloAccount:
         # The address is personal data, and the debug log shows the title
         assert result["title"] == "Sumy E-Svitlo"
 
+    async def test_preselected_account_creates_the_entry(self, hass, aioclient_mock):
+        """A submit without a choice sends the default, which the select accepts."""
+        result = await _start_e_svitlo_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
+        marker = next(iter(result["data_schema"].schema))
+
+        result = await _configure(hass, result, {CONF_ACCOUNT_ID: marker.default()})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"] == E_SVITLO_ACCOUNT_101
+
 
 class TestESvitloLoginForm:
     """The E-Svitlo login form helps the browser and a password manager."""
