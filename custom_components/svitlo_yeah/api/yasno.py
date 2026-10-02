@@ -1,7 +1,7 @@
 """Yasno API client for Svitlo Yeah integration."""
 
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -25,7 +25,12 @@ from custom_components.svitlo_yeah.models import (
     YasnoRegion,
 )
 
-from .common_tools import REQUEST_ERRORS, _merge_adjacent_events, parse_timestamp
+from .common_tools import (
+    REQUEST_ERRORS,
+    _merge_adjacent_events,
+    parse_timestamp,
+    start_moment,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -331,7 +336,7 @@ class YasnoApi:
             LOGGER.debug("Cannot get_events: no group_data yet")
             return []
 
-        events = []
+        events: list[PlannedOutageEvent] = []
         for key, day_data in group_data.items():
             # parse only "today" and "tomorrow"
             if key == "updatedOn" or not isinstance(day_data, dict):
@@ -378,13 +383,7 @@ class YasnoApi:
                     )
                 )
 
-        events.sort(
-            key=lambda e: (
-                datetime.combine(e.start, time.min)
-                if isinstance(e.start, date)
-                else e.start
-            )
-        )
+        events.sort(key=start_moment)
 
         # Merge adjacent events of the same type
         events = _merge_adjacent_events(events)
@@ -404,7 +403,7 @@ class YasnoApi:
             LOGGER.debug("Cannot get_scheduled_events: no group_data yet")
             return []
 
-        events = []
+        events: list[PlannedOutageEvent] = []
         for key, day_data in group_data.items():
             # parse only "today" and "tomorrow"
             if key == "updatedOn" or not isinstance(day_data, dict):
@@ -425,13 +424,7 @@ class YasnoApi:
             if status == YasnoPlannedOutageDayStatus.STATUS_WAITING_FOR_SCHEDULE.value:
                 events.extend(_parse_day_schedule(day_data, day_dt))
 
-        events.sort(
-            key=lambda e: (
-                datetime.combine(e.start, time.min)
-                if isinstance(e.start, date)
-                else e.start
-            )
-        )
+        events.sort(key=start_moment)
 
         # Merge adjacent events of the same type
         events = _merge_adjacent_events(events)

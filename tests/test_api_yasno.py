@@ -484,6 +484,27 @@ class TestYasnoApiEvents:
         assert events[0].start == start.date()
         assert events[0].end == end.date()
 
+    def test_slots_out_of_order_give_one_outage(self, api, today):
+        """Two slots that the answer lists out of order make one outage, in time."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [
+                        {"start": 600, "end": 660, "type": "Definite"},
+                        {"start": 540, "end": 600, "type": "Definite"},
+                    ],
+                    "date": today.isoformat(),
+                    "status": "ScheduleApplies",
+                },
+            }
+        }
+
+        events = api.get_events(today, today + timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (today.replace(hour=9), today.replace(hour=11))
+        ]
+
     def test_get_current_event(self, api, planned_outage_data, today):
         """Test getting current event."""
         api.planned_outage_data = planned_outage_data
