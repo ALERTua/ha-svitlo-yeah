@@ -68,6 +68,8 @@ class ESvitloClient:
         self.last_answer: dict | None = None
         # Whether the server refused the last login that it answered
         self.login_rejected = False
+        # The result of the last login attempt, also when the server did not answer
+        self.last_login: LoginResult | None = None
 
     async def login(self) -> bool:
         """Authenticate with E-Svitlo API."""
@@ -75,6 +77,11 @@ class ESvitloClient:
 
     async def try_login(self) -> LoginResult:
         """Authenticate, and tell refused credentials from an unreachable server."""
+        self.last_login = await self._post_login()
+        return self.last_login
+
+    async def _post_login(self) -> LoginResult:
+        """Send the login request, and keep whether the server refused it."""
         try:
             async with self.session.post(
                 url=self.base_url + "api_main/login_api.json",
