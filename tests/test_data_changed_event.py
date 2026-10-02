@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from aiohttp import ClientError
 from homeassistant.helpers import entity_registry as er
-from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -23,6 +22,7 @@ from tests.helpers import (
     YASNO_PLANNED_URL,
     dtek_answers,
     fact_with_an_outage_today,
+    kyiv_midnight,
 )
 
 pytestmark = pytest.mark.usefixtures(
@@ -32,7 +32,7 @@ pytestmark = pytest.mark.usefixtures(
 
 def _yasno_outage_today(start_minute: int, end_minute: int) -> dict:
     """Build a Yasno answer with one outage of group 1.1 today."""
-    today = dt_utils.start_of_local_day()
+    today = kyiv_midnight()
     day = {
         "slots": [{"start": start_minute, "end": end_minute, "type": "Definite"}],
         "date": today.isoformat(),
@@ -81,7 +81,7 @@ async def test_changed_yasno_schedule_without_the_regions(
 
     While the regions request fails, the entry has no provider.
     """
-    freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=9))
+    freezer.move_to(kyiv_midnight() + timedelta(hours=9))
     aioclient_mock.get(YASNO_REGIONS_ENDPOINT, exc=ClientError())
     aioclient_mock.get(YASNO_PLANNED_URL, json=_yasno_outage_today(600, 720))
     entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
@@ -110,7 +110,7 @@ async def test_changed_yasno_schedule_without_the_regions(
 
 def _yasno_today_and_tomorrow(today_slots: list, tomorrow_slots: list) -> dict:
     """Build a Yasno answer for group 1.1 with outages today and tomorrow."""
-    today = dt_utils.start_of_local_day()
+    today = kyiv_midnight()
     tomorrow = today + timedelta(days=1)
 
     def day(date, slots):
@@ -136,7 +136,7 @@ async def test_the_same_schedule_fires_no_event_all_day(hass, aioclient_mock, fr
     An outage that ends, or an outage of tomorrow that comes into the next 24
     hours, does not change the schedule.
     """
-    freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=9))
+    freezer.move_to(kyiv_midnight() + timedelta(hours=9))
     answer = _yasno_today_and_tomorrow([(600, 720)], [(900, 960)])
     aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
     aioclient_mock.get(YASNO_PLANNED_URL, json=answer)
@@ -150,7 +150,7 @@ async def test_the_same_schedule_fires_no_event_all_day(hass, aioclient_mock, fr
     # After the outage of today, after tomorrow came into the next 24 hours,
     # and late in the evening
     for hours in (13, 16, 23.5):
-        freezer.move_to(dt_utils.start_of_local_day() + timedelta(hours=hours))
+        freezer.move_to(kyiv_midnight() + timedelta(hours=hours))
         await coordinator.async_refresh()
         await hass.async_block_till_done()
     assert changes == []

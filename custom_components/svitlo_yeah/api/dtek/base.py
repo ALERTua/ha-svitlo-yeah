@@ -10,7 +10,12 @@ from custom_components.svitlo_yeah.api.common_tools import (
     _merge_adjacent_events,
     parse_timestamp,
 )
-from custom_components.svitlo_yeah.const import HOURS_IN_DAY, LAST_HOUR, LAST_MINUTE
+from custom_components.svitlo_yeah.const import (
+    HOURS_IN_DAY,
+    LAST_HOUR,
+    LAST_MINUTE,
+    TZ_UA,
+)
 from custom_components.svitlo_yeah.models import (
     PlannedOutageEvent,
     PlannedOutageEventType,
@@ -111,10 +116,11 @@ def _ranges_to_events(
     time_ranges: list[tuple[datetime.time, datetime.time]],
 ) -> list[PlannedOutageEvent]:
     """
-    Turn the outage time ranges of one local day into events.
+    Turn the outage time ranges of one day into events.
 
-    ``day`` is any moment of that day. A range that ends at 23:59 or at 0:00
-    ends at the midnight after the day.
+    ``day`` is any moment of that day in Europe/Kyiv, the time zone of the
+    hours of the source. A range that ends at 23:59 or at 0:00 ends at the
+    midnight after the day.
     """
     next_midnight = (day + datetime.timedelta(days=1)).replace(
         hour=0,
@@ -265,8 +271,8 @@ class DtekAPIBase:
             if group_key not in day_data:
                 continue
 
-            day_dt = dt_utils.utc_from_timestamp(int(timestamp_str))
-            day_dt = dt_utils.as_local(day_dt)
+            # The key is the Kyiv midnight of the day, whatever the time zone of HA
+            day_dt = datetime.datetime.fromtimestamp(int(timestamp_str), tz=TZ_UA)
 
             group_hours = day_data[group_key]
             events.extend(_ranges_to_events(day_dt, _parse_group_hours(group_hours)))
@@ -296,7 +302,8 @@ class DtekAPIBase:
 
         # Generate events for the current week - they will be made recurring with rrule
         weeks_to_generate = 1
-        base_date = dt_utils.now().date()
+        # The weekdays of the preset are the days in Kyiv
+        base_date = dt_utils.now(TZ_UA).date()
 
         for week_offset in range(weeks_to_generate):
             for day_num in range(1, 8):  # Days 1-7 (Monday-Sunday)
@@ -307,8 +314,8 @@ class DtekAPIBase:
                 target_date = base_date + datetime.timedelta(days=days_ahead)
 
                 # Check if this date is within our range
-                day_start = dt_utils.as_local(
-                    datetime.datetime.combine(target_date, datetime.time.min)
+                day_start = datetime.datetime.combine(
+                    target_date, datetime.time.min, tzinfo=TZ_UA
                 )
                 day_end = day_start + datetime.timedelta(days=1)
 

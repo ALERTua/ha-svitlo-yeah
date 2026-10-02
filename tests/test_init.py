@@ -8,7 +8,6 @@ from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.svitlo_yeah import button, calendar, sensor
@@ -31,6 +30,7 @@ from tests.helpers import (
     PROVIDERS,
     YASNO_PLANNED_URL,
     e_svitlo_answers,
+    kyiv_midnight,
     yasno_outage_all_day_today,
 )
 
@@ -44,9 +44,7 @@ INTEGRATION_LOGGER = "custom_components.svitlo_yeah"
 
 def _planned_outages(*groups: str) -> dict:
     """Build a Yasno answer in which each group has a day without outages."""
-    today = dt_utils.as_local(dt_utils.now()).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    today = kyiv_midnight()
     day = {"slots": [], "date": today.isoformat(), "status": "ScheduleApplies"}
     return {group: {"today": day, "updatedOn": today.isoformat()} for group in groups}
 

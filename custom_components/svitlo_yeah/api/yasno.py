@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 from custom_components.svitlo_yeah.const import (
     BLOCK_KEY_STATUS,
     HOURS_IN_DAY,
+    TZ_UA,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -314,8 +315,10 @@ class YasnoApi:
     def get_current_event(self, at: datetime) -> PlannedOutageEvent | None:
         """Get the current event."""
         all_events = self.get_events(at, at + timedelta(days=1))
+        # The date of an all-day event is a day in Kyiv
+        day = at.astimezone(TZ_UA).date()
         for event in all_events:
-            if event.all_day and event.start == at.date():
+            if event.all_day and event.start == day:
                 return event
             if not event.all_day and event.start <= at < event.end:
                 return event
@@ -345,7 +348,8 @@ class YasnoApi:
             if not day_dt:
                 continue
 
-            day_dt = dt_utils.as_local(day_dt)
+            # The slots are minutes of the day in Kyiv, whatever the time zone of HA
+            day_dt = day_dt.astimezone(TZ_UA)
 
             status = day_data.get(BLOCK_KEY_STATUS)
             if status == YasnoPlannedOutageDayStatus.STATUS_SCHEDULE_APPLIES.value:
@@ -417,7 +421,7 @@ class YasnoApi:
             if not day_dt:
                 continue
 
-            day_dt = dt_utils.as_local(day_dt)
+            day_dt = day_dt.astimezone(TZ_UA)
 
             # parse only STATUS_WAITING_FOR_SCHEDULE statuses
             status = day_data.get(BLOCK_KEY_STATUS)

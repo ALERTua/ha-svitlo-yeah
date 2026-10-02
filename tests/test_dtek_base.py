@@ -8,7 +8,7 @@ from homeassistant.util import dt as dt_utils
 
 from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
-from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS, TZ_UA
 
 TEST_GROUP = "1.1"
 TEST_TIMESTAMP = "1761688800"
@@ -601,7 +601,9 @@ class TestDtekAPIBaseScheduledEvents:
 
     def test_get_scheduled_events_date_filtering(self, api):
         """Test that events are properly filtered by date range."""
-        base_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        base_date = dt_utils.now(TZ_UA).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         api.preset_data = {
             "data": {
                 "GPV1.1": {
@@ -629,7 +631,9 @@ class TestDtekAPIBaseScheduledEvents:
 
     def test_get_scheduled_events_outage_until_midnight(self, api):
         """An outage to the end of the day ends at the next midnight."""
-        base_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        base_date = dt_utils.now(TZ_UA).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         # Monday: hours 23 and 24 are 22:00-24:00
         api.preset_data = {"data": {"GPV1.1": {"1": {"23": "no", "24": "no"}}}}
         api.group = "1.1"
@@ -673,8 +677,7 @@ class TestDtekAPIBaseEvents:
         api.data = sample_data
 
         # Create a time during the outage (13:00 on the test day)
-        day_dt = dt_utils.utc_from_timestamp(int(TEST_TIMESTAMP))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
         current_time = day_dt.replace(hour=13, minute=0)
 
         event = api.get_current_event(current_time)
@@ -686,8 +689,7 @@ class TestDtekAPIBaseEvents:
         api.data = sample_data
 
         # Create a time outside the outage (10:00 on the test day)
-        day_dt = dt_utils.utc_from_timestamp(int(TEST_TIMESTAMP))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
         current_time = day_dt.replace(hour=10, minute=0)
 
         event = api.get_current_event(current_time)
@@ -721,8 +723,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -757,8 +758,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -791,8 +791,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -825,8 +824,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -858,8 +856,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -887,6 +884,6 @@ class TestDtekAPIBaseUnusualDays:
         """A day of the schedule that does not list the group gives no events."""
         hours = sample_data["data"][TEST_TIMESTAMP]["GPV1.1"]
         api.data = {**sample_data, "data": {TEST_TIMESTAMP: {"GPV2.1": hours}}}
-        day = dt_utils.as_local(dt_utils.utc_from_timestamp(int(TEST_TIMESTAMP)))
+        day = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
 
         assert api.get_events(day, day + datetime.timedelta(days=1)) == []

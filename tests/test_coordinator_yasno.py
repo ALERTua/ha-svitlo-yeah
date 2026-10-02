@@ -2,7 +2,6 @@
 
 import pytest
 from aiohttp import ClientConnectionError
-from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -21,15 +20,14 @@ from custom_components.svitlo_yeah.const import (
 )
 from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
 from custom_components.svitlo_yeah.models import ConnectivityState, YasnoRegion
+from tests.helpers import kyiv_midnight
 
 PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=25, dso_id=902)
 
 
 def _outage_all_day_today() -> dict:
     """Build a Yasno answer with a planned outage for group 1.2 all day today."""
-    today = dt_utils.as_local(dt_utils.now()).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    today = kyiv_midnight()
     return {
         "1.2": {
             "today": {
