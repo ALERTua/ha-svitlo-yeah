@@ -128,6 +128,32 @@ def _parse_day_schedule(day_data: dict, dt: datetime) -> list[PlannedOutageEvent
     return events
 
 
+def _is_day(day: dict) -> bool:
+    """Return whether a day of a group has the shape that the parsers read."""
+    slots = day.get("slots", [])
+    return (
+        isinstance(day.get("date"), str | None)
+        and isinstance(slots, list)
+        and all(
+            isinstance(slot, dict)
+            # The minutes are whole numbers; a bool would pass isinstance(_, int)
+            and all(type(slot.get(key)) is int for key in ("start", "end"))
+            and isinstance(slot.get("type"), str)
+            for slot in slots
+        )
+    )
+
+
+def is_planned_outages(answer: object) -> bool:
+    """Return whether planned outages have the shape that the parsers read."""
+    return isinstance(answer, dict) and all(
+        isinstance(group, dict)
+        # The parsers skip a value that is not a day, for example updatedOn
+        and all(_is_day(day) for day in group.values() if isinstance(day, dict))
+        for group in answer.values()
+    )
+
+
 def _in_range(
     events: list[PlannedOutageEvent], start_date: datetime, end_date: datetime
 ) -> list[PlannedOutageEvent]:
@@ -207,8 +233,9 @@ class YasnoApi:
         )
         LOGGER.debug("Fetching Yasno planned outage data: %s", url)
         output = await self._get_route_data(url)
-        if output is None:
-            # A failed request says nothing new, so the last planned outages stay
+        if output is None or not is_planned_outages(output):
+            # A failed request or an answer of another shape says nothing new,
+            # so the last planned outages stay
             LOGGER.debug("Keeping the last Yasno planned outage data")
             return False
         LOGGER.debug("Filling Yasno planned outage data with: %s", output)
