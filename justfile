@@ -31,7 +31,7 @@ test_e2e:
     uv run pytest -m e2e
 
 cov:
-    uv run pytest --cov=custom_components/svitlo_yeah --cov-report=term-missing
+    uv run pytest --cov=custom_components/svitlo_yeah --cov-report=term-missing --cov-fail-under=95
 
 version VERSION:
     uv run script/update_version.py {{VERSION}}
