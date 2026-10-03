@@ -703,3 +703,15 @@ class TestYasnoApiUnusualDays:
         planned_outage_data[TEST_GROUP]["today"]["slots"].append(slot)
 
         assert is_planned_outages(planned_outage_data)
+
+    def test_empty_slot_gives_no_event(self, api, planned_outage_data, today, tomorrow):
+        """A slot that ends where it starts is no outage, and the others stay."""
+        api.planned_outage_data = planned_outage_data
+        end = tomorrow + timedelta(days=1)
+        planned = api.get_events(today, end)
+        scheduled = api.get_scheduled_events(today, end)
+        slot = {"start": 600, "end": 600, "type": "Definite"}
+        planned_outage_data[TEST_GROUP]["today"]["slots"].append(slot)
+
+        assert api.get_events(today, end) == planned
+        assert api.get_scheduled_events(today, end) == scheduled
