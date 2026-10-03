@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 from homeassistant.helpers.translation import async_get_translations
 
-from custom_components.svitlo_yeah.api.yasno import YasnoApi
+from custom_components.svitlo_yeah.api.yasno import YasnoApi, is_planned_outages
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
@@ -111,7 +111,10 @@ class YasnoCoordinator(IntegrationCoordinator):
         The kept region names the device while the regions request fails. It
         stays out of the class cache of YasnoApi, which the config flow uses.
         """
-        self.api.planned_outage_data = source.get("planned_outage_data")
+        planned = source.get("planned_outage_data")
+        # Kept planned outages of another shape are no kept planned outages
+        if is_planned_outages(planned):
+            self.api.planned_outage_data = planned
         if region := source.get("region"):
             self._region = YasnoRegion.from_dict(region)
 

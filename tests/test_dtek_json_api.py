@@ -58,7 +58,8 @@ def create_sample_json_data(update_dt: datetime | None = None):
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     return {
         "data": {
-            str(midnight.timestamp()): {
+            # The sources key each day by its whole Unix timestamp
+            str(int(midnight.timestamp())): {
                 "GPV1.1": {
                     "1": "yes",
                     "2": "yes",

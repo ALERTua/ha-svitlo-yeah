@@ -5,7 +5,11 @@ from typing import TYPE_CHECKING
 
 from homeassistant.exceptions import ConfigEntryError
 
-from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
+from custom_components.svitlo_yeah.api.dtek.json import (
+    DtekAPIJson,
+    is_fact_schedule,
+    usable_preset,
+)
 from custom_components.svitlo_yeah.const import DOMAIN, DTEK_PROVIDER_URLS
 
 from .base import DtekCoordinatorBase
@@ -43,5 +47,8 @@ class DtekCoordinatorJson(DtekCoordinatorBase):
 
     def _restore_source_data(self, source: dict) -> None:
         """Give the kept schedule back to the API, until the source is fresh."""
-        self.api.data = source.get("fact")
-        self.api.preset_data = source.get("preset")
+        fact = source.get("fact")
+        # A kept schedule of another shape is no kept schedule
+        if is_fact_schedule(fact):
+            self.api.data = fact
+            self.api.preset_data = usable_preset(source.get("preset"))

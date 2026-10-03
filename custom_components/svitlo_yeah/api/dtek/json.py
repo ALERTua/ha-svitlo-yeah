@@ -38,6 +38,40 @@ def _parse_update_dt(update_dt: str | None) -> datetime | None:
     return None
 
 
+def _is_hours(hours: object) -> bool:
+    """Return whether a value maps the hours of a day to status strings."""
+    return isinstance(hours, dict) and all(isinstance(_, str) for _ in hours.values())
+
+
+def is_fact_schedule(fact: object) -> bool:
+    """Return whether a fact schedule has the shape that the parsers read."""
+    if not isinstance(fact, dict):
+        return False
+    days = fact.get("data")
+    if isinstance(days, list):
+        # "data": [] while the source publishes no outages
+        return not days
+    return isinstance(days, dict) and all(
+        key.isdigit()
+        and isinstance(groups, dict)
+        and all(map(_is_hours, groups.values()))
+        for key, groups in days.items()
+    )
+
+
+def usable_preset(preset: object) -> dict:
+    """Return the weekly preset, or no preset when its shape is another one."""
+    if not isinstance(preset, dict):
+        return {}
+    groups = preset.get("data")
+    if isinstance(groups, dict) and not all(
+        isinstance(days, dict) and all(map(_is_hours, days.values()))
+        for days in groups.values()
+    ):
+        return {}
+    return preset
+
+
 def _is_data_sufficiently_fresh(json_data: dict) -> bool:
     """Check if update_dt is within DTEK_FRESH_DATA_DAYS days."""
     parsed_dt = _parse_update_dt(json_data.get("update"))
@@ -81,7 +115,11 @@ class DtekAPIJson(DtekAPIBase):
                 json_data = json.loads(json_data)
 
                 fact = json_data["fact"]
-                preset = json_data.get("preset", {})
+                if not is_fact_schedule(fact):
+                    # A schedule of another shape is no answer of this source
+                    LOGGER.debug("Data from %s has another shape", url)
+                    continue
+                preset = usable_preset(json_data.get("preset"))
                 if _is_data_sufficiently_fresh(fact):
                     self.data = fact
                     self.preset_data = preset
