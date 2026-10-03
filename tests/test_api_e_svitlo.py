@@ -542,6 +542,42 @@ class TestESvitloClientDisconnections:
         events = await client.get_disconnections()
         assert len(events) == 0
 
+    @pytest.mark.parametrize(
+        ("periods", "date_today"),
+        [
+            (
+                ["10:00-12:00", None, ["10:00", "12:00"], {"start_time": "10:00"}],
+                "15.12.2025",
+            ),
+            (5, "15.12.2025"),
+            ([{"start_time": "10:00", "end_time": "12:00"}], 15122025),
+        ],
+        ids=["periods_of_another_shape", "periods_not_a_list", "date_not_text"],
+    )
+    async def test_day_of_another_shape_gives_no_events(
+        self, client, mock_session_post, periods, date_today
+    ):
+        """Periods or a date of another shape give no events, and no error."""
+        client.is_authenticated = True
+        client.group = "4.1"
+        response_data = {
+            "data": {
+                "date_today": date_today,
+                "lst_time_disc": periods,
+                "dict_tom": {
+                    "date_today": "16.12.2025",
+                    "lst_time_disc": [{"start_time": "08:00", "end_time": "09:00"}],
+                },
+            }
+        }
+        mock_resp = AsyncMock(status=200)
+        mock_resp.json = AsyncMock(return_value=response_data)
+        mock_session_post.return_value.__aenter__.return_value = mock_resp
+
+        events = await client.get_disconnections()
+
+        assert [(e.start.day, e.start.hour) for e in events] == [(16, 8)]
+
     async def test_get_user_info_no_id_found(self, client, mock_session_post):
         """Test case where no ID is found even after fetching accounts."""
         client.user_id = None

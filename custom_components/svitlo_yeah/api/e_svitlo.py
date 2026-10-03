@@ -298,7 +298,12 @@ class ESvitloClient:
         """Parse disconnection periods for a single day."""
         events = []
 
-        if not date_str:
+        # The parsers read a list of periods and a date text; anything else has none
+        if (
+            not isinstance(periods, list)
+            or not isinstance(date_str, str)
+            or not date_str
+        ):
             return events
 
         try:
@@ -317,6 +322,9 @@ class ESvitloClient:
 
     def _parse_period(self, period: dict, base_date: date) -> PlannedOutageEvent | None:
         """Parse a single disconnection period."""
+        if not isinstance(period, dict):
+            # A period of another shape has no times, as a period without them
+            return None
         try:
             start_time_str = period.get("start_time", "")
             end_time_str = period.get("end_time", "")

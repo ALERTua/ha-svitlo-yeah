@@ -1,4 +1,4 @@
-"""A source answer of another shape counts as no answer, so the old states stay."""
+"""A source answer of another shape never makes the entities unavailable."""
 
 import logging
 from datetime import UTC, datetime
@@ -14,10 +14,16 @@ from custom_components.svitlo_yeah.coordinator.coordinator import store_key
 from custom_components.svitlo_yeah.models import ConnectivityState
 from tests.helpers import (
     DTEK_KYIV_REGION_1_1,
+    E_SVITLO_ACCOUNT_101,
+    E_SVITLO_DETAILS_URL,
+    E_SVITLO_DISCONNECTIONS_URL,
+    E_SVITLO_LOGIN_URL,
     KYIV_REGION_URLS,
     YASNO_KYIV,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
+    e_svitlo_answers,
+    e_svitlo_outage_all_day_today,
     fact_with_an_outage_today,
     kyiv_midnight,
     yasno_outage_all_day_today,
@@ -142,6 +148,31 @@ async def test_yasno_answer_of_another_shape_is_no_answer(
     assert coordinator.last_update_success
     assert coordinator.last_fetch_failed
     assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
+    assert _errors(caplog) == []
+    await _unload(hass, entry)
+
+
+async def test_e_svitlo_periods_of_another_shape_are_skipped(
+    hass, aioclient_mock, caplog
+):
+    """An answer whose periods have another shape is an answer without outages."""
+    e_svitlo_answers(aioclient_mock, answer=True)
+    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
+    await _set_up(hass, entry)
+    coordinator = entry.runtime_data
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
+    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
+    answer = e_svitlo_outage_all_day_today()
+    answer["data"]["lst_time_disc"] = ["00:00-23:59", None]
+    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert coordinator.last_update_success
+    assert not coordinator.last_fetch_failed
+    assert coordinator.current_state == ConnectivityState.STATE_NORMAL
     assert _errors(caplog) == []
     await _unload(hass, entry)
 
