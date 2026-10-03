@@ -82,8 +82,16 @@ def _fact_with(day_data) -> dict:
         "text",
         {"tomorrow": {"GPV1.1": {"1": "no"}}},
         {str(int(kyiv_midnight().timestamp())): {"GPV1.1": ["no"]}},
+        {"²": {"GPV1.1": {"1": "no"}}},
+        {"9" * 30: {"GPV1.1": {"1": "no"}}},
     ],
-    ids=["days_are_text", "day_key_is_not_a_number", "hours_are_a_list"],
+    ids=[
+        "days_are_text",
+        "day_key_is_not_a_number",
+        "hours_are_a_list",
+        "day_key_is_a_superscript_digit",
+        "day_key_is_out_of_range",
+    ],
 )
 async def test_dtek_fact_of_another_shape_is_no_answer(
     hass, aioclient_mock, caplog, days

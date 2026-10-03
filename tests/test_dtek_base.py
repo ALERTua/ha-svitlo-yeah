@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
+from custom_components.svitlo_yeah.api.dtek.base import (
+    _parse_group_hours,
+    fact_day_start,
+)
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS, TZ_UA
 
@@ -240,6 +243,37 @@ class TestDtekAPIBaseEventsListShapedData:
         """get_current_event must return None on list-shaped data."""
         api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
         assert api.get_current_event(dt_utils.now()) is None
+
+
+class TestDtekAPIBaseDayKeys:
+    """The fact names each day by the timestamp of its Kyiv midnight."""
+
+    def test_key_names_the_kyiv_midnight(self):
+        """A key of the source gives the midnight in Kyiv."""
+        midnight = datetime.datetime(2025, 10, 29, tzinfo=TZ_UA)
+
+        assert fact_day_start(TEST_TIMESTAMP) == midnight
+
+    @pytest.mark.parametrize(
+        "key",
+        ["tomorrow", "²", "9" * 30, "999999999999"],
+        ids=["word", "superscript_digit", "thirty_digits", "year_after_9999"],
+    )
+    def test_other_key_names_no_day(self, key):
+        """A key that int() or fromtimestamp() refuses names no day."""
+        assert fact_day_start(key) is None
+
+    def test_get_events_skips_a_key_that_names_no_day(self, api, sample_data):
+        """The day under such a key gives no events, and the other days stay."""
+        sample_data["data"]["²"] = sample_data["data"][TEST_TIMESTAMP]
+        api.data = sample_data
+        midnight = datetime.datetime(2025, 10, 29, tzinfo=TZ_UA)
+
+        events = api.get_events(midnight, midnight + datetime.timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (midnight.replace(hour=12, minute=30), midnight.replace(hour=16, minute=30))
+        ]
 
 
 class TestDtekAPIBaseParseGroupHours:

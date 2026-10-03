@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 from custom_components.svitlo_yeah.const import DTEK_FRESH_DATA_DAYS, TZ_UA
 
-from .base import DtekAPIBase, FetchResult
+from .base import DtekAPIBase, FetchResult, fact_day_start
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def is_fact_schedule(fact: object) -> bool:
         # "data": [] while the source publishes no outages
         return not days
     return isinstance(days, dict) and all(
-        key.isdigit()
+        fact_day_start(key) is not None
         and isinstance(groups, dict)
         and all(map(_is_hours, groups.values()))
         for key, groups in days.items()
