@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from custom_components.svitlo_yeah.const import (
     BLOCK_KEY_STATUS,
     HOURS_IN_DAY,
+    MINUTES_IN_DAY,
     TZ_UA,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
@@ -137,7 +138,10 @@ def _is_day(day: dict) -> bool:
         and all(
             isinstance(slot, dict)
             # The minutes are whole numbers; a bool would pass isinstance(_, int)
-            and all(type(slot.get(key)) is int for key in ("start", "end"))
+            and all(
+                type(slot.get(key)) is int and 0 <= slot[key] <= MINUTES_IN_DAY
+                for key in ("start", "end")
+            )
             and isinstance(slot.get("type"), str)
             for slot in slots
         )

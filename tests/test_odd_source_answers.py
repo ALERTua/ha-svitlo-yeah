@@ -128,8 +128,16 @@ async def test_dtek_preset_of_another_shape_is_no_preset(hass, aioclient_mock, c
         ["1.1"],
         {"1.1": "text"},
         {"1.1": {"today": {"slots": [{"start": "0", "end": 60, "type": "Definite"}]}}},
+        {"1.1": {"today": {"slots": [{"start": 0, "end": 1500, "type": "Definite"}]}}},
+        {"1.1": {"today": {"slots": [{"start": -60, "end": 60, "type": "Definite"}]}}},
     ],
-    ids=["list_with_the_group", "group_is_text", "slot_start_is_text"],
+    ids=[
+        "list_with_the_group",
+        "group_is_text",
+        "slot_start_is_text",
+        "slot_ends_after_the_day",
+        "slot_starts_before_the_day",
+    ],
 )
 async def test_yasno_answer_of_another_shape_is_no_answer(
     hass, aioclient_mock, caplog, answer
