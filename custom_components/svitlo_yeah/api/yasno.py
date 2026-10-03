@@ -142,6 +142,8 @@ def _is_day(day: dict) -> bool:
                 type(slot.get(key)) is int and 0 <= slot[key] <= MINUTES_IN_DAY
                 for key in ("start", "end")
             )
+            # HA refuses a calendar event that ends before it starts
+            and slot["start"] <= slot["end"]
             and isinstance(slot.get("type"), str)
             for slot in slots
         )

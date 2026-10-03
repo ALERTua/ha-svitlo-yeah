@@ -130,6 +130,7 @@ async def test_dtek_preset_of_another_shape_is_no_preset(hass, aioclient_mock, c
         {"1.1": {"today": {"slots": [{"start": "0", "end": 60, "type": "Definite"}]}}},
         {"1.1": {"today": {"slots": [{"start": 0, "end": 1500, "type": "Definite"}]}}},
         {"1.1": {"today": {"slots": [{"start": -60, "end": 60, "type": "Definite"}]}}},
+        {"1.1": {"today": {"slots": [{"start": 120, "end": 60, "type": "Definite"}]}}},
     ],
     ids=[
         "list_with_the_group",
@@ -137,6 +138,7 @@ async def test_dtek_preset_of_another_shape_is_no_preset(hass, aioclient_mock, c
         "slot_start_is_text",
         "slot_ends_after_the_day",
         "slot_starts_before_the_day",
+        "slot_ends_before_it_starts",
     ],
 )
 async def test_yasno_answer_of_another_shape_is_no_answer(

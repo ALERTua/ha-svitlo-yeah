@@ -13,6 +13,7 @@ from custom_components.svitlo_yeah.api.yasno import (
     _merge_adjacent_events,
     _minutes_to_time,
     _parse_day_schedule,
+    is_planned_outages,
 )
 from custom_components.svitlo_yeah.models import (
     PlannedOutageEvent,
@@ -695,3 +696,10 @@ class TestYasnoApiUnusualDays:
 
         assert api.get_events(today, end) == []
         assert api.get_scheduled_events(today, end) == []
+
+    def test_empty_slot_keeps_the_answer(self, planned_outage_data):
+        """A slot that ends where it starts is no reason to drop the answer."""
+        slot = {"start": 600, "end": 600, "type": "Definite"}
+        planned_outage_data[TEST_GROUP]["today"]["slots"].append(slot)
+
+        assert is_planned_outages(planned_outage_data)
