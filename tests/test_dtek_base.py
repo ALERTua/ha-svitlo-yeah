@@ -256,11 +256,31 @@ class TestDtekAPIBaseDayKeys:
 
     @pytest.mark.parametrize(
         "key",
-        ["tomorrow", "²", "9" * 30, "999999999999"],
-        ids=["word", "superscript_digit", "thirty_digits", "year_after_9999"],
+        [
+            "tomorrow",
+            "²",
+            "9" * 30,
+            "999999999999",
+            "1_0",
+            "-86400",
+            " 1761688800",
+            "+1761688800",
+            "١٢",
+        ],
+        ids=[
+            "word",
+            "superscript_digit",
+            "thirty_digits",
+            "year_after_9999",
+            "underscore",
+            "minus",
+            "space",
+            "plus",
+            "arabic_indic_digits",
+        ],
     )
     def test_other_key_names_no_day(self, key):
-        """A key that int() or fromtimestamp() refuses names no day."""
+        """Only plain ASCII digits that fromtimestamp() takes name a day."""
         assert fact_day_start(key) is None
 
     def test_get_events_skips_a_key_that_names_no_day(self, api, sample_data):

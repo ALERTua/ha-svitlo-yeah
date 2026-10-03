@@ -34,11 +34,14 @@ class FetchResult(Enum):
 
 def fact_day_start(key: str) -> datetime.datetime | None:
     """Return the Kyiv midnight that a fact day key names, or None for another key."""
+    # int() also takes a sign, spaces, underscores and digits of other scripts
+    if not (key.isascii() and key.isdigit()):
+        return None
     try:
         # The key is the Kyiv midnight of the day, whatever the time zone of HA
         return datetime.datetime.fromtimestamp(int(key), tz=TZ_UA)
     except (ValueError, OverflowError, OSError):  # fmt: skip  # remove in 2027
-        # int() refuses a word or a superscript digit, fromtimestamp() a far year
+        # fromtimestamp() refuses a year out of its range
         return None
 
 

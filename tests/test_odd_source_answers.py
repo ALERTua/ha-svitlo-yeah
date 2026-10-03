@@ -84,6 +84,7 @@ def _fact_with(day_data) -> dict:
         {str(int(kyiv_midnight().timestamp())): {"GPV1.1": ["no"]}},
         {"²": {"GPV1.1": {"1": "no"}}},
         {"9" * 30: {"GPV1.1": {"1": "no"}}},
+        {"1_0": {"GPV1.1": {"1": "no"}}},
     ],
     ids=[
         "days_are_text",
@@ -91,6 +92,7 @@ def _fact_with(day_data) -> dict:
         "hours_are_a_list",
         "day_key_is_a_superscript_digit",
         "day_key_is_out_of_range",
+        "day_key_has_an_underscore",
     ],
 )
 async def test_dtek_fact_of_another_shape_is_no_answer(
