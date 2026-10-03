@@ -32,6 +32,16 @@ class FetchResult(Enum):
     UNAVAILABLE = "unavailable"  # no source could be fetched/parsed at all
 
 
+def fact_day_start(key: str) -> datetime.datetime | None:
+    """Return the Kyiv midnight that a fact day key names, or None for another key."""
+    try:
+        # The key is the Kyiv midnight of the day, whatever the time zone of HA
+        return datetime.datetime.fromtimestamp(int(key), tz=TZ_UA)
+    except (ValueError, OverflowError, OSError):  # fmt: skip  # remove in 2027
+        # int() refuses a word or a superscript digit, fromtimestamp() a far year
+        return None
+
+
 def _parse_group_hours(
     group_hours: dict[str, str],
 ) -> list[tuple[datetime.time, datetime.time]]:
@@ -263,11 +273,9 @@ class DtekAPIBase:
         events = []
         group_key = f"GPV{self.group}"
         for timestamp_str, day_data in self.data["data"].items():
-            if group_key not in day_data:
+            day_dt = fact_day_start(timestamp_str)
+            if day_dt is None or group_key not in day_data:
                 continue
-
-            # The key is the Kyiv midnight of the day, whatever the time zone of HA
-            day_dt = datetime.datetime.fromtimestamp(int(timestamp_str), tz=TZ_UA)
 
             group_hours = day_data[group_key]
             events.extend(_ranges_to_events(day_dt, _parse_group_hours(group_hours)))
