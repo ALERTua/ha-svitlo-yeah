@@ -31,6 +31,7 @@ DTEK_FRESH_DATA_DAYS: Final = 2
 
 # The schedules count the hours of one day; 23:59 stands for the end of a day
 HOURS_IN_DAY: Final = 24
+MINUTES_IN_DAY: Final = HOURS_IN_DAY * 60
 LAST_HOUR: Final = 23
 LAST_MINUTE: Final = 59
 
