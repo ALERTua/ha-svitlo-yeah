@@ -17,13 +17,36 @@ dev = [
     "pytest-asyncio",
     "ruff",
     "rust-just",
+    "pytest-homeassistant-custom-component",
+    "pytest-cov",
 ]
 
 [tool.pytest.ini_options]
 minversion = "8.3.5"
-addopts = "-ra -q -m 'not e2e'"
+# The root conftest.py loads the Home Assistant test plugin, see its docstring.
+addopts = "-ra -q -m 'not e2e' -p no:homeassistant"
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
+# The plugin configures the event loop of each test, and a loop takes this configuration only once.
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "e2e: marks tests as end-to-end tests that require real network access (deselect with '-m \"not e2e\"')",
 ]
+
+[tool.coverage.report]
+# The same exclusions as the pyproject.toml of Home Assistant core
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    # TYPE_CHECKING and @overload blocks are never executed during pytest run
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+
+[tool.ty.src]
+# The tests use mocks and wrong values on purpose, so ty checks the integration only.
+include = ["custom_components"]

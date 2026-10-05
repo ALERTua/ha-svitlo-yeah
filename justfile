@@ -10,6 +10,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 lint:
     uv run ruff format .
     uv run ruff check --fix
+    uv run pre-commit run ty --all-files
 
 pre:
     uv run pre-commit run --all-files
@@ -18,16 +19,19 @@ pre-update:
     uv run pre-commit autoupdate
 
 install:
-    uv sync --dev
+    uv sync --all-groups
 
 upgrade:
-    uv sync --dev --upgrade
+    uv sync --all-groups --upgrade
 
 test:
     uv run pytest
 
 test_e2e:
     uv run pytest -m e2e
+
+cov:
+    uv run pytest --cov=custom_components/svitlo_yeah --cov-report=term-missing --cov-fail-under=95
 
 version VERSION:
     uv run script/update_version.py {{VERSION}}

@@ -1,0 +1,33 @@
+{
+  "entity": {
+    "button": {
+      "refresh": {
+        "default": "mdi:refresh"
+      }
+    },
+    "sensor": {
+      "electricity": {
+        "default": "mdi:transmission-tower",
+        "state": {
+          "planned_outage": "mdi:transmission-tower-off",
+          "emergency": "mdi:flash-alert"
+        }
+      },
+      "schedule_updated_on": {
+        "default": "mdi:update"
+      },
+      "schedule_data_changed": {
+        "default": "mdi:update"
+      },
+      "next_planned_outage": {
+        "default": "mdi:calendar-remove"
+      },
+      "next_scheduled_outage": {
+        "default": "mdi:calendar-clock"
+      },
+      "next_connectivity": {
+        "default": "mdi:calendar-check"
+      }
+    }
+  }
+}

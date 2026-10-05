@@ -5,7 +5,13 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Self
 
-from ..const import PROVIDER_TYPE_DTEK_JSON, PROVIDER_TYPE_E_SVITLO, PROVIDER_TYPE_YASNO
+from custom_components.svitlo_yeah.const import (
+    PROVIDER_DTEK_FULL,
+    PROVIDER_DTEK_SHORT,
+    PROVIDER_TYPE_DTEK_JSON,
+    PROVIDER_TYPE_E_SVITLO,
+    PROVIDER_TYPE_YASNO,
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -79,6 +85,13 @@ class YasnoProvider(BaseProvider):
     def provider_id(self) -> int:
         """Provider ID."""
         return self.id
+
+    @cached_property
+    def short_name(self) -> str:
+        """Return the name for the device and the entry title, «ДТЕК» for DTEK."""
+        if PROVIDER_DTEK_FULL in self.name.upper():
+            return PROVIDER_DTEK_SHORT
+        return self.name
 
     @classmethod
     def from_dict(cls, data: dict, region_id: int, region_name: str) -> Self:

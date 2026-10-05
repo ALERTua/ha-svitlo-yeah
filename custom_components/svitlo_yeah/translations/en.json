@@ -2,9 +2,17 @@
   "title": "Svitlo Yeah!",
   "config": {
     "abort": {
+      "already_configured": "The integration already has an entry for this group of this provider, or for this E-Svitlo account.",
+      "reconfigure_successful": "The entry now uses the new group. To update the entity IDs, open the device and select Recreate entity IDs.",
+      "reconfigure_unchanged": "The entry already uses this group. Nothing changed.",
+      "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
       "no_accounts_found": "No accounts found",
-      "yasno_connection_error": "Failed to fetch Yasno groups.\nPlease check your connection to Yasno API.\n{url}",
-      "dtek_json_empty_data": "Failed to fetch groups.\nPlease check your connection to the data source.\n`fact.data` field should exist and not be empty.\nThis can happen if there are no scheduled outages for today.\nPlease try to add the integration configuration later when the source contains the schedule data.\n{urls}"
+      "e_svitlo_connection_error": "Failed to get the accounts from E-Svitlo.\nThe E-Svitlo server is unreachable, or it answered with an error.\nMake sure that Home Assistant can connect to the Internet, and try again later.",
+      "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
+      "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
+      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}",
+      "reauth_successful": "The entry now uses the new login.",
+      "wrong_account": "This login has no access to the personal account of this entry. Sign in with the login that owns this personal account."
     },
     "step": {
       "user": {
@@ -12,7 +20,9 @@
         "data": {
           "provider": "Select your region/system distribution:"
         },
-        "data_description": {}
+        "data_description": {
+          "provider": "The region or the distribution system operator that supplies electricity to your address."
+        }
       },
       "group": {
         "title": "Settings",
@@ -31,7 +41,8 @@
           "password": "Password"
         },
         "data_description": {
-          "username": "Use login and password from E-Svitlo personal cabinet: {esvitlo_url}"
+          "username": "Use login and password from E-Svitlo personal cabinet: {esvitlo_url}",
+          "password": "The password of your E-Svitlo personal cabinet."
         }
       },
       "esvitlo_account": {
@@ -39,6 +50,9 @@
         "description": "Select the account (address) to monitor",
         "data": {
           "account_id": "Account"
+        },
+        "data_description": {
+          "account_id": "The personal account (address) whose outage schedule the integration shows. For another address, add one more integration entry."
         }
       },
       "stale_confirm": {
@@ -46,11 +60,28 @@
         "description": "No fresh outage data is available right now.\n\nYou can pick a group from this outdated schedule, but once outages resume please double-check that your group assignment has not changed.",
         "data": {
           "acknowledge": "I understand and accept the risk"
+        },
+        "data_description": {
+          "acknowledge": "To continue with the outdated schedule, select this checkbox."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to E-Svitlo again",
+        "description": "E-Svitlo refused the login of this entry. Enter the current login and password of your E-Svitlo personal cabinet. Until then, the entities show the last schedule. If E-Svitlo has maintenance now, you can also wait: the integration tries the old login at each update.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "The login of your E-Svitlo personal cabinet: {esvitlo_url}",
+          "password": "The current password of your E-Svitlo personal cabinet."
         }
       }
     },
     "error": {
-      "invalid_auth": "Invalid username or password"
+      "invalid_auth": "Invalid username or password",
+      "cannot_connect": "Failed to connect to E-Svitlo. Make sure that Home Assistant can connect to the Internet, and try again.",
+      "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it."
     }
   },
   "device": {
@@ -70,17 +101,17 @@
         "dtekjsonprovider_kyiv_region": "DTEK — Kyiv Oblast",
         "dtekjsonprovider_dnipro": "DTEK — Dnipro and Oblast",
         "dtekjsonprovider_odesa": "DTEK — Odesa and Oblast",
-        "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi and Oblast — HOE",
+        "dtekjsonprovider_khmelnytskyi": "DTEK — Khmelnytskyi and Oblast — KhOE",
         "dtekjsonprovider_ivano_frankivsk": "DTEK — Ivano-Frankivsk and Oblast — POE",
         "dtekjsonprovider_uzhhorod": "DTEK — Uzhhorod and Oblast — ZOE",
         "dtekjsonprovider_lviv": "DTEK — Lviv and Oblast — LOE",
         "dtekjsonprovider_ternopil": "DTEK — Ternopil and Oblast — TOE",
-        "dtekjsonprovider_chernihiv": "DTEK — Chernihiv and Oblast — CHOE",
+        "dtekjsonprovider_chernihiv": "DTEK — Chernihiv and Oblast — ChOE",
         "dtekjsonprovider_zaporizhzhia": "DTEK — Zaporizhzhia and Oblast — ZOE",
         "dtekjsonprovider_vinnytsia": "DTEK — Vinnytsia and Oblast — VOE",
-        "dtekjsonprovider_zhytomyr": "DTEK — Zhytomyr and Oblast — VOE",
+        "dtekjsonprovider_zhytomyr": "DTEK — Zhytomyr and Oblast — ZhOE",
         "dtekjsonprovider_poltava": "DTEK — Poltava and Oblast — POE",
-        "dtekjsonprovider_rivne": "DTEK — Rivne and Oblast — POE",
+        "dtekjsonprovider_rivne": "DTEK — Rivne and Oblast — ROE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
@@ -128,11 +159,43 @@
       }
     }
   },
+  "issues": {
+    "group_not_listed": {
+      "title": "No outage schedule for group {group}",
+      "description": "The source {provider} has no outage schedule for group {group}. Until the source has it, the Electricity sensor shows Unknown, and the calendars show no outages for this group.\n\nThe provider can renumber or remove groups. Find your group on the website of the provider. To change the group, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Reconfigure.\n\nThis message disappears when the source has group {group} again."
+    }
+  },
+  "exceptions": {
+    "refresh_failed": {
+      "message": "Failed to get a new outage schedule, because the source did not answer. The entities keep the last schedule. Make sure that Home Assistant can connect to the Internet, and try again later."
+    },
+    "login_rejected": {
+      "message": "E-Svitlo refused the login. To enter the current password, go to Settings > Devices & services. If E-Svitlo has maintenance now, try again later."
+    },
+    "unknown_provider_type": {
+      "message": "This entry has the unknown provider type «{provider_type}». Delete the entry and add it again."
+    },
+    "unknown_dtek_provider": {
+      "message": "This version of the integration has no DTEK source «{provider}». Delete the entry and add it again with the region of your address."
+    },
+    "entry_without_region": {
+      "message": "This entry has no region. Delete the entry and add it again."
+    },
+    "entry_without_provider": {
+      "message": "This entry has no provider. Delete the entry and add it again."
+    },
+    "entry_without_group": {
+      "message": "This entry has no group. Delete the entry and add it again."
+    },
+    "entry_without_login": {
+      "message": "This E-Svitlo entry has no login or password. Delete the entry and add it again."
+    }
+  },
   "common": {
     "event_name_planned_outage": "Planned Outage",
     "event_name_scheduled_outage": "Scheduled Outage",
     "event_name_emergency_outage": "Emergency Outage",
-    "kyiv_region": "Kyiv Region",
+    "kyiv_region": "Kyiv Oblast",
     "dnipro": "Dnipro",
     "odesa": "Odesa",
     "khmelnytskyi": "Khmelnytskyi",
@@ -140,6 +203,7 @@
     "uzhhorod": "Uzhhorod",
     "lviv": "Lviv",
     "ternopil": "Ternopil",
+    "chernihiv": "Chernihiv",
     "zaporizhzhia": "Zaporizhzhia",
     "vinnytsia": "Vinnytsia",
     "zhytomyr": "Zhytomyr",

@@ -1,7 +1,7 @@
 """Calendar platform for Svitlo Yeah integration."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from homeassistant.components.calendar import (
     CalendarEntity,
@@ -15,24 +15,26 @@ from .entity import IntegrationEntity
 if TYPE_CHECKING:
     import datetime
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .coordinator.coordinator import IntegrationCoordinator
+    from .coordinator.coordinator import IntegrationCoordinator, SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
+
+# The coordinator fetches the data for all entities, which only read it
+PARALLEL_UPDATES = 0
 
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
+    config_entry: SvitloYeahConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Svitlo Yeah calendar platform."""
     LOGGER.debug("Setup new calendar entry: %s", config_entry)
-    coordinator: IntegrationCoordinator = config_entry.runtime_data
+    coordinator = config_entry.runtime_data
     entities = [
         PlannedOutagesCalendar(coordinator),
         ScheduledOutagesCalendar(coordinator),
@@ -69,10 +71,12 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         )
 
     @property
+    @override
     def event(self) -> CalendarEvent | None:
         """Return current or next event."""
         return self.coordinator.get_current_event()
 
+    @override
     async def async_get_events(
         self,
         hass: HomeAssistant,
@@ -112,11 +116,13 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
         )
 
     @property
+    @override
     def event(self) -> CalendarEvent | None:
         """Return current or next event."""
         # For scheduled outages, we don't show current events initially
         return None
 
+    @override
     async def async_get_events(
         self,
         hass: HomeAssistant,

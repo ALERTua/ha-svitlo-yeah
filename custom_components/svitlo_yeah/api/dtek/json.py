@@ -5,14 +5,15 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 if TYPE_CHECKING:
-    import aiohttp
     from homeassistant.core import HomeAssistant
 
-from ...const import DTEK_FRESH_DATA_DAYS
-from .base import DtekAPIBase, FetchResult
+from custom_components.svitlo_yeah.const import DTEK_FRESH_DATA_DAYS, TZ_UA
+
+from .base import DtekAPIBase, FetchResult, fact_day_start
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,15 +25,51 @@ _UPDATE_DATE_FORMATS = (
 
 
 def _parse_update_dt(update_dt: str | None) -> datetime | None:
-    """Parse the ``update`` field into an aware UTC datetime, or None."""
+    """Parse the ``update`` field, a time in Kyiv, into an aware UTC datetime."""
     if not update_dt:
         return None
     for fmt in _UPDATE_DATE_FORMATS:
         try:
-            return datetime.strptime(update_dt, fmt).astimezone(UTC)
+            return (
+                datetime.strptime(update_dt, fmt).replace(tzinfo=TZ_UA).astimezone(UTC)
+            )
         except ValueError:
             continue
     return None
+
+
+def _is_hours(hours: object) -> bool:
+    """Return whether a value maps the hours of a day to status strings."""
+    return isinstance(hours, dict) and all(isinstance(_, str) for _ in hours.values())
+
+
+def is_fact_schedule(fact: object) -> bool:
+    """Return whether a fact schedule has the shape that the parsers read."""
+    if not isinstance(fact, dict):
+        return False
+    days = fact.get("data")
+    if isinstance(days, list):
+        # "data": [] while the source publishes no outages
+        return not days
+    return isinstance(days, dict) and all(
+        fact_day_start(key) is not None
+        and isinstance(groups, dict)
+        and all(map(_is_hours, groups.values()))
+        for key, groups in days.items()
+    )
+
+
+def usable_preset(preset: object) -> dict:
+    """Return the weekly preset, or no preset when its shape is another one."""
+    if not isinstance(preset, dict):
+        return {}
+    groups = preset.get("data")
+    if isinstance(groups, dict) and not all(
+        isinstance(days, dict) and all(map(_is_hours, days.values()))
+        for days in groups.values()
+    ):
+        return {}
+    return preset
 
 
 def _is_data_sufficiently_fresh(json_data: dict) -> bool:
@@ -59,19 +96,10 @@ class DtekAPIJson(DtekAPIBase):
 
     async def fetch_data(self, *, allow_stale_data: bool = False) -> FetchResult:
         """
-        Fetch from JSON sources with freshness checking.
+        Fetch the sources, and return FRESH, STALE or UNAVAILABLE (nothing readable).
 
-        Returns a :class:`FetchResult` so callers can tell apart three cases
-        that would otherwise all collapse to ``data is None``:
-
-        - ``FRESH``: a source returned data within the freshness window; it is
-          stored in ``self.data``.
-        - ``STALE``: sources responded, but all data is older than allowed.
-          Only when ``allow_stale_data`` is True is the freshest stale source
-          adopted into ``self.data`` (explicit setup consent); otherwise
-          ``self.data`` is left untouched so stale data is never served at
-          runtime.
-        - ``UNAVAILABLE``: no source could be fetched/parsed at all.
+        Fresh data goes into self.data. The freshest stale data goes there only with
+        allow_stale_data, else self.data keeps the last fresh copy of this run.
         """
         stale_fact: dict | None = None
         stale_preset: dict | None = None
@@ -79,13 +107,19 @@ class DtekAPIJson(DtekAPIBase):
 
         for url in self.urls:
             try:
-                async with self.session.get(url, timeout=10) as response:
+                async with self.session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
                     response.raise_for_status()
                     json_data = await response.text()
                 json_data = json.loads(json_data)
 
                 fact = json_data["fact"]
-                preset = json_data.get("preset", {})
+                if not is_fact_schedule(fact):
+                    # A schedule of another shape is no answer of this source
+                    LOGGER.debug("Data from %s has another shape", url)
+                    continue
+                preset = usable_preset(json_data.get("preset"))
                 if _is_data_sufficiently_fresh(fact):
                     self.data = fact
                     self.preset_data = preset

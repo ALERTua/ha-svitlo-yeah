@@ -1,0 +1,242 @@
+"""Tests for the translation files."""
+
+import ast
+import json
+import re
+import string
+from pathlib import Path
+
+import pytest
+
+from custom_components.svitlo_yeah import const
+from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+
+TRANSLATIONS = Path(__file__).parent.parent / (
+    "custom_components/svitlo_yeah/translations"
+)
+CONFIG_FLOW = TRANSLATIONS.parent / "config_flow.py"
+README = Path(__file__).parent.parent / "README.md"
+LANGUAGES = ["en", "uk"]
+# The provider options whose source covers one region with its oblast
+REGION_OPTIONS = ("dtekjsonprovider_", "esvitloprovider_")
+# The letters of the oblenergo abbreviations, as the English region names spell
+# them, for example Khmelnytskyi, Chernihiv and Zhytomyr
+LATIN = dict(
+    zip(
+        "ВЕЖЗЛОПРСТХЧ",
+        ("V", "E", "Zh", "Z", "L", "O", "P", "R", "S", "T", "Kh", "Ch"),
+        strict=True,
+    )
+)
+# Home Assistant aborts with this reason: _async_abort_entries_match with
+# already_configured
+HA_ABORT_REASONS = {"already_configured"}
+
+
+def _load(language: str) -> dict:
+    """Load the translation file of a language."""
+    return json.loads((TRANSLATIONS / f"{language}.json").read_text(encoding="utf-8"))
+
+
+def _texts(node: dict, prefix: str = "") -> dict[str, str]:
+    """Return all texts of a translation tree by their dotted paths."""
+    output = {}
+    for key, value in node.items():
+        if isinstance(value, dict):
+            output |= _texts(value, f"{prefix}{key}.")
+        else:
+            output[f"{prefix}{key}"] = value
+    return output
+
+
+def _placeholders(text: str) -> set[str]:
+    """Return the names of the placeholders in a translation text."""
+    return {name for _, name, _, _ in string.Formatter().parse(text) if name}
+
+
+def _abort_reasons() -> set[str]:
+    """Return each text that config_flow.py passes as an abort reason."""
+    tree = ast.parse(CONFIG_FLOW.read_text(encoding="utf-8"))
+    return {
+        node.value
+        for keyword in ast.walk(tree)
+        if isinstance(keyword, ast.keyword) and keyword.arg == "reason"
+        for node in ast.walk(keyword.value)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
+def _form_errors() -> set[str]:
+    """Return each text that config_flow.py puts into the errors of a form."""
+    tree = ast.parse(CONFIG_FLOW.read_text(encoding="utf-8"))
+    return {
+        node.value
+        for assign in ast.walk(tree)
+        if isinstance(assign, ast.Assign)
+        and any(
+            isinstance(target, ast.Subscript)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "errors"
+            for target in assign.targets
+        )
+        for node in ast.walk(assign.value)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
+def _exception_keys() -> set[str]:
+    """Return each translation_key that the integration gives to an exception."""
+    return {
+        keyword.value.value
+        for path in TRANSLATIONS.parent.rglob("*.py")
+        for call in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(call, ast.Call)
+        and (
+            any(k.arg == "translation_domain" for k in call.keywords)
+            # The coordinators stop the setup of a broken entry through it
+            or getattr(call.func, "attr", None) == "_required_setting"
+        )
+        for keyword in call.keywords
+        if keyword.arg == "translation_key" and isinstance(keyword.value, ast.Constant)
+    }
+
+
+def test_languages_have_the_same_keys():
+    """Each text exists in each language."""
+    en, uk = (set(_texts(_load(language))) for language in LANGUAGES)
+    assert en - uk == set()
+    assert uk - en == set()
+
+
+def test_languages_use_the_same_placeholders():
+    """A text has the same placeholders in each language, as the code sends one set."""
+    en, uk = (_texts(_load(language)) for language in LANGUAGES)
+    assert {
+        key
+        for key in en.keys() & uk.keys()
+        if _placeholders(en[key]) != _placeholders(uk[key])
+    } == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_abort_reason_has_a_text(language):
+    """Each abort reason has a text, because the dialog shows a bare key without it."""
+    reasons = _abort_reasons()
+    assert reasons  # the parser found the reasons of config_flow.py
+
+    abort = _load(language)["config"]["abort"]
+    assert {r for r in reasons | HA_ABORT_REASONS if not abort.get(r)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_form_error_has_a_text(language):
+    """Each form error has a text, because the form shows a bare key without it."""
+    errors = _form_errors()
+    assert errors  # the parser found the errors of config_flow.py
+
+    texts = _load(language)["config"]["error"]
+    assert {e for e in errors if not texts.get(e)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_exception_has_a_text(language):
+    """Each translated exception has a text: without it, the UI shows a bare key."""
+    keys = _exception_keys()
+    assert keys  # the parser found the exceptions of the integration
+
+    texts = _load(language).get("exceptions", {})
+    assert {k for k in keys if not texts.get(k, {}).get("message")} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_field_has_a_description(language):
+    """Each field of a config flow form has a text under it that explains it."""
+    steps = _load(language)["config"]["step"]
+    assert {
+        f"{step_id}.{field}"
+        for step_id, step in steps.items()
+        for field in step.get("data", {})
+        if not step.get("data_description", {}).get(field)
+    } == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_translation_key_of_the_code_has_a_text(language):
+    """
+    Each translation key that const.py names has a text, for example an event name.
+
+    Home Assistant takes the English text for another language, so a name is
+    missing only when en.json lacks the key.
+    """
+    prefix = f"component.{const.DOMAIN}."
+    keys = [
+        value
+        for value in vars(const).values()
+        if isinstance(value, str) and value.startswith(prefix)
+    ]
+    assert keys  # the event names at least
+
+    texts = _texts(_load(language))
+    assert [key for key in keys if not texts.get(key.removeprefix(prefix))] == []
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_dtek_provider_has_a_name(language):
+    """Each DTEK provider has a name, which device names and repair issues use."""
+    common = _load(language)["common"]
+    assert {p for p in DTEK_PROVIDER_URLS if not common.get(p)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_provider_option_names_the_region_of_its_devices(language):
+    """The provider list names the region as the devices do, for example Kyiv Oblast."""
+    texts = _load(language)
+    options = texts["selector"]["provider"]["options"]
+    regions = {
+        key: key.split("_", 1)[1] for key in options if key.startswith(REGION_OPTIONS)
+    }
+    assert len(regions) == len(DTEK_PROVIDER_URLS) + 1  # and E-Svitlo Sumy
+
+    assert [
+        key
+        for key, region in regions.items()
+        if texts["common"][region] not in options[key]
+    ] == []
+
+
+def _option_parts(language: str) -> dict[str, list[str]]:
+    """Return the parts of each provider option: DTEK, Lviv and Oblast, LOE."""
+    options = _load(language)["selector"]["provider"]["options"]
+    return {key: text.split(" — ") for key, text in options.items()}
+
+
+def test_readme_names_each_provider_as_the_provider_list():
+    """Each row of the README regions table has the parts of a provider option."""
+    rows = re.findall(
+        r"^\| \*\*(.+?)\*\* *\| (\S+) *\|",
+        README.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    # «DTEK — Kyiv Oblast» has no third part: the provider is the first one
+    listed = [
+        (parts[1], parts[-1] if len(parts) == 3 else parts[0])
+        for parts in _option_parts("en").values()
+    ]
+
+    assert sorted(rows) == sorted(listed)
+
+
+def test_each_ukrainian_abbreviation_spells_the_english_one():
+    """An oblenergo has one abbreviation in both lists, for example ЖОЕ and ZhOE."""
+    english = _option_parts("en")
+    ukrainian = {
+        key: parts[-1]
+        for key, parts in _option_parts("uk").items()
+        if key.startswith(REGION_OPTIONS) and len(parts) == 3
+    }
+    assert len(ukrainian) == 12  # the oblenergos
+
+    assert {
+        key: "".join(LATIN[letter] for letter in abbreviation)
+        for key, abbreviation in ukrainian.items()
+    } == {key: english[key][-1] for key in ukrainian}

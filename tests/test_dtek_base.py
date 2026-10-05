@@ -6,9 +6,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.api.dtek.base import _parse_group_hours
+from custom_components.svitlo_yeah.api.dtek.base import (
+    _parse_group_hours,
+    fact_day_start,
+)
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
-from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS, TZ_UA
 
 TEST_GROUP = "1.1"
 TEST_TIMESTAMP = "1761688800"
@@ -121,6 +124,111 @@ class TestDtekAPIBaseGroups:
         api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
         assert api.get_dtek_region_groups() == []
 
+    def test_get_groups_from_preset_when_fact_is_empty(self, api):
+        """With an empty fact schedule, the groups come from the preset schedule."""
+        preset_keys = [f"GPV{q}.{s}" for q in range(1, 7) for s in (1, 2)]
+        api.data = {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}
+        api.preset_data = {"data": {key: {"1": {"1": "yes"}} for key in preset_keys}}
+
+        groups = api.get_dtek_region_groups()
+
+        assert len(groups) == 12
+        assert groups == [key.removeprefix("GPV") for key in preset_keys]
+
+    def test_get_groups_fact_wins_over_preset(self, api, sample_data):
+        """When the fact schedule has groups, the preset groups are ignored."""
+        api.data = sample_data
+        api.preset_data = {"data": {"GPV9.1": {}, "GPV9.2": {}}}
+        assert api.get_dtek_region_groups() == ["1.1", "1.2"]
+
+    def test_get_groups_empty_fact_and_no_preset_data(self, api):
+        """An empty fact schedule and a preset without data give no groups."""
+        api.data = {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}
+        api.preset_data = {}
+        assert api.get_dtek_region_groups() == []
+
+    def test_get_groups_empty_fact_and_list_shaped_preset(self, api):
+        """A list-shaped empty preset schedule gives no groups and does not crash."""
+        api.data = {"data": [], "update": "19.02.2026 15:04", "today": 1790715600}
+        api.preset_data = {"data": []}
+        assert api.get_dtek_region_groups() == []
+
+
+class TestDtekAPIBaseGroupLabels:
+    """Test get_dtek_region_group_labels method."""
+
+    def test_name_without_the_group_gets_a_label(self, api):
+        """A name that does not show the group gets the group in parentheses."""
+        api.preset_data = {"sch_names": {"GPV1001.1": "ЦЕК 1.1"}}
+        assert api.get_dtek_region_group_labels() == {"1001.1": "ЦЕК 1.1 (1001.1)"}
+
+    def test_name_with_the_group_gets_no_label(self, api):
+        """A name that already shows the group gets no label."""
+        api.preset_data = {"sch_names": {"GPV1.1": "Черга 1.1"}}
+        assert api.get_dtek_region_group_labels() == {}
+
+    def test_group_inside_a_longer_number_gets_a_label(self, api):
+        """Group 1.1 is not shown by the name of queue 11.1."""
+        api.preset_data = {"sch_names": {"GPV1.1": "Черга 11.1"}}
+        assert api.get_dtek_region_group_labels() == {"1.1": "Черга 11.1 (1.1)"}
+
+    @pytest.mark.parametrize(
+        "preset_data",
+        [None, {}, {"sch_names": []}, {"sch_names": {"GPV1.1": None}}],
+    )
+    def test_no_usable_names_give_no_labels(self, api, preset_data):
+        """Missing or malformed names give no labels."""
+        api.preset_data = preset_data
+        assert api.get_dtek_region_group_labels() == {}
+
+
+class TestDtekAPIBaseIsGroupListed:
+    """is_group_listed tells whether the source has the configured group."""
+
+    def test_group_in_fact(self, api, sample_data):
+        """The group is in the fact schedule."""
+        api.data = sample_data
+        assert api.is_group_listed() is True
+
+    def test_group_missing_from_fact_without_preset(self, api):
+        """The fact schedule lists other groups only, as Zaporizhzhia did in 2026-03."""
+        api.data = {"data": {TEST_TIMESTAMP: {"GPV1.1": {}, "GPV1.2": {}}}}
+        api.group = "3.1"
+        assert api.is_group_listed() is False
+
+    def test_group_in_preset_with_empty_fact(self, api):
+        """An empty fact schedule, but the preset schedule has the group."""
+        api.data = {"data": [], "update": "19.02.2026 15:04"}
+        api.preset_data = {"data": {"GPV1.1": {}, "GPV1.2": {}}}
+        assert api.is_group_listed() is True
+
+    def test_group_missing_from_preset_with_empty_fact(self, api):
+        """An empty fact schedule, and the preset schedule lists other groups."""
+        api.data = {"data": [], "update": "19.02.2026 15:04"}
+        api.preset_data = {"data": {"GPV1.1": {}, "GPV1.2": {}}}
+        api.group = "3.1"
+        assert api.is_group_listed() is False
+
+    def test_group_only_in_second_fact_day(self, api):
+        """A group that only the second day lists is still listed."""
+        api.data = {"data": {"1": {"GPV1.2": {}}, "2": {"GPV1.1": {}}}}
+        assert api.is_group_listed() is True
+
+    def test_nothing_listed_gives_none(self, api):
+        """An empty fact schedule without a preset schedule says nothing."""
+        api.data = {"data": [], "update": "19.02.2026 15:04"}
+        assert api.is_group_listed() is None
+
+    def test_no_data_gives_none(self, api):
+        """Without data the answer is unknown."""
+        assert api.is_group_listed() is None
+
+    def test_no_group_gives_none(self, api, sample_data):
+        """Without a configured group the answer is unknown."""
+        api.data = sample_data
+        api.group = None
+        assert api.is_group_listed() is None
+
 
 class TestDtekAPIBaseEventsListShapedData:
     """Regression: upstream feed serializes an empty schedule as "data": []."""
@@ -137,11 +245,62 @@ class TestDtekAPIBaseEventsListShapedData:
         assert api.get_current_event(dt_utils.now()) is None
 
 
+class TestDtekAPIBaseDayKeys:
+    """The fact names each day by the timestamp of its Kyiv midnight."""
+
+    def test_key_names_the_kyiv_midnight(self):
+        """A key of the source gives the midnight in Kyiv."""
+        midnight = datetime.datetime(2025, 10, 29, tzinfo=TZ_UA)
+
+        assert fact_day_start(TEST_TIMESTAMP) == midnight
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "tomorrow",
+            "²",
+            "9" * 30,
+            "999999999999",
+            "1_0",
+            "-86400",
+            " 1761688800",
+            "+1761688800",
+            "١٢",
+        ],
+        ids=[
+            "word",
+            "superscript_digit",
+            "thirty_digits",
+            "year_after_9999",
+            "underscore",
+            "minus",
+            "space",
+            "plus",
+            "arabic_indic_digits",
+        ],
+    )
+    def test_other_key_names_no_day(self, key):
+        """Only plain ASCII digits that fromtimestamp() takes name a day."""
+        assert fact_day_start(key) is None
+
+    def test_get_events_skips_a_key_that_names_no_day(self, api, sample_data):
+        """The day under such a key gives no events, and the other days stay."""
+        sample_data["data"]["²"] = sample_data["data"][TEST_TIMESTAMP]
+        api.data = sample_data
+        midnight = datetime.datetime(2025, 10, 29, tzinfo=TZ_UA)
+
+        events = api.get_events(midnight, midnight + datetime.timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (midnight.replace(hour=12, minute=30), midnight.replace(hour=16, minute=30))
+        ]
+
+
 class TestDtekAPIBaseParseGroupHours:
     """Test _parse_group_hours method."""
 
     @pytest.mark.parametrize(
-        "group_hours,expected",
+        ("group_hours", "expected"),
         [
             # 0 All yes - no outages
             ({str(i): "yes" for i in range(1, 25)}, []),
@@ -235,7 +394,8 @@ class TestDtekAPIBaseParseGroupHours:
                 },
                 [(datetime.time(12, 30), datetime.time(16, 30))],
             ),
-            # 9 Full day schedule with mfirst and msecond parts. Should return 09:30-12:00 and 19:00-23:30
+            # 9 Full day schedule with mfirst and msecond parts.
+            # Should return 09:30-12:00 and 19:00-23:30
             (
                 {
                     "1": "yes",
@@ -277,15 +437,24 @@ class TestDtekAPIBaseParseGroupHours:
 
 
 class TestDtekAPIBaseParsePresetGroupHours:
-    """Test _parse_group_hours method for preset data (same function as for real data)."""
+    """Test _parse_group_hours for preset data (the function of real data)."""
 
     @pytest.mark.parametrize(
-        "group_hours,expected",
+        ("group_hours", "expected"),
         [
             # Test hour format detection - "0" key present (0-23 format)
             (
                 {"0": "yes", "1": "yes", "23": "yes"},
                 [],
+            ),
+            # In the 0-23 format, the key "10" is the hour from 10:00 to 11:00
+            (
+                {
+                    **{str(i): "yes" for i in range(24)},
+                    "10": "no",
+                    "11": "no",
+                },
+                [(datetime.time(10, 0), datetime.time(12, 0))],
             ),
             # Test hour format detection - no "0" key (1-24 format)
             (
@@ -406,7 +575,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
         ],
     )
     def test_parse_preset_group_hours(self, group_hours, expected):
-        """Test parsing various preset group hour patterns using the unified function."""
+        """Test the parse of preset group hour patterns with the shared function."""
         result = _parse_group_hours(group_hours)
         assert result == expected
 
@@ -462,6 +631,17 @@ class TestDtekAPIBaseScheduledEvents:
         events = api.get_scheduled_events(start_date, end_date)
         assert events == []
 
+    def test_get_scheduled_events_list_shaped_data(self, api):
+        """A preset schedule with "data": [] gives no events."""
+        api.preset_data = {"data": []}
+        api.group = "1.1"
+
+        start_date = dt_utils.now()
+        end_date = start_date + datetime.timedelta(days=1)
+
+        events = api.get_scheduled_events(start_date, end_date)
+        assert events == []
+
     def test_get_scheduled_events_empty_data(self, api):
         """Test getting scheduled events with empty preset data."""
         api.preset_data = {"data": {}}
@@ -475,7 +655,9 @@ class TestDtekAPIBaseScheduledEvents:
 
     def test_get_scheduled_events_date_filtering(self, api):
         """Test that events are properly filtered by date range."""
-        base_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        base_date = dt_utils.now(TZ_UA).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         api.preset_data = {
             "data": {
                 "GPV1.1": {
@@ -500,6 +682,22 @@ class TestDtekAPIBaseScheduledEvents:
 
         events = api.get_scheduled_events(start_date, end_date)
         assert len(events) == 0
+
+    def test_get_scheduled_events_outage_until_midnight(self, api):
+        """An outage to the end of the day ends at the next midnight."""
+        base_date = dt_utils.now(TZ_UA).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        # Monday: hours 23 and 24 are 22:00-24:00
+        api.preset_data = {"data": {"GPV1.1": {"1": {"23": "no", "24": "no"}}}}
+        api.group = "1.1"
+        monday = base_date + datetime.timedelta(days=(0 - base_date.weekday()) % 7)
+
+        events = api.get_scheduled_events(monday, monday + datetime.timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (monday.replace(hour=22), monday + datetime.timedelta(days=1))
+        ]
 
 
 class TestDtekAPIBaseTimestamps:
@@ -533,8 +731,7 @@ class TestDtekAPIBaseEvents:
         api.data = sample_data
 
         # Create a time during the outage (13:00 on the test day)
-        day_dt = dt_utils.utc_from_timestamp(int(TEST_TIMESTAMP))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
         current_time = day_dt.replace(hour=13, minute=0)
 
         event = api.get_current_event(current_time)
@@ -546,8 +743,7 @@ class TestDtekAPIBaseEvents:
         api.data = sample_data
 
         # Create a time outside the outage (10:00 on the test day)
-        day_dt = dt_utils.utc_from_timestamp(int(TEST_TIMESTAMP))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
         current_time = day_dt.replace(hour=10, minute=0)
 
         event = api.get_current_event(current_time)
@@ -581,8 +777,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -617,8 +812,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -651,8 +845,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -685,8 +878,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -718,8 +910,7 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = dt_utils.utc_from_timestamp(int(test_timestamp))
-        day_dt = dt_utils.as_local(day_dt)
+        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = start_date + datetime.timedelta(days=1)
@@ -732,3 +923,21 @@ class TestDtekAPIBaseEventMerging:
         assert events[0].end.hour == 0
         assert events[0].end.minute == 0
         assert events[0].end.second == 0
+
+
+class TestDtekAPIBaseUnusualDays:
+    """The parser keeps going through a status or a day that it does not expect."""
+
+    def test_second_half_after_an_unknown_status_starts_at_the_full_hour(self):
+        """A «second» after an unknown status opens the outage at the full hour."""
+        assert _parse_group_hours({"13": "?", "14": "second"}) == [
+            (datetime.time(13, 0), datetime.time(14, 0))
+        ]
+
+    def test_day_without_the_group_has_no_events(self, api, sample_data):
+        """A day of the schedule that does not list the group gives no events."""
+        hours = sample_data["data"][TEST_TIMESTAMP]["GPV1.1"]
+        api.data = {**sample_data, "data": {TEST_TIMESTAMP: {"GPV2.1": hours}}}
+        day = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
+
+        assert api.get_events(day, day + datetime.timedelta(days=1)) == []

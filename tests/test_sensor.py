@@ -38,7 +38,8 @@ class MockCoordinator:
         self.config_entry = MagicMock()
         self.config_entry.entry_id = "test_entry_id"
 
-    def get_scheduled_events_between(self, start_date, end_date):
+    # The arguments of the coordinator method that the sensor calls
+    def get_scheduled_events_between(self, start_date, end_date):  # noqa: ARG002
         """Return scheduled events."""
         return self.scheduled_events
 

@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -16,14 +16,15 @@ from .models import ConnectivityState
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .coordinator.coordinator import IntegrationCoordinator
-    from .coordinator.yasno import YasnoCoordinator
+    from .coordinator.coordinator import IntegrationCoordinator, SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
+
+# The coordinator fetches the data for all entities, which only read it
+PARALLEL_UPDATES = 0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -37,7 +38,6 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
     IntegrationSensorDescription(
         key="electricity",
         translation_key="electricity",
-        icon="mdi:transmission-tower",
         device_class=SensorDeviceClass.ENUM,
         options=[str(_.value) for _ in ConnectivityState],
         val_func=lambda coordinator: coordinator.current_state,
@@ -45,35 +45,30 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
     IntegrationSensorDescription(
         key="schedule_updated_on",
         translation_key="schedule_updated_on",
-        icon="mdi:update",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.schedule_updated_on,
     ),
     IntegrationSensorDescription(
         key="schedule_data_changed",
         translation_key="schedule_data_changed",
-        icon="mdi:update",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.outage_data_last_changed,
     ),
     IntegrationSensorDescription(
         key="next_planned_outage",
         translation_key="next_planned_outage",
-        icon="mdi:calendar-remove",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_planned_outage,
     ),
     IntegrationSensorDescription(
         key="next_scheduled_outage",
         translation_key="next_scheduled_outage",
-        icon="mdi:calendar-clock",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_scheduled_outage,
     ),
     IntegrationSensorDescription(
         key="next_connectivity",
         translation_key="next_connectivity",
-        icon="mdi:calendar-check",
         device_class=SensorDeviceClass.TIMESTAMP,
         val_func=lambda coordinator: coordinator.next_connectivity,
     ),
@@ -82,13 +77,13 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
+    config_entry: SvitloYeahConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
     LOGGER.debug("Setup new sensor: %s", config_entry)
-    coordinator: YasnoCoordinator = config_entry.runtime_data
+    coordinator = config_entry.runtime_data
     async_add_entities(
         IntegrationSensor(coordinator, description) for description in SENSORS
     )
@@ -101,7 +96,7 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
 
     def __init__(
         self,
-        coordinator: YasnoCoordinator,
+        coordinator: IntegrationCoordinator,
         entity_description: IntegrationSensorDescription,
     ) -> None:
         """Initialize the sensor."""
@@ -113,6 +108,7 @@ class IntegrationSensor(IntegrationEntity, SensorEntity):
         )
 
     @property
+    @override
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
         return self.entity_description.val_func(self.coordinator)

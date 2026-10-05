@@ -3,9 +3,6 @@
 from typing import Final
 from zoneinfo import ZoneInfo
 
-# Do not commit as True
-DEBUG: Final = False
-
 DOMAIN: Final = "svitlo_yeah"
 NAME: Final = "Svitlo Yeah | Світло Є"
 
@@ -29,11 +26,14 @@ PROVIDER_DTEK_SHORT: Final = "ДТЕК"
 TZ_UA = ZoneInfo("Europe/Kyiv")
 
 # Costants
-if DEBUG:
-    UPDATE_INTERVAL: Final = 1
-else:
-    UPDATE_INTERVAL: Final = 15
+UPDATE_INTERVAL: Final = 15
 DTEK_FRESH_DATA_DAYS: Final = 2
+
+# The schedules count the hours of one day; 23:59 stands for the end of a day
+HOURS_IN_DAY: Final = 24
+MINUTES_IN_DAY: Final = HOURS_IN_DAY * 60
+LAST_HOUR: Final = 23
+LAST_MINUTE: Final = 59
 
 # API Endpoints
 YASNO_REGIONS_ENDPOINT: Final = (
@@ -54,17 +54,28 @@ PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
     PROVIDER_TYPE_E_SVITLO: DEVICE_NAME_E_SVITLO_TRANSLATION_KEY,
 }
-TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = (
-    "component.svitlo_yeah.common.event_name_planned_outage"
+
+
+def common_translation_key(name: str) -> str:
+    """Return the key of a text of the common section, for example a region name."""
+    return f"component.{DOMAIN}.common.{name}"
+
+
+TRANSLATION_KEY_EVENT_PLANNED_OUTAGE: Final = common_translation_key(
+    "event_name_planned_outage"
 )
-TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = (
-    "component.svitlo_yeah.common.event_name_scheduled_outage"
+TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = common_translation_key(
+    "event_name_scheduled_outage"
 )
-TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = (
-    "component.svitlo_yeah.common.event_name_emergency_outage"
+TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = common_translation_key(
+    "event_name_emergency_outage"
 )
+# Repair issue: the translation key, and the prefix of the issue id
+ISSUE_GROUP_NOT_LISTED: Final = "group_not_listed"
 
 # E-Svitlo Constants
+# The site of the personal cabinet, which the login forms name
+E_SVITLO_URL: Final = "https://sm.e-svitlo.com.ua/"
 E_SVITLO_SUMY_BASE_URL: Final = (
     "https://sm.e-svitlo.com.ua/ip_cabinet/restfull_api/improvise/"
 )

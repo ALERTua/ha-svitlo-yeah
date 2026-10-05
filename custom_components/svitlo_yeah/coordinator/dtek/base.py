@@ -1,30 +1,32 @@
 """Base class for DTEK Coordinator implementations."""
 
-import datetime
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.util import dt as dt_utils
-
-from ...const import (
+from custom_components.svitlo_yeah.api.dtek.base import FetchResult
+from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
-    DEBUG,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    common_translation_key,
 )
-from ...models import (
+from custom_components.svitlo_yeah.coordinator.coordinator import (
+    IntegrationCoordinator,
+)
+from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEventType,
 )
-from ...models.providers import DTEKJsonProvider
-from ..coordinator import IntegrationCoordinator
+from custom_components.svitlo_yeah.models.providers import DTEKJsonProvider
 
 if TYPE_CHECKING:
+    import datetime
+
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-    from ...api.dtek.base import DtekAPIBase
+    from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,38 +37,18 @@ class DtekCoordinatorBase(IntegrationCoordinator):
     config_entry: ConfigEntry
     api: DtekAPIBase
     region_name: str = ""
+    provider_id: str
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         super().__init__(hass, config_entry)
         self.translations = {}
-
-        # Get configuration
-        self.provider_id = config_entry.options.get(
-            CONF_PROVIDER,
-            config_entry.data.get(CONF_PROVIDER),
+        self.provider_id = self._required_setting(
+            CONF_PROVIDER, translation_key="entry_without_provider"
         )
-        if not self.provider_id:
-            provider_required_msg = (
-                "Provider not set in configuration - this should not happen "
-                "with proper config flow"
-            )
-            provider_error = "Provider configuration is required"
-            LOGGER.error(provider_required_msg)
-            raise ValueError(provider_error)
-
-        self.group = config_entry.options.get(
-            CONF_GROUP,
-            config_entry.data.get(CONF_GROUP),
+        self.group = self._required_setting(
+            CONF_GROUP, translation_key="entry_without_group"
         )
-        if not self.group:
-            group_required_msg = (
-                "Group not set in configuration - this should not happen "
-                "with proper config flow"
-            )
-            group_error = "Group configuration is required"
-            LOGGER.error(group_required_msg)
-            raise ValueError(group_error)
 
     @property
     def event_name_map(self) -> dict:
@@ -78,30 +60,25 @@ class DtekCoordinatorBase(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
+    async def _async_fetch(self) -> FetchResult:
         """Fetch data from DTEK API."""
-        await self.async_fetch_translations()
+        result = await self.api.fetch_data()
+        LOGGER.debug("Fetched %s data for %s", result, self)
+        return result
 
-        # Coordinator-level caching (per provider)
-        now = dt_utils.now()
-        await self.api.fetch_data()
-        LOGGER.debug("Fetched fresh data for %s", self)
+    async def _async_use_answer(self, answer: FetchResult) -> None:
+        """Keep whether the source answered, and whether fresh data lists the group."""
+        # An outdated schedule is an answer of the source, not a failure
+        self._set_last_fetch_failed(failed=answer is FetchResult.UNAVAILABLE)
 
-        # Check if outage data has changed (used for last_data_change attribute)
-        current_events = self.api.get_events(now, now + datetime.timedelta(hours=24))
-        self.check_outage_data_changed(current_events)
+        # Only fresh data can tell whether the source still lists the group.
+        if answer is FetchResult.FRESH:
+            await self._async_update_group_listed(listed=self.api.is_group_listed())
 
     @property
     def provider_name(self) -> str:
         """Get the configured provider name."""
-        if DEBUG:
-            LOGGER.debug(
-                "Getting translation for %s from %s",
-                self.provider_id,
-                self.translations,
-            )
-        key = f"component.svitlo_yeah.common.{self.provider_id}"
-        return self.translations.get(key, "")
+        return self.translations.get(common_translation_key(self.provider_id), "")
 
     @property
     def provider(self) -> DTEKJsonProvider:
