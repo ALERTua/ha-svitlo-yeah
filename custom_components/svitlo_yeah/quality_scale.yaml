@@ -8,7 +8,9 @@ rules:
   common-modules: done
   config-flow: done
   config-flow-test-coverage: done
-  dependency-transparency: done
+  dependency-transparency:
+    status: exempt
+    comment: The integration has no external dependencies.
   docs-actions:
     status: exempt
     comment: The integration has no service actions.
