@@ -1,42 +1,45 @@
 """Button platform for Svitlo Yeah integration."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from homeassistant.components.button import (
     ButtonEntity,
     ButtonEntityDescription,
 )
 from homeassistant.const import EntityCategory
+from homeassistant.exceptions import HomeAssistantError
 
+from .const import DOMAIN
 from .entity import IntegrationEntity
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .coordinator.coordinator import IntegrationCoordinator
+    from .coordinator.coordinator import IntegrationCoordinator, SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
+
+# Each press asks the source, so the presses of an entry run one at a time
+PARALLEL_UPDATES = 1
 
 REFRESH_BUTTON = ButtonEntityDescription(
     key="refresh",
     translation_key="refresh",
-    icon="mdi:refresh",
     entity_category=EntityCategory.CONFIG,
 )
 
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
+    config_entry: SvitloYeahConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the button platform."""
     LOGGER.debug("Setup new button: %s", config_entry)
-    coordinator: IntegrationCoordinator = config_entry.runtime_data
+    coordinator = config_entry.runtime_data
     async_add_entities([IntegrationRefreshButton(coordinator, REFRESH_BUTTON)])
 
 
@@ -57,7 +60,24 @@ class IntegrationRefreshButton(IntegrationEntity, ButtonEntity):
             f"{coordinator.config_entry.entry_id}_{self.entity_description.key}"
         )
 
+    @override
     async def async_press(self) -> None:
-        """Force an immediate data refresh, ignoring the update interval."""
+        """
+        Force an immediate data refresh, ignoring the update interval.
+
+        Fail when the source does not answer or E-Svitlo refuses the login. Never
+        touch last_update_success, because the entities keep the last data.
+        """
         LOGGER.debug("Manual refresh requested for %s", self.coordinator.group)
         await self.coordinator.async_refresh()
+        # No answer goes first, also while an older refused login waits for a new one
+        if self.coordinator.last_fetch_failed:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="refresh_failed",
+            )
+        if self.coordinator.login_rejected:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="login_rejected",
+            )

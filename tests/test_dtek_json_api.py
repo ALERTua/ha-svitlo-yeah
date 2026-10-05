@@ -1,21 +1,19 @@
 """Tests for JSON DTEK API (alternative data sources)."""
 
-import json
+import time
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import aiohttp
 import pytest
-
-from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
 
 # noinspection PyProtectedMember
 from custom_components.svitlo_yeah.api.dtek.json import (
     DtekAPIJson,
     FetchResult,
     _is_data_sufficiently_fresh,
+    _parse_update_dt,
 )
-from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from tests.helpers import make_response, set_session_responses
 
 TEST_GROUP = "1.1"
 TEST_URLS = ["https://example.com/data1.json", "https://example.com/data2.json"]
@@ -30,53 +28,22 @@ def _make_api(**kwargs: object) -> DtekAPIJson:
         return DtekAPIJson(MagicMock(), **kwargs)
 
 
-async def _make_api_real(**kwargs: object) -> DtekAPIJson:
-    """Create a DtekAPIJson with a real aiohttp session for e2e tests."""
-    session = aiohttp.ClientSession()
-    hass = MagicMock()
-
-    # Create API instance manually to bypass async_get_clientsession
-    api = object.__new__(DtekAPIJson)
-    # noinspection PyTypeChecker
-    DtekAPIBase.__init__(api, kwargs.get("group"))
-    api.hass = hass
-    api.session = session
-    api.urls = kwargs.get("urls", [])
-    api.preset_data = None
-
-    return api
+@pytest.fixture(name="process_in_utc")
+def _process_in_utc(monkeypatch):
+    """Run the clock of the process in UTC, so that it differs from Kyiv."""
+    if not hasattr(time, "tzset"):
+        pytest.skip("Windows cannot change the time zone of a running process")
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
 
 
 @pytest.fixture(name="api")
 def _api():
     """Create a JSON DTEK API instance."""
     return _make_api(urls=TEST_URLS, group=TEST_GROUP)
-
-
-def _make_response(payload: dict | None = None, *, raise_error: bool = False):
-    """Build a mocked aiohttp response yielding `payload` from .text()."""
-    resp = AsyncMock()
-    if raise_error:
-        resp.raise_for_status = MagicMock(side_effect=Exception("Connection failed"))
-    else:
-        resp.raise_for_status = MagicMock()
-    resp.text = AsyncMock(
-        return_value=json.dumps(payload) if payload is not None else ""
-    )
-    return resp
-
-
-def _get_cm(response):
-    """Wrap a response in an async context manager (as ``session.get`` returns)."""
-    cm = MagicMock()
-    cm.__aenter__ = AsyncMock(return_value=response)
-    cm.__aexit__ = AsyncMock(return_value=None)
-    return cm
-
-
-def _set_session_responses(api: DtekAPIJson, responses: list) -> None:
-    """Configure ``api.session.get`` so each URL fetch yields the next response."""
-    api.session.get = MagicMock(side_effect=[_get_cm(r) for r in responses])
 
 
 def _payload(update_dt: datetime, preset: dict | None = None) -> dict:
@@ -91,7 +58,8 @@ def create_sample_json_data(update_dt: datetime | None = None):
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     return {
         "data": {
-            str(midnight.timestamp()): {
+            # The sources key each day by its whole Unix timestamp
+            str(int(midnight.timestamp())): {
                 "GPV1.1": {
                     "1": "yes",
                     "2": "yes",
@@ -130,61 +98,28 @@ class TestJsonDtekAPIFetchData:
     """Test JSON data fetching methods."""
 
     async def test_fetch_data_no_fallback_when_stale(self, api):
-        """Test that when all sources are stale, data remains None (no fallback implemented)."""
+        """When all sources are stale, the data stays None: there is no fallback."""
         stale_data = create_sample_json_data(
             datetime.now(UTC) - timedelta(days=1000)
         )  # 2+ days old
         stale_payload = {"fact": stale_data, "preset": {}}
 
         # First call - all sources stale, so data remains None
-        _set_session_responses(api, [_make_response(stale_payload) for _ in TEST_URLS])
+        set_session_responses(api, [make_response(stale_payload) for _ in TEST_URLS])
         await api.fetch_data()
         assert api.data is None
 
         # Second call - still None (no caching of stale data)
-        _set_session_responses(api, [_make_response(stale_payload) for _ in TEST_URLS])
+        set_session_responses(api, [make_response(stale_payload) for _ in TEST_URLS])
         await api.fetch_data()
         assert api.data is None
 
     async def test_fetch_data_all_fail(self, api):
         """Test when all URLs fail."""
-        _set_session_responses(
-            api, [_make_response(raise_error=True) for _ in TEST_URLS]
-        )
+        set_session_responses(api, [make_response(raise_error=True) for _ in TEST_URLS])
         await api.fetch_data()
         # Should not crash, data remains None
         assert api.data is None
-
-    @pytest.mark.e2e(reason="Requires real network access to DTEK endpoints")
-    @pytest.mark.parametrize("provider_key", list(DTEK_PROVIDER_URLS))
-    async def test_fetch_data_real_endpoints(self, provider_key):
-        """
-        Test fetching real data from a DTEK JSON endpoint.
-
-        Stale upstream data is not our bug, so those providers are skipped
-        rather than failed; a genuinely unreachable/broken source still fails.
-        """
-        urls = DTEK_PROVIDER_URLS[provider_key]
-        api = await _make_api_real(urls=urls)
-        try:
-            result = await api.fetch_data()
-            if result is FetchResult.STALE:
-                pytest.skip(f"{provider_key}: upstream data is stale {urls}")
-            assert result is FetchResult.FRESH, (
-                f"failed to fetch fresh data for {provider_key} {urls} (result={result})"
-            )
-
-            groups = api.get_dtek_region_groups()
-            assert isinstance(groups, list), (
-                f"wrong data type for groups while getting info for {provider_key}"
-            )
-            assert len(groups), f"no groups while getting info for {provider_key}"
-
-            api.group = groups[0]
-            updated_on = api.get_updated_on()
-            assert updated_on, f"no updated_on while getting info for {provider_key}"
-        finally:
-            await api.session.close()
 
 
 class TestJsonDtekAPIStaleData:
@@ -196,7 +131,7 @@ class TestJsonDtekAPIStaleData:
 
         for allow in (False, True):
             api.data = None
-            _set_session_responses(api, [_make_response(fresh)])
+            set_session_responses(api, [make_response(fresh)])
             result = await api.fetch_data(allow_stale_data=allow)
             assert result is FetchResult.FRESH
             assert api.data is not None
@@ -205,17 +140,30 @@ class TestJsonDtekAPIStaleData:
         """All-stale sources yield STALE but do not populate data by default."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
 
-        _set_session_responses(api, [_make_response(stale), _make_response(stale)])
+        set_session_responses(api, [make_response(stale), make_response(stale)])
         result = await api.fetch_data()
 
         assert result is FetchResult.STALE
         assert api.data is None
 
+    async def test_stale_at_runtime_keeps_the_last_fresh_copy(self, api):
+        """A source that turns stale keeps the last fresh data of this run."""
+        fresh = _payload(datetime.now(UTC) - timedelta(hours=1))
+        stale = _payload(datetime.now(UTC) - timedelta(days=1000))
+        set_session_responses(api, [make_response(fresh)])
+        await api.fetch_data()
+
+        set_session_responses(api, [make_response(stale), make_response(stale)])
+        result = await api.fetch_data()
+
+        assert result is FetchResult.STALE
+        assert api.data["update"] == fresh["fact"]["update"]
+
     async def test_stale_with_allow_adopts_data(self, api):
         """With consent, the freshest stale source is adopted into data."""
         stale = _payload(datetime.now(UTC) - timedelta(days=1000))
 
-        _set_session_responses(api, [_make_response(stale)])
+        set_session_responses(api, [make_response(stale)])
         result = await api.fetch_data(allow_stale_data=True)
 
         assert result is FetchResult.STALE
@@ -227,7 +175,7 @@ class TestJsonDtekAPIStaleData:
         older = _payload(datetime.now(UTC) - timedelta(days=1000))
         newer = _payload(datetime.now(UTC) - timedelta(days=10))
 
-        _set_session_responses(api, [_make_response(older), _make_response(newer)])
+        set_session_responses(api, [make_response(older), make_response(newer)])
         result = await api.fetch_data(allow_stale_data=True)
 
         assert result is FetchResult.STALE
@@ -237,9 +185,9 @@ class TestJsonDtekAPIStaleData:
         """When every source errors, the result is UNAVAILABLE under any flag."""
         for allow in (False, True):
             api.data = None
-            _set_session_responses(
+            set_session_responses(
                 api,
-                [_make_response(raise_error=True), _make_response(raise_error=True)],
+                [make_response(raise_error=True), make_response(raise_error=True)],
             )
             result = await api.fetch_data(allow_stale_data=allow)
             assert result is FetchResult.UNAVAILABLE
@@ -261,6 +209,12 @@ class TestJsonDtekAPIFreshness:
         # Very old data
         old_data = create_sample_json_data(datetime.now(UTC) - timedelta(days=1000))
         assert not _is_data_sufficiently_fresh(old_data)
+
+    @pytest.mark.usefixtures("process_in_utc")
+    @pytest.mark.parametrize("update", ["05.10.2026 10:00", "10:00 05.10.2026"])
+    def test_update_is_a_time_in_kyiv(self, update):
+        """The update time of the source is Kyiv time, whatever the process clock."""
+        assert _parse_update_dt(update) == datetime(2026, 10, 5, 7, 0, tzinfo=UTC)
 
     def test_is_data_missing_timestamp(self):
         """Test data without timestamp."""

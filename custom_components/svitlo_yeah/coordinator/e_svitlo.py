@@ -1,17 +1,26 @@
 """E-Svitlo coordinator for Svitlo Yeah integration."""
 
 import logging
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.util import dt as dt_utils
 
-from ..api.e_svitlo import ESvitloClient
-from ..const import (
+from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient, LoginResult
+from custom_components.svitlo_yeah.const import (
+    CONF_ACCOUNT_ID,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    common_translation_key,
 )
-from ..models import ConnectivityState, ESvitloProvider, PlannedOutageEventType
+from custom_components.svitlo_yeah.models import (
+    ConnectivityState,
+    ESvitloProvider,
+    PlannedOutageEvent,
+    PlannedOutageEventType,
+)
+
 from .coordinator import IntegrationCoordinator
 
 if TYPE_CHECKING:
@@ -25,15 +34,22 @@ LOGGER = logging.getLogger(__name__)
 class ESvitloCoordinator(IntegrationCoordinator):
     """Coordinator for E-Svitlo API integration."""
 
+    api: ESvitloClient
+    provider: ESvitloProvider
+
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the E-Svitlo coordinator."""
         super().__init__(hass, config_entry)
 
         # Create provider from config entry data
         self.provider: ESvitloProvider = ESvitloProvider(
-            user_name=config_entry.data["username"],
-            password=config_entry.data["password"],
-            account_id=config_entry.data.get("account_id"),
+            user_name=self._required_setting(
+                CONF_USERNAME, translation_key="entry_without_login"
+            ),
+            password=self._required_setting(
+                CONF_PASSWORD, translation_key="entry_without_login"
+            ),
+            account_id=config_entry.data.get(CONF_ACCOUNT_ID),
         )
 
         # Initialize API client
@@ -44,16 +60,19 @@ class ESvitloCoordinator(IntegrationCoordinator):
 
     @property
     def region_name(self) -> str:
-        """Get the configured region name."""
-        return self.provider.region_name
+        """Get the region name in the language of the server, as the entry title has."""
+        region = self.provider.region_name
+        return self.translations.get(common_translation_key(region), region)
 
     @property
     def provider_name(self) -> str:
-        """Get the configured provider name."""
-        return self.config_entry.data.get(
-            "address_str",
-            f"E-Svitlo ({self.provider.user_name})",  # ty:ignore[unresolved-attribute]
-        )
+        """
+        Name the provider without the account.
+
+        The device name goes into each entity id, and the log shows them, so
+        the address and the username of the account stay out.
+        """
+        return "E-Svitlo"
 
     @property
     def event_name_map(self) -> dict:
@@ -67,36 +86,81 @@ class ESvitloCoordinator(IntegrationCoordinator):
             ),
         }
 
-    async def _async_update_data(self) -> None:  # ty:ignore[invalid-method-override]
-        """Fetch data from E-Svitlo API."""
+    async def _async_fetch(self) -> list[PlannedOutageEvent] | None:
+        """Fetch the disconnections from E-Svitlo API, or None without an answer."""
         LOGGER.debug("Updating E-Svitlo data")
 
-        # Fetch translations
-        await self.async_fetch_translations()
-
         # Ensure we have user info (including group) before fetching disconnections
-        if isinstance(self.api, ESvitloClient):
-            if not self.api.user_id or not self.api.group:
-                await self.api.get_user_info()
+        if not self.api.user_id or not self.api.group:
+            await self.api.get_user_info()
 
-            # Update group from API if available
-            if self.api.group:
-                self.group = self.api.group
+        # Update group from API if available
+        if self.api.group:
+            self.group = self.api.group
 
-            # Get disconnections data
-            events = await self.api.get_disconnections()
+        return await self.api.get_disconnections()
 
-            if events is not None:
-                LOGGER.debug(
-                    "Successfully updated E-Svitlo data with %d events", len(events)
-                )
-                # Check if outage data has changed
-                now = dt_utils.now()
-                current_events = self.api.get_events(now, now + timedelta(hours=24))
-                self.check_outage_data_changed(current_events)
-            else:
-                LOGGER.warning("Failed to fetch E-Svitlo data")
-                # Keep existing data if fetch fails
+    async def _async_use_answer(self, answer: list[PlannedOutageEvent] | None) -> None:
+        """Keep whether the server answered, and whether it refused the login."""
+        # A refused login is an answer, and after it each poll logs in again
+        refused = self.api.last_login is LoginResult.REJECTED
+        self._set_last_fetch_failed(failed=answer is None and not refused)
+        self._set_login_rejected(rejected=self.api.login_rejected)
+        if answer is None:
+            # The client keeps the last schedule
+            LOGGER.debug("Failed to fetch E-Svitlo data")
+
+    def _set_login_rejected(self, *, rejected: bool) -> None:
+        """
+        Ask for the new login once the server refuses it, and log each change once.
+
+        The polls go on with the old login, so a refusal for a while heals without
+        the user, and the next good login closes the open reauthentication.
+        """
+        if rejected == self.login_rejected:
+            return
+        self.login_rejected = rejected
+        entry_id = self.config_entry.entry_id
+        if rejected:
+            LOGGER.warning(
+                "E-Svitlo refused the login of entry %s, so Home Assistant "
+                "asks for the new login; the entities keep the last schedule",
+                entry_id,
+            )
+            self.config_entry.async_start_reauth(self.hass)
+        else:
+            LOGGER.info("E-Svitlo accepts the login of entry %s again", entry_id)
+            # The open reauthentication would ask for a login that works again
+            for flow in list(
+                self.config_entry.async_get_active_flows(self.hass, {SOURCE_REAUTH})
+            ):
+                self.hass.config_entries.flow.async_abort(flow["flow_id"])
+
+    def _source_data(self) -> dict | None:
+        """Keep the raw answer of the last disconnections request, and the group."""
+        if self.api.last_answer is None:
+            return None
+        last_update = self.api.get_updated_on()
+        return {
+            "disconnections": self.api.last_answer,
+            "last_update": last_update.isoformat() if last_update else None,
+            "group": self.group,
+        }
+
+    def _restore_source_data(self, source: dict) -> None:
+        """
+        Give the kept answer back to the client, until the server answers.
+
+        The kept group names the device only. The client still asks the server
+        for the group, so a change of the group on the server comes through.
+        """
+        if answer := source.get("disconnections"):
+            last_update = source.get("last_update")
+            self.api.restore_disconnections(
+                answer, dt_utils.parse_datetime(last_update) if last_update else None
+            )
+        if group := source.get("group"):
+            self.group = group
 
     def _event_to_state(self, event: CalendarEvent | None) -> ConnectivityState | None:
         """Map event to connectivity state."""

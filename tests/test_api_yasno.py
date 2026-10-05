@@ -13,6 +13,7 @@ from custom_components.svitlo_yeah.api.yasno import (
     _merge_adjacent_events,
     _minutes_to_time,
     _parse_day_schedule,
+    is_planned_outages,
 )
 from custom_components.svitlo_yeah.models import (
     PlannedOutageEvent,
@@ -165,6 +166,17 @@ class TestYasnoApiFetchData:
         await api.fetch_planned_outage_data()
         assert api.planned_outage_data == planned_outage_data
 
+    async def test_failed_planned_outage_fetch_keeps_the_last_data(
+        self, api, planned_outage_data
+    ):
+        """A failed request keeps the planned outages of the last one."""
+        api.planned_outage_data = planned_outage_data
+        api.session.get.return_value.__aenter__.side_effect = aiohttp.ClientError()
+
+        await api.fetch_planned_outage_data()
+
+        assert api.planned_outage_data == planned_outage_data
+
     async def test_fetch_planned_outage_no_config(self, api):
         """Test planned outage fetch without region/provider."""
         # Save original values
@@ -193,6 +205,36 @@ class TestYasnoApiGroups:
     def test_get_groups_empty(self, api):
         """Test getting groups when none loaded."""
         assert api.get_yasno_groups() == []
+
+
+class TestYasnoApiIsGroupListed:
+    """is_group_listed tells whether the planned outages have the group."""
+
+    def test_group_listed(self, api, planned_outage_data):
+        """The planned outage data has the configured group."""
+        api.planned_outage_data = planned_outage_data
+        assert api.is_group_listed() is True
+
+    def test_group_not_listed(self, api, planned_outage_data):
+        """The planned outage data lists other groups only."""
+        api.planned_outage_data = planned_outage_data
+        api.group = "9.9"
+        assert api.is_group_listed() is False
+
+    def test_no_data_gives_none(self, api):
+        """Without data the answer is unknown."""
+        assert api.is_group_listed() is None
+
+    def test_empty_data_gives_none(self, api):
+        """Planned outage data without groups says nothing."""
+        api.planned_outage_data = {}
+        assert api.is_group_listed() is None
+
+    def test_no_group_gives_none(self, api, planned_outage_data):
+        """Without a configured group the answer is unknown."""
+        api.planned_outage_data = planned_outage_data
+        api.group = None
+        assert api.is_group_listed() is None
 
 
 class TestYasnoApiTimeConversion:
@@ -443,6 +485,45 @@ class TestYasnoApiEvents:
         assert events[0].start == start.date()
         assert events[0].end == end.date()
 
+    def test_slots_out_of_order_give_one_outage(self, api, today):
+        """Two slots that the answer lists out of order make one outage, in time."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [
+                        {"start": 600, "end": 660, "type": "Definite"},
+                        {"start": 540, "end": 600, "type": "Definite"},
+                    ],
+                    "date": today.isoformat(),
+                    "status": "ScheduleApplies",
+                },
+            }
+        }
+
+        events = api.get_events(today, today + timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (today.replace(hour=9), today.replace(hour=11))
+        ]
+
+    def test_day_in_utc_is_the_day_in_kyiv(self, api, today):
+        """A date that Yasno gives in UTC is still the Kyiv day of the slots."""
+        api.planned_outage_data = {
+            TEST_GROUP: {
+                "today": {
+                    "slots": [{"start": 600, "end": 660, "type": "Definite"}],
+                    "date": today.astimezone(datetime.UTC).isoformat(),
+                    "status": "ScheduleApplies",
+                },
+            }
+        }
+
+        events = api.get_events(today, today + timedelta(days=1))
+
+        assert [(e.start, e.end) for e in events] == [
+            (today.replace(hour=10), today.replace(hour=11))
+        ]
+
     def test_get_current_event(self, api, planned_outage_data, today):
         """Test getting current event."""
         api.planned_outage_data = planned_outage_data
@@ -512,7 +593,7 @@ class TestYasnoApiScheduledEvents:
         assert events[0].event_type == PlannedOutageEventType.DEFINITE
 
     def test_get_scheduled_events_emergency_shutdowns(self, api, today):
-        """Test getting scheduled events with EmergencyShutdowns status - now ignored."""
+        """Test scheduled events with the EmergencyShutdowns status: now ignored."""
         api.planned_outage_data = {
             TEST_GROUP: {
                 "today": {
@@ -573,3 +654,64 @@ class TestYasnoApiScheduledEvents:
         events = api.get_scheduled_events(start_date, end_date)
 
         assert len(events) == 2
+
+
+class TestYasnoApiUnusualDays:
+    """The client skips a day or a field that Yasno does not give as expected."""
+
+    def test_group_without_updated_on_has_no_update_time(
+        self, api, planned_outage_data
+    ):
+        """Without updatedOn, the Schedule Updated On sensor has no value."""
+        del planned_outage_data[TEST_GROUP]["updatedOn"]
+        api.planned_outage_data = planned_outage_data
+
+        assert api.get_updated_on() is None
+
+    def test_current_event_of_an_emergency_day(self, api, emergency_outage_data, today):
+        """On an emergency day, the all-day event of that date is the current one."""
+        api.planned_outage_data = emergency_outage_data
+
+        event = api.get_current_event(today.replace(hour=12))
+
+        assert event is not None
+        assert event.all_day
+        assert event.event_type == PlannedOutageEventType.EMERGENCY
+
+    @pytest.mark.parametrize(
+        "date_value", [None, "not a date"], ids=["no_date", "bad_date"]
+    )
+    def test_day_without_a_good_date_is_skipped(
+        self, api, planned_outage_data, today, tomorrow, date_value
+    ):
+        """A day without a date, or with a date that does not parse, gives no events."""
+        group = planned_outage_data[TEST_GROUP]
+        if date_value is None:
+            del group["today"]["date"]
+            del group["tomorrow"]["date"]
+        else:
+            group["today"]["date"] = group["tomorrow"]["date"] = date_value
+        api.planned_outage_data = planned_outage_data
+        end = tomorrow + timedelta(days=1)
+
+        assert api.get_events(today, end) == []
+        assert api.get_scheduled_events(today, end) == []
+
+    def test_empty_slot_keeps_the_answer(self, planned_outage_data):
+        """A slot that ends where it starts is no reason to drop the answer."""
+        slot = {"start": 600, "end": 600, "type": "Definite"}
+        planned_outage_data[TEST_GROUP]["today"]["slots"].append(slot)
+
+        assert is_planned_outages(planned_outage_data)
+
+    def test_empty_slot_gives_no_event(self, api, planned_outage_data, today, tomorrow):
+        """A slot that ends where it starts is no outage, and the others stay."""
+        api.planned_outage_data = planned_outage_data
+        end = tomorrow + timedelta(days=1)
+        planned = api.get_events(today, end)
+        scheduled = api.get_scheduled_events(today, end)
+        slot = {"start": 600, "end": 600, "type": "Definite"}
+        planned_outage_data[TEST_GROUP]["today"]["slots"].append(slot)
+
+        assert api.get_events(today, end) == planned
+        assert api.get_scheduled_events(today, end) == scheduled

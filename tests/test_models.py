@@ -75,8 +75,8 @@ class TestYasnoPlannedOutageEvent:
 
     def test_create_with_datetime(self):
         """Test creating event with datetime."""
-        start = datetime.datetime(2025, 1, 27, 10, 0, 0)
-        end = datetime.datetime(2025, 1, 27, 12, 0, 0)
+        start = datetime.datetime(2025, 1, 27, 10, 0, 0, tzinfo=datetime.UTC)
+        end = datetime.datetime(2025, 1, 27, 12, 0, 0, tzinfo=datetime.UTC)
         event = PlannedOutageEvent(
             event_type=PlannedOutageEventType.DEFINITE,
             start=start,
@@ -105,9 +105,9 @@ class TestYasnoPlannedOutageEvent:
         """Test that event is frozen."""
         event = PlannedOutageEvent(
             event_type=PlannedOutageEventType.DEFINITE,
-            start=datetime.datetime(2025, 1, 27, 10, 0, 0),
-            end=datetime.datetime(2025, 1, 27, 12, 0, 0),
+            start=datetime.datetime(2025, 1, 27, 10, 0, 0, tzinfo=datetime.UTC),
+            end=datetime.datetime(2025, 1, 27, 12, 0, 0, tzinfo=datetime.UTC),
         )
         with pytest.raises(AttributeError):
             # noinspection PyDataclass
-            event.start = datetime.datetime(2025, 1, 28, 10, 0, 0)
+            event.start = datetime.datetime(2025, 1, 28, 10, 0, 0, tzinfo=datetime.UTC)

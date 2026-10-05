@@ -1,6 +1,6 @@
 ci:
-  # tests are checked in a github runner
-  skip: [uv-lock, pytest]
+  # tests and types are checked in a github runner
+  skip: [uv-lock, pytest, ty]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -17,15 +17,22 @@ repos:
     - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.2
+    rev: v0.16.9
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
+  # Checks the files of [tool.ty.src] in pyproject.toml, not only the changed files
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.84
+    hooks:
+      - id: ty
+        args: [--locked]
+
   # https://docs.astral.sh/uv/guides/integration/pre-commit/
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.3
+    rev: 0.12.21
     hooks:
       - id: uv-lock
 
@@ -44,7 +51,7 @@ repos:
       - id: todo-md
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.25
+    rev: '0.26'
     hooks:
       - id: validate-pyproject
         # Optional extra validations from SchemaStore:

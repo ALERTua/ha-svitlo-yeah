@@ -48,6 +48,8 @@ def coordinator(mock_hass, mock_entry):
     ) as mock_client_cls:
         client_instance = mock_client_cls.return_value
         client_instance.get_updated_on.return_value = dt_utils.now()
+        client_instance.login_rejected = False
+        client_instance.last_login = None
 
         coord = ESvitloCoordinator(mock_hass, mock_entry)
         coord.client = client_instance
@@ -58,22 +60,26 @@ def coordinator(mock_hass, mock_entry):
 
 @pytest.mark.asyncio
 async def test_update_failure(coordinator):
-    """Test data update failure."""
+    """A poll without an answer raises nothing, and counts as no answer."""
     coordinator.translations = {}
     coordinator.client.get_disconnections = AsyncMock(return_value=None)
 
-    # helper for async update
     await coordinator._async_update_data()
-    # Should not raise, just log warning
-    assert coordinator.data is None  # Or whatever default is, since update failed
+
+    assert coordinator.last_fetch_failed
+    assert not coordinator.login_rejected
 
 
-def test_provider_name_with_address(coordinator):
-    """Test provider_name returns address."""
-    assert coordinator.provider_name == "Test Addr"
+@pytest.mark.parametrize("with_address", [True, False], ids=["address", "no_address"])
+def test_provider_name_has_no_account(coordinator, mock_entry, with_address):
+    """Neither the address nor the username of the account names the provider."""
+    if not with_address:
+        del mock_entry.data["address_str"]
+    assert coordinator.provider_name == "E-Svitlo"
 
 
-def test_provider_name_fallback(coordinator, mock_entry):
-    """Test provider_name fallback."""
-    mock_entry.data = {}
-    assert coordinator.provider_name == "E-Svitlo (user)"
+def test_region_name_in_the_language_of_the_server(coordinator):
+    """The region has its translated name, and its key until the texts come."""
+    assert coordinator.region_name == "sumy"
+    coordinator.translations = {"component.svitlo_yeah.common.sumy": "Суми"}
+    assert coordinator.region_name == "Суми"

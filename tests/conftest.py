@@ -3,18 +3,29 @@
 from datetime import timedelta
 
 import pytest
-from homeassistant.util import dt as dt_utils
+
+from custom_components.svitlo_yeah.api.yasno import YasnoApi
+from tests.helpers import kyiv_midnight
+
+
+@pytest.fixture
+def empty_yasno_region_cache(monkeypatch):
+    """
+    Make each Yasno setup or flow fetch the regions again.
+
+    YasnoApi keeps the regions in a class attribute, so without this fixture
+    one test gets the regions that another test served.
+    """
+    monkeypatch.setattr(YasnoApi, "_regions", None)
 
 
 @pytest.fixture(name="today")
 def _today():
-    """Create an API instance."""
-    return dt_utils.as_local(dt_utils.now()).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    """Return the start of the current day in Kyiv, as the sources give it."""
+    return kyiv_midnight()
 
 
 @pytest.fixture(name="tomorrow")
 def _tomorrow(today):
-    """Create an API instance."""
+    """Return the start of the next day in Kyiv."""
     return today + timedelta(days=1)

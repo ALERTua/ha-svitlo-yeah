@@ -32,8 +32,8 @@ providing outage calendars, countdown timers, and status updates.
 | **Ternopil and Oblast**        | TOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Ternopiloblenerho.json)                                                                                                                     |
 | **Chernihiv and Oblast**       | ChOE     | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Chernihivoblenergo.json)                                                                                                                    |
 | **Zaporizhzhia and Oblast**    | ZOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Zaporizhzhiaoblenergo.json)                                                                                                                 |
-| **Zhytomyr and Oblast**        | ZOE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Zhytomyroblenergo.json)                                                                                                                     |
-| **Polava and Oblast**          | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Poltavaoblenergo.json)                                                                                                                      |
+| **Zhytomyr and Oblast**        | ZhOE     | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Zhytomyroblenergo.json)                                                                                                                     |
+| **Poltava and Oblast**         | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Poltavaoblenergo.json)                                                                                                                      |
 | **Rivne and Oblast**           | ROE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Rivneoblenergo.json)                                                                                                                        |
 | **Vinnytsia and Oblast**       | VOE      | [olnet93/gpv-voe-vinnytsia](https://github.com/olnet93/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json)<br/>[vn-progr/gpv-voe-vinnytsia](https://github.com/vn-progr/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json) |
 | **Sumy and Oblast**            | SOE      | [E-Svitlo API](https://sm.e-svitlo.com.ua/)                                                                                                                                                                                             |
@@ -49,38 +49,64 @@ If it doesn't work, adding this repository to HACS manually by adding this URL:
 1. Visit **HACS** → **Integrations** → **...** (in the top right) → **Custom repositories**
 2. Click **Add**
 3. Paste `https://github.com/ALERTua/ha-svitlo-yeah` into the **URL** field
-4. Chose **Integration** as a **Category**
+4. Choose **Integration** as a **Category**
 5. **Svitlo Yeah | Світло Є** will appear in the list of available integrations. Install it normally.
 
 ## Usage
 
-This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for *
-*Svitlo Yeah**.
+This integration is configurable via UI. On **Devices and Services** page, click **Add Integration** and search for **Svitlo Yeah**.
 
-### Select your region and Service Provider (if applicable)
+### Setup parameters
+
+Before you start, find your outage group on the website of your provider. For Sumy and Oblast, you need the login and the password of your E-Svitlo personal cabinet instead, because E-Svitlo gives the group of your personal account.
+
+| Step | Field | Description |
+|---|---|---|
+| Select Region/System Distribution | Select your region/system distribution | The region or the distribution system operator that supplies electricity to your address. The list has each region of [Supported Regions](#supported-regions). |
+| Outdated schedule data | I understand and accept the risk | Shows only when no DTEK JSON source of the region has fresh data. Select it to pick your group from the outdated schedule. See [Outdated schedule data](#outdated-schedule-data-dtek-json). |
+| Settings | Select your group | Your outage group, for example `1.1`. Find it on the website of your provider, for example [Yasno](https://static.yasno.ua/kyiv/outages) or [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). For DTEK Dnipro, the list shows a CEK group with its number in the source, for example «ЦЕК 1.1 (1001.1)». |
+| E-Svitlo Authentication | Username | The login of your [E-Svitlo personal cabinet](https://sm.e-svitlo.com.ua/). |
+| E-Svitlo Authentication | Password | The password of your E-Svitlo personal cabinet. |
+| Select Account | Account | The personal account (address) whose outage schedule the entry shows. For another address, add one more entry. |
+
+Each region and group is a separate entry. To change the group of a DTEK or Yasno entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
+
+The integration gives a new entry the name of its device in the language of your Home Assistant, for example «Київ ДТЕК 52.1». The name of an E-Svitlo entry has no address, for example «Суми E-Svitlo», and the name of its device has none either, for example «Суми E-Svitlo 4.1». The device of an E-Svitlo entry from an earlier version gets this name at the next start of Home Assistant, but its entity IDs stay. The same happens to the English name of a DTEK Kyiv Oblast device: «Kyiv Region 1.1» becomes «Kyiv Oblast 1.1». To update the entity IDs, open the device and select **Recreate entity IDs**. Reconfigure puts the new group into a name that the integration gave, and keeps a name that you gave. An entry from an earlier version keeps the name «Svitlo Yeah | Світло Є» until you rename it or Reconfigure changes its group.
+
+<details>
+<summary>Screenshots of the setup</summary>
 
 ![Region Selection](/media/1_region.png)
 
-### Select your Group
-
 ![Group Selection](/media/3_group.png)
+
+</details>
 
 ### Outdated schedule data (DTEK JSON)
 
-When there are no outages for a while, DTEK JSON sources may stop publishing and
-all data becomes outdated. In that case setup shows a confirmation step: you can
-still pick your group from the last-known schedule after acknowledging the risk.
-Once outages resume, double-check that your group hasn't changed. This affects
-setup only — at runtime outdated data is never shown, and the
-**Schedule Updated On** sensor always reflects the real last-update time.
+When there are no outages for a while, DTEK JSON sources may stop publishing and all data becomes outdated. In that case setup shows a confirmation step: you can still pick your group from the last-known schedule after acknowledging the risk. Once outages resume, double-check that your group hasn't changed.
+
+The outdated data serves only the choice of the group, and the integration does not use it after setup. The integration keeps the last fresh schedule of each entry, also across a restart of Home Assistant. If a source becomes outdated or does not answer, the integration uses that schedule until the source publishes fresh data again, also when that schedule gets older. The **Schedule Updated On** sensor shows the update time of the schedule that the integration uses.
+
+### E-Svitlo refuses the login
+
+If E-Svitlo refuses the login of an entry, for example after you change the password, Home Assistant shows a notification on the **Devices & services** page. Open it, and enter the current login and password. The new login must have access to the personal account of the entry. Until then, the entities show the last schedule, and the integration tries the old login at each update. If E-Svitlo refuses the login only for a while, for example during maintenance, the next update that logs in brings the schedule back by itself, and the notification disappears.
 
 ### Here's how the devices look
 
+<details>
+<summary>The device page</summary>
+
 ![Devices page](/media/4_devices.png)
 
-### Sensors
+</details>
+
+<details>
+<summary>The sensors</summary>
 
 ![Sensors](/media/5_sensors.png) ![Sensors 2](/media/5_1_sensors.png)
+
+</details>
 
 ### Calendar View
 
@@ -88,14 +114,24 @@ Then you can add the integration to your dashboard and see the information about
 Integration also provides a calendar view of planned outages. You can add it to your dashboard as well
 via [Calendar card][calendar-card].
 
+<details>
+<summary>The calendars</summary>
+
 ![Calendars view](/media/6_calendar.png)
+
+</details>
 
 ### Examples
 
 - [Automation](/examples/automation.yaml)
 - [Dashboard](/examples/dashboard.yaml)
 
+<details>
+<summary>The dashboard of the example</summary>
+
 ![dashboard](media/7_dashboard.png)
+
+</details>
 
 ## Integration Entities
 
@@ -105,7 +141,7 @@ The integration creates the following entities in Home Assistant:
 
 | Entity                                                                                   | Type             | Purpose                                                          | Description                                                                                                                                                                                                                                                                                                                                              |
 |------------------------------------------------------------------------------------------|------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Electricity**                                                                          | Enum Sensor      | Shows current power connectivity state according to the calendar | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
+| **Electricity**                                                                          | Enum Sensor      | Shows current power connectivity state according to the calendar | Indicates the current electricity status with three possible states: `connected` (normal power), `planned_outage` (scheduled blackout), or `emergency` (unscheduled blackout). Shows `unknown` while the source has no schedule for the configured group. Shows `connected` while the integration has no DTEK schedule, for example for a new entry while the source has no fresh data, because the integration has no outage events then. Reflects the calendar state and shows if there is an ongoing outage event at the moment. Provides additional attributes including event details when an outage is active. |
 | [**Schedule Updated On**](/custom_components/svitlo_yeah/translations/uk.json#L97)       | Timestamp Sensor | Shows when outage schedule was last updated by the provider      | Displays the timestamp when the energy provider last updated the outage schedule on their servers. Reflects server-side data changes, not client fetch times.                                                                                                                                                                                            |
 | [**Schedule Data Changed On**](/custom_components/svitlo_yeah/translations/uk.json#L100) | Timestamp Sensor | Shows when actual outage schedule data changed                   | Tracks the timestamp when the actual data was modified. Useful for notifications when schedules are updated. See examples.                                                                                                                                                                                                                               |
 | [**Next Planned Outage**](/custom_components/svitlo_yeah/translations/uk.json#L104)      | Timestamp Sensor | Shows the start time of the next planned outage                  | Displays the timestamp when the upcoming planned outage is planned to begin. Null when there are no planned outages.                                                                                                                                                                                                                                     |
@@ -127,13 +163,16 @@ The integration creates the following entities in Home Assistant:
 
 | Entity                | Type          | Purpose                                            | Description                                                                                                                                                                                 |
 |-----------------------|---------------|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Force refresh now** | Button Entity | Forces an immediate refresh of the outage schedule | Triggers a data refresh right away, ignoring the regular update interval. Useful to pull a freshly published schedule without waiting. Data still refreshes automatically on its own timer. |
+| **Force refresh now** | Button Entity | Forces an immediate refresh of the outage schedule | Triggers a data refresh right away, ignoring the regular update interval. Useful to pull a freshly published schedule without waiting. Data still refreshes automatically on its own timer. If the source does not answer, the press fails with an error, and the entities keep the last schedule. An outdated DTEK schedule is not an error. If an automation presses the button, add `continue_on_error: true` to that step, so that the automation does not stop on the error. |
 
 ### Events
 
 | Event                        | Description                             |
 |------------------------------|-----------------------------------------|
 | **svitlo_yeah_data_changed** | Fired when outage data actually changes |
+
+<details>
+<summary>Examples of the event data, for Yasno and for a DTEK JSON source</summary>
 
 ```yaml
 event_type: svitlo_yeah_data_changed
@@ -159,6 +198,8 @@ data:
   config_entry_id: 01KB817S4AXVFB39X97NGYCV55
 ```
 
+</details>
+
 ### Entity Usage Examples
 
 - Use the **Electricity** sensor in dashboards to display current power status from the calendar perspective
@@ -169,9 +210,104 @@ data:
 
 ### Caveats
 
-- To get your Yasno group, you can use this [![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
+<details>
+<summary>How to get your Yasno group</summary>
+
+[![video example](/media/yasno_group.gif)](/media/yasno_group.gif)
+
+</details>
+
 - This project is intended to be used as a Home Assistant / HACS integration, not as a standalone Python library — the API classes require a Home Assistant instance. If you'd like the code to be usable outside the HACS integration as a plain Python library, let me know and I'll consider adding support for that.
 
+## Data updates
+
+The integration asks the source of each entry for the outage schedule every 15 minutes. The source is the Yasno API, the E-Svitlo API, or a JSON file on GitHub that a community project updates for a DTEK region (see [Supported Regions](#supported-regions)). Between two updates, each entity changes its state exactly at the start and at the end of an outage, without a new request. To update now, press the **Force refresh now** button of the entry, or call the `homeassistant.update_entity` action on one of its entities.
+
+The integration keeps the last schedule of each entry, also across a restart of Home Assistant. If the source does not answer, or a DTEK source has no data newer than 2 days, the entities keep the last schedule until the source gives fresh data. The integration then writes one line to the log, and one more line when the source answers again.
+
+## Known limitations
+
+- The **Next Planned Outage**, **Next Scheduled Outage** and **Next Connectivity** sensors look 24 hours ahead. An outage that starts later shows only in the calendars.
+- A DTEK JSON source is a community copy of the DTEK schedule. It can come later than the website of DTEK, and it has no emergency outages.
+- E-Svitlo serves Sumy and Sumy Oblast only.
+- The update interval is 15 minutes, and you cannot change it.
+- Reconfigure changes the group of an entry, but not its entity IDs. To update them, open the device and select **Recreate entity IDs**.
+- One entry shows one group, or one E-Svitlo personal account. For another group or address, add one more entry.
+
+## Troubleshooting
+
+<details>
+<summary>Electricity shows Unknown, and Repairs shows «No outage schedule for group …»</summary>
+
+**Description:** the source has no schedule for the group of the entry. The provider can renumber or remove groups.
+
+**Resolution:**
+
+1. Find your current group on the website of your provider.
+2. Go to **Settings** → **Devices & services** → **Svitlo Yeah!**, open the menu of the entry, and select **Reconfigure**.
+3. Select the group. The repair message disappears when the source has the group.
+
+</details>
+
+<details>
+<summary>The schedule does not change, and Schedule Updated On is old</summary>
+
+**Description:** the source does not answer, or a DTEK source has no fresh data. The entities show the last schedule that the integration got. The log has the line «The source of provider … does not answer» when the source does not answer.
+
+**Resolution:**
+
+1. Press **Force refresh now**. If the source does not answer, the press shows an error.
+2. Compare the schedule with the website of your provider. A DTEK JSON source can come later than the website.
+3. Wait for the next update. The entities change when the source gives fresh data.
+
+</details>
+
+<details>
+<summary>The setup stops with «No data source gave a schedule…» or «Failed to get the Yasno groups»</summary>
+
+**Description:** the source did not answer during the setup, or it has no groups now.
+
+**Resolution:** make sure that Home Assistant can connect to the Internet, and add the integration again later.
+
+</details>
+
+<details>
+<summary>E-Svitlo asks to sign in again</summary>
+
+**Resolution:** see [E-Svitlo refuses the login](#e-svitlo-refuses-the-login).
+
+</details>
+
+<details>
+<summary>The entry shows «Failed to set up»</summary>
+
+**Description:** the entry has no setting that the integration needs, or it has a DTEK source that this version of the integration does not have. The message names the reason.
+
+**Resolution:** delete the entry, and add it again.
+
+</details>
+
+To report a problem, get the debug log and the diagnostics, as the [troubleshooting guide of Home Assistant](https://www.home-assistant.io/docs/configuration/troubleshooting/) tells:
+
+1. Go to **Settings** → **Devices & services** → **Svitlo Yeah!**. Open the three dots **⋮** menu at the top right, and select **Enable debug logging**.
+2. Make the problem happen again, for example press **Force refresh now**.
+3. In the same menu, select **Disable debug logging**, and save the log file.
+4. Open the menu of the entry, and select **Download diagnostics**. The diagnostics do not include the E-Svitlo login, password, personal account or address.
+5. Open an issue on [GitHub](https://github.com/ALERTua/ha-svitlo-yeah/issues), and attach both files.
+
+## Removing the integration
+
+This integration follows standard integration removal. Each entry keeps its last schedule in the storage of Home Assistant. When you delete an entry, Home Assistant removes its device and its entities, and the integration removes its repair issue and its stored schedule.
+
+Each provider and group is a separate entry, and so is each E-Svitlo account. To remove an entry:
+
+1. Go to **Settings** → **Devices & services**, and select the **Svitlo Yeah!** card.
+2. Next to the entry that you want to remove, select the three dots **⋮** menu.
+3. Select **Delete**.
+
+To remove the integration files too, delete all entries first. Then open **HACS**, find **Svitlo Yeah | Світло Є**, select the three dots **⋮** menu, and select **Remove**. Restart Home Assistant.
+
+Automations, scripts and dashboards that use the entities or the `svitlo_yeah_data_changed` event stay. Change or delete them yourself.
 
 ## Contributing
 

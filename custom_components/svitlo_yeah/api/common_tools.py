@@ -2,13 +2,21 @@
 
 import datetime
 import logging
+from typing import TYPE_CHECKING
 
+import aiohttp
 from homeassistant.util import dt as dt_utils
 
-from ..const import TZ_UA
-from ..models import PlannedOutageEvent
+if TYPE_CHECKING:
+    from homeassistant.components.calendar import CalendarEvent
+
+from custom_components.svitlo_yeah.const import TZ_UA
+from custom_components.svitlo_yeah.models import PlannedOutageEvent
 
 LOGGER = logging.getLogger(__name__)
+
+# No usable answer: no connection, a timeout, or a body that is not JSON
+REQUEST_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
 
 
 def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
@@ -58,6 +66,13 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
 
     LOGGER.debug("Failed to parse timestamp: %s", timestamp_str)
     return None
+
+
+def start_moment(event: PlannedOutageEvent | CalendarEvent) -> datetime.datetime:
+    """Return when the event starts; an all-day event starts at its Kyiv midnight."""
+    if isinstance(event.start, datetime.datetime):
+        return event.start
+    return datetime.datetime.combine(event.start, datetime.time.min, tzinfo=TZ_UA)
 
 
 def _merge_adjacent_events(

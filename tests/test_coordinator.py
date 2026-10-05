@@ -2,14 +2,18 @@
 
 # Test for coordinator.check_outage_data_changed implemented.
 
+import inspect
 from datetime import timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.util import dt as dt_utils
 
-from custom_components.svitlo_yeah.const import EVENT_DATA_CHANGED
+from custom_components.svitlo_yeah.const import (
+    EVENT_DATA_CHANGED,
+    TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
+)
 from custom_components.svitlo_yeah.coordinator.coordinator import IntegrationCoordinator
 from custom_components.svitlo_yeah.coordinator.dtek.base import DtekCoordinatorBase
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
@@ -214,7 +218,7 @@ class TestCheckOutageDataChanged:
             )
         ]
 
-        result = coordinator.check_outage_data_changed(events)
+        result = coordinator.check_outage_data_changed(events, now)
 
         assert result is False
         assert (
@@ -236,10 +240,10 @@ class TestCheckOutageDataChanged:
         ]
 
         # First call
-        coordinator.check_outage_data_changed(events)
+        coordinator.check_outage_data_changed(events, now)
 
         # Second call with same data
-        result = coordinator.check_outage_data_changed(events)
+        result = coordinator.check_outage_data_changed(events, now)
 
         assert result is False
         assert coordinator._previous_outage_events == events
@@ -266,13 +270,13 @@ class TestCheckOutageDataChanged:
         ]
 
         # First call
-        coordinator.check_outage_data_changed(original_events)
+        coordinator.check_outage_data_changed(original_events, now)
 
         # Clear the mock to check new calls
         coordinator.hass.bus.async_fire.reset_mock()
 
         # Second call with different data
-        result = coordinator.check_outage_data_changed(new_events)
+        result = coordinator.check_outage_data_changed(new_events, now)
 
         assert result is True
         assert coordinator._previous_outage_events == new_events
@@ -316,7 +320,7 @@ class TestCheckOutageDataChanged:
         ]
 
         # First call
-        coordinator.check_outage_data_changed(events)
+        coordinator.check_outage_data_changed(events, now)
 
         # Sorted events
         sorted_events = [
@@ -335,11 +339,36 @@ class TestCheckOutageDataChanged:
         ]
 
         # Call with same events in different order
-        result = coordinator.check_outage_data_changed(events)
+        result = coordinator.check_outage_data_changed(events, now)
 
         # Should be False because they get sorted and are the same
         assert result is False
         assert coordinator._previous_outage_events == sorted_events
+
+    def test_an_outage_that_ended_is_no_change(self, coordinator):
+        """An outage that ended since the last check changes nothing, also all-day."""
+        now = dt_utils.now()
+        future = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=now + timedelta(hours=1),
+            end=now + timedelta(hours=2),
+        )
+        ended = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=now - timedelta(hours=2),
+            end=now - timedelta(hours=1),
+        )
+        # An all-day event ends at the start of its end date
+        ended_all_day = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.EMERGENCY,
+            start=now.date() - timedelta(days=1),
+            end=now.date(),
+            all_day=True,
+        )
+        coordinator.check_outage_data_changed([ended, ended_all_day, future], now)
+
+        assert coordinator.check_outage_data_changed([future], now) is False
+        coordinator.hass.bus.async_fire.assert_not_called()
 
 
 class TestCoordinatorScheduledEvents:
@@ -364,7 +393,9 @@ class TestCoordinatorScheduledEvents:
 
         # Mock translations
         coordinator.translations = {
-            "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
+            "component.svitlo_yeah.common.event_name_scheduled_outage": (
+                "Scheduled Outage"
+            )
         }
 
         events = coordinator.get_scheduled_events_between(start_date, end_date)
@@ -396,17 +427,21 @@ class TestCoordinatorScheduledEvents:
             all_day=False,
         )
         coordinator.group = "1.1"  # Set group for _group_str
-
-        # Mock the event_name_map property
-        type(coordinator).event_name_map = {
-            PlannedOutageEventType.DEFINITE: f"Planned Outage {coordinator.group}"
-        }
+        names = {PlannedOutageEventType.DEFINITE: f"Planned Outage {coordinator.group}"}
         coordinator.translations = {
-            "component.svitlo_yeah.common.event_name_scheduled_outage": "Scheduled Outage"
+            "component.svitlo_yeah.common.event_name_scheduled_outage": (
+                "Scheduled Outage"
+            )
         }
 
-        # Test regular calendar event
-        calendar_event = coordinator._get_calendar_event(event)
+        # Test regular calendar event; only this block replaces the names
+        with patch.object(
+            IntegrationCoordinator,
+            "event_name_map",
+            new_callable=PropertyMock,
+            return_value=names,
+        ):
+            calendar_event = coordinator._get_calendar_event(event)
         assert calendar_event.summary == f"Planned Outage {coordinator.group}"
         assert calendar_event.rrule is None
 
@@ -428,6 +463,11 @@ class TestCoordinatorScheduledEvents:
         no_rrule_event = coordinator._get_scheduled_calendar_event(event, rrule=None)
         assert no_rrule_event.summary == f"Scheduled Outage {coordinator.group}"
         assert no_rrule_event.rrule is None
+
+        # The other tests get the class as it is
+        assert isinstance(
+            inspect.getattr_static(IntegrationCoordinator, "event_name_map"), property
+        )
 
     def test_get_calendar_event_none_event(self, coordinator):
         """Test _get_calendar_event with None event."""
@@ -454,19 +494,103 @@ class TestCoordinatorEventToState:
         ],
     )
     def test_event_to_state_none_event_returns_normal(self, coordinator_class):
-        """Test that _event_to_state(event=None) returns STATE_NORMAL for all coordinators."""
-        # Create a mock coordinator instance
-        coordinator = MagicMock(spec=coordinator_class)
+        """Without a current event, each coordinator says that the power is on."""
+        # _event_to_state reads no state of the coordinator, so the test skips
+        # __init__ and its Home Assistant dependencies.
+        coordinator = object.__new__(coordinator_class)
 
-        # Mock the _event_to_state method to return STATE_NORMAL for None input
-        # This tests the expected behavior regardless of implementation details
-        coordinator._event_to_state.return_value = ConnectivityState.STATE_NORMAL
-
-        # Test that _event_to_state(event=None) returns STATE_NORMAL
         result = coordinator._event_to_state(None)
         assert result == ConnectivityState.STATE_NORMAL, (
-            f"{coordinator_class.__name__}._event_to_state(None) should return STATE_NORMAL"
+            f"{coordinator_class.__name__}._event_to_state(None) "
+            "should return STATE_NORMAL"
         )
 
-        # Verify the method was called with None
-        coordinator._event_to_state.assert_called_once_with(None)
+    @pytest.mark.parametrize(
+        ("coordinator_class", "uid", "state"),
+        [
+            (
+                DtekCoordinatorJson,
+                PlannedOutageEventType.DEFINITE.value,
+                ConnectivityState.STATE_PLANNED_OUTAGE,
+            ),
+            # DTEK sources publish no emergency outages
+            (
+                DtekCoordinatorJson,
+                PlannedOutageEventType.EMERGENCY.value,
+                ConnectivityState.STATE_NORMAL,
+            ),
+            (
+                YasnoCoordinator,
+                PlannedOutageEventType.EMERGENCY.value,
+                ConnectivityState.STATE_EMERGENCY,
+            ),
+            (YasnoCoordinator, "unknown", ConnectivityState.STATE_NORMAL),
+            (
+                ESvitloCoordinator,
+                PlannedOutageEventType.EMERGENCY.value,
+                ConnectivityState.STATE_EMERGENCY,
+            ),
+            (ESvitloCoordinator, "unknown", ConnectivityState.STATE_NORMAL),
+        ],
+        ids=[
+            "dtek_definite",
+            "dtek_emergency",
+            "yasno_emergency",
+            "yasno_unknown",
+            "e_svitlo_emergency",
+            "e_svitlo_unknown",
+        ],
+    )
+    def test_event_to_state_maps_each_event_type(self, coordinator_class, uid, state):
+        """Each coordinator turns the type of the current event into a state."""
+        coordinator = object.__new__(coordinator_class)
+        now = dt_utils.now()
+        event = CalendarEvent(
+            start=now, end=now + timedelta(hours=1), summary="", uid=uid
+        )
+
+        assert coordinator._event_to_state(event) == state
+
+
+class TestESvitloEventNames:
+    """E-Svitlo names its events without the group."""
+
+    def test_scheduled_event_name_has_no_group(self):
+        """E-Svitlo takes the group from the account, so the name does not repeat it."""
+        coordinator = object.__new__(ESvitloCoordinator)
+        coordinator.group = "4.1"
+        coordinator.translations = {
+            TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: "Графікове відключення"
+        }
+        now = dt_utils.now()
+        event = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.DEFINITE,
+            start=now,
+            end=now + timedelta(hours=1),
+        )
+
+        result = coordinator._get_scheduled_calendar_event(event)
+
+        assert result.summary == "Графікове відключення"
+
+    def test_event_without_a_name_gets_the_name_of_its_type(self, caplog):
+        """Without a translation, the event gets the name of its type and a warning."""
+        coordinator = object.__new__(ESvitloCoordinator)
+        coordinator.translations = {}
+        now = dt_utils.now()
+        event = PlannedOutageEvent(
+            event_type=PlannedOutageEventType.EMERGENCY,
+            start=now,
+            end=now + timedelta(hours=1),
+        )
+
+        result = coordinator._get_calendar_event(event)
+
+        assert result.summary == PlannedOutageEventType.EMERGENCY.value
+        assert "Couldn't get" in caplog.text
+
+    def test_no_scheduled_event_gives_no_calendar_event(self):
+        """Without a scheduled event, there is no calendar event."""
+        coordinator = object.__new__(ESvitloCoordinator)
+
+        assert coordinator._get_scheduled_calendar_event(None) is None
