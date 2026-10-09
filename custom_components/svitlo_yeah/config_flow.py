@@ -39,6 +39,7 @@ from .const import (
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
+    TZ_UA,
     common_translation_key,
 )
 from .models.providers import (
@@ -91,6 +92,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self.data: dict[str, Any] = {}
         # Whether the user accepted the outdated DTEK data in this flow
         self._stale_ack = False
+        # The update time of the outdated DTEK data, which the warning shows
+        self._stale_updated = ""
         # One E-Svitlo client opens one session for the whole flow
         self._client: ESvitloClient | None = None
         # The E-Svitlo accounts that the account form offers
@@ -300,6 +303,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                         description_placeholders={"urls": "\n".join(urls)},
                     )
                 if result is FetchResult.STALE and not self._stale_ack:
+                    # The source gives the update time in Kyiv, so the warning does too
+                    updated = temp_api.get_updated_on()
+                    self._stale_updated = (
+                        updated.astimezone(TZ_UA).strftime("%d.%m.%Y %H:%M")
+                        if updated
+                        else ""
+                    )
                     # noinspection PyTypeChecker
                     return await self.async_step_stale_confirm()
                 group_labels = temp_api.get_dtek_region_group_labels()
@@ -373,6 +383,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="stale_confirm",
             data_schema=data_schema,
             errors=errors,
+            description_placeholders={"updated": self._stale_updated},
         )
 
     async def async_step_esvitlo_auth(

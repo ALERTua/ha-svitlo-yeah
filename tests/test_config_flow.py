@@ -268,6 +268,22 @@ class TestStaleConfirmRouting:
 
         assert result["step_id"] == "group"
 
+    async def test_stale_confirm_shows_the_update_time(self, hass, aioclient_mock):
+        """The warning shows when the source last updated, also after an error."""
+        aioclient_mock.get(
+            KYIV_REGION_URL, json=_dtek_feed(fresh=False, preset_groups=KYIV_GROUPS)
+        )
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: KYIV_REGION_KEY})
+
+        # The hass fixture runs in US/Pacific, and the source gives the Kyiv time
+        assert result["description_placeholders"] == {"updated": "19.02.2026 15:04"}
+
+        result = await _configure(hass, result, {"acknowledge": False})
+
+        assert result["description_placeholders"] == {"updated": "19.02.2026 15:04"}
+
 
 class TestSetupWithRealProviderApis:
     """Walk the whole config flow with the real provider APIs and fake HTTP."""
