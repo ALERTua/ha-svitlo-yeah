@@ -31,3 +31,4 @@ config/*
 .rag_cache/
 plans/
 .env
+.claude/worktrees
