@@ -268,6 +268,30 @@ class TestStaleConfirmRouting:
 
         assert result["step_id"] == "group"
 
+    # Both formats that the freshness check reads must also give the shown time
+    @pytest.mark.parametrize(
+        "update",
+        ["19.02.2026 15:04", "15:04 19.02.2026"],
+        ids=["date_first", "time_first"],
+    )
+    async def test_stale_confirm_shows_the_update_time(
+        self, hass, aioclient_mock, update
+    ):
+        """The warning shows when the source last updated, also after an error."""
+        feed = _dtek_feed(fresh=False, preset_groups=KYIV_GROUPS)
+        feed["fact"]["update"] = update
+        aioclient_mock.get(KYIV_REGION_URL, json=feed)
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: KYIV_REGION_KEY})
+
+        # The hass fixture runs in US/Pacific, and the source gives the Kyiv time
+        assert result["description_placeholders"] == {"updated": "19.02.2026 15:04"}
+
+        result = await _configure(hass, result, {"acknowledge": False})
+
+        assert result["description_placeholders"] == {"updated": "19.02.2026 15:04"}
+
 
 class TestSetupWithRealProviderApis:
     """Walk the whole config flow with the real provider APIs and fake HTTP."""
