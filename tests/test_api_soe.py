@@ -1,10 +1,12 @@
 """Tests for the client of the public schedule of SOE (Sumyoblenergo)."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 from aiohttp import ClientError
 
+from custom_components.svitlo_yeah.api.common_tools import parse_periods
 from custom_components.svitlo_yeah.api.soe import SoeClient
 from custom_components.svitlo_yeah.const import SOE_SCHEDULE_URL, TZ_UA
 from custom_components.svitlo_yeah.models import PlannedOutageEventType
@@ -105,6 +107,25 @@ async def test_current_event(hass, aioclient_mock):
     assert client.get_current_event(_kyiv(11, 21)) is not None
     assert client.get_current_event(_kyiv(11, 22)) is None
     assert client.get_current_event(_kyiv(11, 19, 59)) is None
+
+
+async def test_reads_do_not_parse_the_answer_again(hass, aioclient_mock):
+    """The entities read the outages often, and the client parses each answer once."""
+    client = await _client(hass, aioclient_mock, "1.1", ANSWER)
+
+    with patch(
+        "custom_components.svitlo_yeah.api.soe.parse_periods", wraps=parse_periods
+    ) as parse:
+        for _ in range(3):
+            client.get_events(_kyiv(11, 0), _kyiv(12, 0))
+            client.get_current_event(_kyiv(11, 21))
+        assert parse.call_count == 0
+
+        client.restore(ANSWER, "2026-10-10")
+        assert parse.call_count == 1
+    assert _spans(client, _kyiv(10, 0), _kyiv(11, 0)) == [
+        (_kyiv(10, 20), _kyiv(10, 22))
+    ]
 
 
 async def test_events_outside_the_range_are_left_out(hass, aioclient_mock):
@@ -222,15 +243,20 @@ async def test_the_answer_of_yesterday_gives_no_outages_today(
     ]
 
 
-async def test_the_day_is_the_day_in_kyiv(hass, aioclient_mock, freezer):
-    """At 23:30 UTC it is already the next day in Kyiv, and the answer belongs to it."""
-    freezer.move_to(datetime(2026, 10, 11, 23, 30, tzinfo=TZ_UA) - timedelta(hours=3))
+@pytest.mark.parametrize(
+    ("moment", "day"),
+    [
+        (datetime(2026, 10, 11, 20, 59, tzinfo=UTC), 11),
+        (datetime(2026, 10, 11, 21, 30, tzinfo=UTC), 12),
+    ],
+    ids=["before_midnight_in_kyiv", "after_midnight_in_kyiv"],
+)
+async def test_the_day_is_the_day_in_kyiv(hass, aioclient_mock, freezer, moment, day):
+    """At 21:30 UTC it is 00:30 of the next day in Kyiv, and the answer is of it."""
+    freezer.move_to(moment)
     client = await _client(hass, aioclient_mock, "1.1", ANSWER)
 
-    assert client.day == _kyiv(11, 0).date()
-    freezer.move_to(_kyiv(12, 0, 30))
-    assert await client.fetch_data() is True
-    assert client.day == _kyiv(12, 0).date()
+    assert client.day == _kyiv(day, 0).date()
 
 
 async def test_restore_uses_the_kept_answer_and_its_day(hass):
