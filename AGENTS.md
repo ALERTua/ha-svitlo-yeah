@@ -21,7 +21,7 @@ require a running Home Assistant instance (`hass`).
 
 - `custom_components/svitlo_yeah/` — the integration package (domain: `svitlo_yeah`).
   - `api/` — provider clients that fetch and parse raw outage data
-    (`yasno.py`, `e_svitlo.py`, `dtek/`), plus `common_tools.py`.
+    (`yasno.py`, `e_svitlo.py`, `soe.py`, `dtek/`), plus `common_tools.py`.
   - `coordinator/` — `DataUpdateCoordinator` subclasses per provider that own
     fetch/refresh scheduling and expose events to the entities.
   - `entity.py`, `sensor.py`, `calendar.py`, `button.py` — HA entity platforms.
@@ -124,7 +124,7 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
 
 ### Providers & data sources
 
-Outage data comes from several providers, each with its own `api/` client and `coordinator/`: Yasno, E-Svitlo, and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the session helpers of Home Assistant, and there is no bespoke HTTP stack. The DTEK and Yasno clients use the shared session of `async_get_clientsession(hass)`. Each E-Svitlo client creates its own session with `async_create_clientsession(hass)`, because the server knows the login from the cookies, and the shared session keeps the cookies of all integrations (rule `inject-websession`). See `README.md` for the authoritative region → provider → source table.
+Outage data comes from several providers, each with its own `api/` client and `coordinator/`: Yasno, E-Svitlo, SOE (the public schedule of the site of Sumyoblenergo), and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the session helpers of Home Assistant, and there is no bespoke HTTP stack. The DTEK, Yasno and SOE clients use the shared session of `async_get_clientsession(hass)`. Each E-Svitlo client creates its own session with `async_create_clientsession(hass)`, because the server knows the login from the cookies, and the shared session keeps the cookies of all integrations (rule `inject-websession`). See `README.md` for the authoritative region → provider → source table.
 
 ### Old states until new data
 
@@ -134,7 +134,7 @@ After each fetch, each coordinator calls `_set_last_fetch_failed`, which keeps `
 
 When E-Svitlo refuses the login, the coordinator calls `config_entry.async_start_reauth` and logs one warning. It never raises `ConfigEntryAuthFailed`, because that makes each entity unavailable and stops the polls. The polls go on with the old login, so that a refusal for a while, for example during maintenance, heals without the user. When the login works again, the coordinator aborts the open reauthentication flow of its entry. The refresh button raises the `login_rejected` error when the server refused the login of that press, and `refresh_failed` when the server did not answer, also while an earlier refusal waits for the new login.
 
-The old states also stay across a restart. `IntegrationCoordinator` keeps the last data of the source in a `Store` with the key `svitlo_yeah.<entry_id>`. `_async_setup` loads it before the first fetch, `_async_store_last_data` saves it when it changed, and `async_remove_entry` in `__init__.py` deletes it. Each provider coordinator implements `_source_data` and `_restore_source_data`. DTEK keeps `fact` and `preset`, Yasno keeps the planned outages and the region of the entry, and E-Svitlo keeps the raw answer of the disconnections request, its update time and the group. A kept Yasno region and a kept E-Svitlo group only name the device: the clients still ask the source for them, so that a change at the source comes through. The kept answer about the group (`group_listed`) counts only when the kept group is the configured group, because a Reconfigure changes the group.
+The old states also stay across a restart. `IntegrationCoordinator` keeps the last data of the source in a `Store` with the key `svitlo_yeah.<entry_id>`. `_async_setup` loads it before the first fetch, `_async_store_last_data` saves it when it changed, and `async_remove_entry` in `__init__.py` deletes it. Each provider coordinator implements `_source_data` and `_restore_source_data`. DTEK keeps `fact` and `preset`, Yasno keeps the planned outages and the region of the entry, E-Svitlo keeps the raw answer of the disconnections request, its update time and the group, and SOE keeps the raw answer with the day in Kyiv of its fetch. The SOE answer has no date, so an answer of an earlier day gives no outages today, also after a restart. A kept Yasno region and a kept E-Svitlo group only name the device: the clients still ask the source for them, so that a change at the source comes through. The kept answer about the group (`group_listed`) counts only when the kept group is the configured group, because a Reconfigure changes the group.
 
 ### DTEK JSON freshness
 

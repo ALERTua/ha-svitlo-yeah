@@ -215,6 +215,10 @@ class TestStaleConfirmRouting:
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == ["1.1", "1.2"]
+        # The text under the field links the page of this provider only
+        assert result["description_placeholders"] == {
+            "url": "https://www.dtek-krem.com.ua/ua/shutdowns"
+        }
 
     async def test_unavailable_data_aborts(self, hass, aioclient_mock):
         """With no source that answered, the flow aborts as unavailable."""
@@ -361,6 +365,9 @@ class TestSetupWithRealProviderApis:
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == ["1.1", "1.2"]
+        assert result["description_placeholders"] == {
+            "url": "https://static.yasno.ua/kyiv/outages"
+        }
 
         result = await _configure(hass, result, {CONF_GROUP: "1.1"})
 
@@ -898,7 +905,7 @@ class TestSoe:
         result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == SOE_GROUPS
-        assert result["description_placeholders"]["soe_url"] == SOE_SITE_URL
+        assert result["description_placeholders"] == {"url": SOE_SITE_URL}
 
         result = await _configure(hass, result, {CONF_GROUP: "4.1"})
 

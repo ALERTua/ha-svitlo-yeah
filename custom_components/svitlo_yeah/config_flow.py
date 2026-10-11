@@ -61,6 +61,13 @@ LOGGER = logging.getLogger(__name__)
 # The checkbox of the form that accepts outdated DTEK data
 CONF_ACKNOWLEDGE = "acknowledge"
 
+# The page where a user finds the group, for the text under the group field
+GROUP_PAGE_URLS: dict[str, str] = {
+    PROVIDER_TYPE_YASNO: "https://static.yasno.ua/kyiv/outages",
+    PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
+    PROVIDER_TYPE_SOE: SOE_SITE_URL,
+}
+
 
 def _esvitlo_login_schema() -> vol.Schema:
     """
@@ -364,11 +371,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="group",
             data_schema=data_schema,
-            description_placeholders={
-                "yasno_url": "https://static.yasno.ua/kyiv/outages",
-                "dtek_url": "https://www.dtek-krem.com.ua/ua/shutdowns",
-                "soe_url": SOE_SITE_URL,
-            },
+            description_placeholders={"url": GROUP_PAGE_URLS[provider_type]},
         )
 
     async def async_step_reconfigure(

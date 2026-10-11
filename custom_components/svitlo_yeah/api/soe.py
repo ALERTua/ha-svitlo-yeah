@@ -71,6 +71,8 @@ class SoeClient:
         self.group = group
         self.answer: dict | None = None
         self.day: datetime.date | None = None
+        # The outages of the sub-queue in the last answer, parsed once for each answer
+        self._outages: list[PlannedOutageEvent] = []
 
     async def fetch_data(self) -> bool:
         """Fetch the schedule, and tell whether the site gave a usable answer."""
@@ -91,6 +93,7 @@ class SoeClient:
             return False
         self.answer = answer
         self.day = _kyiv_today()
+        self._outages = self._parse_outages()
         return True
 
     def restore(self, answer: object, day: object) -> None:
@@ -103,6 +106,7 @@ class SoeClient:
             return
         self.answer = answer
         self.day = kept_day
+        self._outages = self._parse_outages()
 
     def get_groups(self) -> list[str]:
         """Return the sub-queues of the last answer, in the order of the site."""
@@ -124,7 +128,7 @@ class SoeClient:
             (_ for _ in self.answer["data"] if _["cherga_n"] == self.group), None
         )
 
-    def _outages(self) -> list[PlannedOutageEvent]:
+    def _parse_outages(self) -> list[PlannedOutageEvent]:
         """
         Return the outages of the sub-queue on the day of the last answer.
 
@@ -139,13 +143,13 @@ class SoeClient:
 
     def get_current_event(self, at: datetime.datetime) -> PlannedOutageEvent | None:
         """Return the outage at the moment, or None."""
-        return next((e for e in self._outages() if e.start <= at < e.end), None)
+        return next((e for e in self._outages if e.start <= at < e.end), None)
 
     def get_events(
         self, start_date: datetime.datetime, end_date: datetime.datetime
     ) -> list[PlannedOutageEvent]:
         """Return the outages that overlap the range."""
-        return [e for e in self._outages() if e.end > start_date and e.start < end_date]
+        return [e for e in self._outages if e.end > start_date and e.start < end_date]
 
     def get_updated_on(self) -> datetime.datetime | None:
         """Return when SOE last updated the schedule of the sub-queue, or None."""
