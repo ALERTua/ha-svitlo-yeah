@@ -24,6 +24,7 @@ from homeassistant.helpers.translation import async_get_translations
 from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
 from .api.e_svitlo import ESvitloClient, LoginResult
+from .api.soe import SoeClient
 from .api.yasno import YASNO_REGIONS_ENDPOINT, YasnoApi
 from .const import (
     CONF_ACCOUNT_ID,
@@ -38,7 +39,9 @@ from .const import (
     NAME,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
+    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
+    SOE_SITE_URL,
     TZ_UA,
     common_translation_key,
 )
@@ -46,6 +49,7 @@ from .models.providers import (
     BaseProvider,
     DTEKJsonProvider,
     ESvitloProvider,
+    SoeProvider,
     YasnoProvider,
 )
 
@@ -149,7 +153,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         e_svitlo_provider = ESvitloProvider(user_name="sumy", password="")
 
-        all_providers = yasno_providers + dtek_providers + [e_svitlo_provider]
+        all_providers = [
+            *yasno_providers,
+            *dtek_providers,
+            e_svitlo_provider,
+            SoeProvider(),
+        ]
         self.available_providers = {_.unique_key: _ for _ in all_providers}
 
         provider_options = [
@@ -194,6 +203,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         if provider_type == PROVIDER_TYPE_E_SVITLO:
             return f"{provider_name} E-Svitlo"
+        if provider_type == PROVIDER_TYPE_SOE:
+            provider_name = f"{provider_name} {SoeProvider().short_name}"
         if provider_type == PROVIDER_TYPE_YASNO:
             api = YasnoApi(self.hass)
             # The regions come from the class cache, if a flow or an entry got them
@@ -314,6 +325,17 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     return await self.async_step_stale_confirm()
                 group_labels = temp_api.get_dtek_region_group_labels()
 
+        elif provider_type == PROVIDER_TYPE_SOE:
+            soe_api = SoeClient(self.hass)
+            await soe_api.fetch_data()
+            groups = soe_api.get_groups()
+            if not groups:
+                # noinspection PyTypeChecker
+                return self.async_abort(
+                    reason="soe_unavailable",
+                    description_placeholders={"url": SOE_SITE_URL},
+                )
+
         # A select takes plain values or labeled options, not a mix of both
         group_options: list[str] | list[SelectOptionDict] = groups
         if group_labels:
@@ -345,6 +367,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "yasno_url": "https://static.yasno.ua/kyiv/outages",
                 "dtek_url": "https://www.dtek-krem.com.ua/ua/shutdowns",
+                "soe_url": SOE_SITE_URL,
             },
         )
 

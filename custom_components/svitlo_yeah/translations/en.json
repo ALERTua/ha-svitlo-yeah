@@ -11,6 +11,7 @@
       "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
       "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}",
+      "soe_unavailable": "Failed to get the sub-queues from the site of Sumyoblenergo.\nThe site is unreachable, or its answer has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "reauth_successful": "The entry now uses the new login.",
       "wrong_account": "This login has no access to the personal account of this entry. Sign in with the login that owns this personal account."
     },
@@ -30,7 +31,7 @@
           "group": "Select your group:"
         },
         "data_description": {
-          "group": "Find your group at: {yasno_url} / {dtek_url}"
+          "group": "Find your group at: {yasno_url} / {dtek_url} / {soe_url}"
         }
       },
       "esvitlo_auth": {
@@ -93,6 +94,9 @@
     },
     "device_name_e_svitlo": {
       "name": "{region_name} {provider_name} {group}"
+    },
+    "device_name_soe": {
+      "name": "{region_name} {provider_name} {group}"
     }
   },
   "selector": {
@@ -115,7 +119,8 @@
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
-        "esvitloprovider_sumy": "E-Svitlo — Sumy and Oblast — SOE"
+        "esvitloprovider_sumy": "E-Svitlo — Sumy and Oblast — SOE",
+        "soeprovider_sumy": "SOE — Sumy and Oblast — SOE"
       }
     }
   },

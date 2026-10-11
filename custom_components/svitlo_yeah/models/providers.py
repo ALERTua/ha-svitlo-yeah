@@ -10,6 +10,7 @@ from custom_components.svitlo_yeah.const import (
     PROVIDER_DTEK_SHORT,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
+    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
 )
 
@@ -64,6 +65,25 @@ class ESvitloProvider(BaseProvider):
     def provider_id(self) -> str:
         """Provider ID."""
         return self.user_name
+
+
+@dataclass(frozen=True, kw_only=True)
+class SoeProvider(BaseProvider):
+    """The public schedule of Sumyoblenergo (SOE), without a login."""
+
+    region_name: str = "sumy"
+    short_name: str = "SOE"
+    provider_type: str = PROVIDER_TYPE_SOE
+
+    @cached_property
+    def unique_key(self) -> str:
+        """Generate unique key for this provider."""
+        return f"{self.__class__.__name__.lower()}_{self.region_name}"
+
+    @cached_property
+    def provider_id(self) -> str:
+        """Provider ID."""
+        return self.region_name
 
 
 @dataclass(frozen=True, kw_only=True)
