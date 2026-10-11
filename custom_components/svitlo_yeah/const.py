@@ -18,6 +18,7 @@ CONF_PROVIDER_TYPE: Final = "provider_type"
 PROVIDER_TYPE_YASNO: Final = "yasno"
 PROVIDER_TYPE_DTEK_JSON: Final = "dtek_json"
 PROVIDER_TYPE_E_SVITLO: Final = "e-svitlo"
+PROVIDER_TYPE_SOE: Final = "soe"
 
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
@@ -49,10 +50,12 @@ DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"
 DEVICE_NAME_DTEK_TRANSLATION_KEY = "device_name_dtek"
 DEVICE_MANUFACTURER = NAME
 DEVICE_NAME_E_SVITLO_TRANSLATION_KEY = "device_name_e_svitlo"
+DEVICE_NAME_SOE_TRANSLATION_KEY = "device_name_soe"
 PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_YASNO: DEVICE_NAME_YASNO_TRANSLATION_KEY,
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
     PROVIDER_TYPE_E_SVITLO: DEVICE_NAME_E_SVITLO_TRANSLATION_KEY,
+    PROVIDER_TYPE_SOE: DEVICE_NAME_SOE_TRANSLATION_KEY,
 }
 
 
@@ -80,6 +83,14 @@ E_SVITLO_SUMY_BASE_URL: Final = (
     "https://sm.e-svitlo.com.ua/ip_cabinet/restfull_api/improvise/"
 )
 E_SVITLO_ERROR_NOT_LOGGED_IN: Final = "Ви не увійшли до кабінету"
+
+# SOE (Sumyoblenergo) Constants
+# The page of the hourly schedules, where a user finds the sub-queue of an address
+SOE_SITE_URL: Final = "https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules"
+# The answer that this page reads: each sub-queue with its outages of today
+SOE_SCHEDULE_URL: Final = (
+    "https://www.soe.com.ua/api/vidkluchenya/get_all_data_disconnections_api"
+)
 
 
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"

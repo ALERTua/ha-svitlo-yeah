@@ -23,6 +23,8 @@ from custom_components.svitlo_yeah.const import (
     DTEK_PROVIDER_URLS,
     NAME,
     PROVIDER_TYPE_E_SVITLO,
+    SOE_SCHEDULE_URL,
+    SOE_SITE_URL,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -31,8 +33,10 @@ from tests.helpers import (
     E_SVITLO_ACCOUNT_101,
     E_SVITLO_ACCOUNTS_URL,
     E_SVITLO_LOGIN_URL,
+    SOE_SUMY_4_1,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
+    soe_group,
 )
 
 pytestmark = pytest.mark.usefixtures(
@@ -875,3 +879,86 @@ class TestESvitloReauth:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "wrong_account"
         assert entry.data == E_SVITLO_ACCOUNT_101
+
+
+SOE_KEY = "soeprovider_sumy"
+SOE_GROUPS = [f"{queue}.{half}" for queue in range(1, 7) for half in (1, 2)]
+SOE_ANSWER = {"data": [soe_group(g, [], "11.10.2026 18:48") for g in SOE_GROUPS]}
+
+
+class TestSoe:
+    """The SOE option needs no login: the user picks a sub-queue that the site lists."""
+
+    async def test_new_entry_with_the_sub_queue(self, hass, aioclient_mock):
+        """The group form lists the sub-queues of the site, and no login is needed."""
+        hass.config.language = "uk"
+        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
+        assert result["step_id"] == "group"
+        assert _select_options(result, CONF_GROUP) == SOE_GROUPS
+        assert result["description_placeholders"]["soe_url"] == SOE_SITE_URL
+
+        result = await _configure(hass, result, {CONF_GROUP: "4.1"})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"] == SOE_SUMY_4_1
+        assert result["title"] == "Суми SOE 4.1"
+
+    @pytest.mark.parametrize(
+        "reply",
+        [{"exc": ClientError()}, {"json": {"data": []}}],
+        ids=["no_answer", "no_sub_queues"],
+    )
+    async def test_site_without_sub_queues_aborts(self, hass, aioclient_mock, reply):
+        """Without the sub-queues the flow stops, and names the page of the site."""
+        aioclient_mock.get(SOE_SCHEDULE_URL, **reply)
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "soe_unavailable"
+        assert result["description_placeholders"] == {"url": SOE_SITE_URL}
+
+    async def test_same_sub_queue_aborts(self, hass, aioclient_mock):
+        """A second entry for the same sub-queue aborts."""
+        _add_entry(hass, SOE_SUMY_4_1)
+        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
+        result = await _configure(hass, result, {CONF_GROUP: "4.1"})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "already_configured"
+
+    async def test_same_group_as_an_e_svitlo_entry_creates_the_entry(
+        self, hass, aioclient_mock
+    ):
+        """An E-Svitlo entry of the same sub-queue is another provider."""
+        _add_entry(hass, {**E_SVITLO_ACCOUNT_101, CONF_GROUP: "4.1"})
+        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
+
+        result = await _start_flow(hass, aioclient_mock)
+        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
+        result = await _configure(hass, result, {CONF_GROUP: "4.1"})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    async def test_reconfigure_picks_another_sub_queue(self, hass, aioclient_mock):
+        """Reconfigure preselects the current sub-queue and saves the new one."""
+        entry = MockConfigEntry(domain=DOMAIN, data=SOE_SUMY_4_1, title="Sumy SOE 4.1")
+        entry.add_to_hass(hass)
+        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
+
+        result = await entry.start_reconfigure_flow(hass)
+        assert result["step_id"] == "group"
+        assert _default(result, CONF_GROUP) == "4.1"
+
+        result = await _configure(hass, result, {CONF_GROUP: "5.2"})
+
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data == {**SOE_SUMY_4_1, CONF_GROUP: "5.2"}
+        assert entry.title == "Sumy SOE 5.2"
