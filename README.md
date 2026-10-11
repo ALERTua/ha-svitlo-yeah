@@ -37,6 +37,7 @@ providing outage calendars, countdown timers, and status updates.
 | **Rivne and Oblast**           | ROE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Rivneoblenergo.json)                                                                                                                        |
 | **Vinnytsia and Oblast**       | VOE      | [olnet93/gpv-voe-vinnytsia](https://github.com/olnet93/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json)<br/>[vn-progr/gpv-voe-vinnytsia](https://github.com/vn-progr/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json) |
 | **Sumy and Oblast**            | SOE      | [E-Svitlo API](https://sm.e-svitlo.com.ua/)                                                                                                                                                                                             |
+| **Sumy and Oblast**            | SOE      | [soe.com.ua](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules)                                                                                                                                                           |
 
 ## Installation
 
@@ -58,7 +59,7 @@ This integration is configurable via UI. On **Devices and Services** page, click
 
 ### Setup parameters
 
-Before you start, find your outage group on the website of your provider. For Sumy and Oblast, you need the login and the password of your E-Svitlo personal cabinet instead, because E-Svitlo gives the group of your personal account.
+Before you start, find your outage group on the website of your provider. Sumy and Oblast has two options. «SOE — Sumy and Oblast — SOE» needs no login: find your sub-queue by address on [the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules). «E-Svitlo — Sumy and Oblast — SOE» needs the login and the password of your E-Svitlo personal cabinet instead, because E-Svitlo gives the group of your personal account. See [Sumy and Oblast (soe.com.ua)](#sumy-and-oblast-soecomua).
 
 | Step | Field | Description |
 |---|---|---|
@@ -69,7 +70,7 @@ Before you start, find your outage group on the website of your provider. For Su
 | E-Svitlo Authentication | Password | The password of your E-Svitlo personal cabinet. |
 | Select Account | Account | The personal account (address) whose outage schedule the entry shows. For another address, add one more entry. |
 
-Each region and group is a separate entry. To change the group of a DTEK or Yasno entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
+Each region and group is a separate entry. To change the group of a DTEK, Yasno or soe.com.ua entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
 
 The integration gives a new entry the name of its device in the language of your Home Assistant, for example «Київ ДТЕК 52.1». The name of an E-Svitlo entry has no address, for example «Суми E-Svitlo», and the name of its device has none either, for example «Суми E-Svitlo 4.1». The device of an E-Svitlo entry from an earlier version gets this name at the next start of Home Assistant, but its entity IDs stay. The same happens to the English name of a DTEK Kyiv Oblast device: «Kyiv Region 1.1» becomes «Kyiv Oblast 1.1». To update the entity IDs, open the device and select **Recreate entity IDs**. Reconfigure puts the new group into a name that the integration gave, and keeps a name that you gave. An entry from an earlier version keeps the name «Svitlo Yeah | Світло Є» until you rename it or Reconfigure changes its group.
 
@@ -87,6 +88,10 @@ The integration gives a new entry the name of its device in the language of your
 When there are no outages for a while, DTEK JSON sources may stop publishing and all data becomes outdated. In that case setup shows a confirmation step: you can still pick your group from the last-known schedule after acknowledging the risk. The step shows when the source last updated the schedule, in Kyiv time. Once outages resume, double-check that your group hasn't changed.
 
 The outdated data serves only the choice of the group, and the integration does not use it after setup. The integration keeps the last fresh schedule of each entry, also across a restart of Home Assistant. If a source becomes outdated or does not answer, the integration uses that schedule until the source publishes fresh data again, also when that schedule gets older. The **Schedule Updated On** sensor shows the update time of the schedule that the integration uses.
+
+### Sumy and Oblast (soe.com.ua)
+
+The option «SOE — Sumy and Oblast — SOE» reads the schedule that the site of Sumyoblenergo shows. The site gives the schedule of the current day only, so the calendar and the next-outage sensors show the outages of tomorrow after midnight. A sub-queue without outages has an empty list on the site, and the **Electricity** sensor shows normal for it. If the site stops listing your sub-queue, the sensor shows unknown, and **Settings** → **Repairs** shows a warning. The site has no emergency schedules (ГАВ), which use other queue numbers. When Sumyoblenergo applies them, the hourly schedule on the site and in the integration does not apply.
 
 ### E-Svitlo refuses the login
 

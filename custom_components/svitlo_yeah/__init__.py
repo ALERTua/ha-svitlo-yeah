@@ -13,6 +13,7 @@ from .const import (
     DOMAIN,
     PROVIDER_TYPE_DTEK_JSON,
     PROVIDER_TYPE_E_SVITLO,
+    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
 )
 from .coordinator.coordinator import (
@@ -22,6 +23,7 @@ from .coordinator.coordinator import (
 )
 from .coordinator.dtek.json import DtekCoordinatorJson
 from .coordinator.e_svitlo import ESvitloCoordinator
+from .coordinator.soe import SoeCoordinator
 from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
@@ -45,6 +47,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -
         coordinator = YasnoCoordinator(hass, entry)
     elif provider_type == PROVIDER_TYPE_E_SVITLO:
         coordinator = ESvitloCoordinator(hass, entry)
+    elif provider_type == PROVIDER_TYPE_SOE:
+        coordinator = SoeCoordinator(hass, entry)
     else:
         # Nothing can make the entry usable, so the user adds it again
         raise ConfigEntryError(

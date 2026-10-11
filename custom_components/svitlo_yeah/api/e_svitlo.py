@@ -1,7 +1,7 @@
 """E-Svitlo API client."""
 
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import datetime
 from enum import Enum
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
@@ -14,15 +14,14 @@ if TYPE_CHECKING:
 
     from custom_components.svitlo_yeah.models import ESvitloProvider, PlannedOutageEvent
 
-from custom_components.svitlo_yeah.api.common_tools import REQUEST_ERRORS
+from custom_components.svitlo_yeah.api.common_tools import (
+    REQUEST_ERRORS,
+    parse_periods,
+)
 from custom_components.svitlo_yeah.const import (
     E_SVITLO_ERROR_NOT_LOGGED_IN,
     E_SVITLO_SUMY_BASE_URL,
     TZ_UA,
-)
-from custom_components.svitlo_yeah.models import (
-    PlannedOutageEvent,
-    PlannedOutageEventType,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -313,44 +312,7 @@ class ESvitloClient:
             LOGGER.exception("Failed to parse date %s", date_str)
             return events
 
-        for period in periods:
-            event = self._parse_period(period, base_date)
-            if event:
-                events.append(event)
-
-        return events
-
-    def _parse_period(self, period: dict, base_date: date) -> PlannedOutageEvent | None:
-        """Parse a single disconnection period."""
-        if not isinstance(period, dict):
-            # A period of another shape has no times, as a period without them
-            return None
-        try:
-            start_time_str = period.get("start_time", "")
-            end_time_str = period.get("end_time", "")
-
-            if not start_time_str or not end_time_str:
-                return None
-
-            start_time = time.fromisoformat(start_time_str)
-            end_time = time.fromisoformat(end_time_str)
-
-            start_datetime = datetime.combine(base_date, start_time, tzinfo=TZ_UA)
-            end_datetime = datetime.combine(base_date, end_time, tzinfo=TZ_UA)
-
-            # Handle end time on next day (e.g., 23:00-04:00)
-            if end_time < start_time:
-                end_datetime += timedelta(days=1)
-
-            return PlannedOutageEvent(
-                start=start_datetime,
-                end=end_datetime,
-                event_type=PlannedOutageEventType.DEFINITE,
-            )
-
-        except (ValueError, TypeError):  # fmt: skip  # remove in 2027
-            LOGGER.exception("Failed to parse disconnection period %s", period)
-            return None
+        return parse_periods(periods, base_date)
 
     def get_current_event(self, at: datetime) -> PlannedOutageEvent | None:
         """Get the current event at a specific time."""

@@ -18,7 +18,7 @@ CONFIG_FLOW = TRANSLATIONS.parent / "config_flow.py"
 README = Path(__file__).parent.parent / "README.md"
 LANGUAGES = ["en", "uk"]
 # The provider options whose source covers one region with its oblast
-REGION_OPTIONS = ("dtekjsonprovider_", "esvitloprovider_")
+REGION_OPTIONS = ("dtekjsonprovider_", "esvitloprovider_", "soeprovider_")
 # The letters of the oblenergo abbreviations, as the English region names spell
 # them, for example Khmelnytskyi, Chernihiv and Zhytomyr
 LATIN = dict(
@@ -195,7 +195,7 @@ def test_each_provider_option_names_the_region_of_its_devices(language):
     regions = {
         key: key.split("_", 1)[1] for key in options if key.startswith(REGION_OPTIONS)
     }
-    assert len(regions) == len(DTEK_PROVIDER_URLS) + 1  # and E-Svitlo Sumy
+    assert len(regions) == len(DTEK_PROVIDER_URLS) + 2  # and Sumy: E-Svitlo, SOE
 
     assert [
         key
@@ -234,7 +234,7 @@ def test_each_ukrainian_abbreviation_spells_the_english_one():
         for key, parts in _option_parts("uk").items()
         if key.startswith(REGION_OPTIONS) and len(parts) == 3
     }
-    assert len(ukrainian) == 12  # the oblenergos
+    assert len(ukrainian) == 13  # the options of the oblenergos
 
     assert {
         key: "".join(LATIN[letter] for letter in abbreviation)

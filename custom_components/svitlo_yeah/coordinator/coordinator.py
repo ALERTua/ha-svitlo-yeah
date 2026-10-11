@@ -38,6 +38,7 @@ from custom_components.svitlo_yeah.models import (
 if TYPE_CHECKING:
     from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
     from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
+    from custom_components.svitlo_yeah.api.soe import SoeClient
     from custom_components.svitlo_yeah.api.yasno import YasnoApi
     from custom_components.svitlo_yeah.models.providers import BaseProvider
 
@@ -83,7 +84,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
     """
 
     config_entry: SvitloYeahConfigEntry
-    api: DtekAPIBase | YasnoApi | ESvitloClient
+    api: DtekAPIBase | YasnoApi | ESvitloClient | SoeClient
     region: YasnoRegion
     provider: BaseProvider
     # The DTEK source key or the Yasno dso id; E-Svitlo has none
