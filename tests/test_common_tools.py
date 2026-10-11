@@ -30,11 +30,20 @@ class TestParsePeriods:
             ("22:00", "00:00", (_kyiv(11, 22), _kyiv(12, 0))),
             ("00:00", "00:00", (_kyiv(11, 0), _kyiv(12, 0))),
             ("23:00", "02:00", (_kyiv(11, 23), _kyiv(12, 2))),
+            ("22:00", "24:00", (_kyiv(11, 22), _kyiv(12, 0))),
+            ("00:00", "24:00", (_kyiv(11, 0), _kyiv(12, 0))),
         ],
-        ids=["same_day", "until_midnight", "whole_day", "past_midnight"],
+        ids=[
+            "same_day",
+            "until_midnight",
+            "whole_day",
+            "past_midnight",
+            "until_24_00",
+            "whole_day_until_24_00",
+        ],
     )
     def test_period_gives_the_outage(self, start, end, expected):
-        """The end "00:00" and an end before the start are on the next day."""
+        """The ends "00:00" and "24:00", and an end before the start, are next day."""
         events = parse_periods([{"start_time": start, "end_time": end}], DAY)
 
         assert [(e.start, e.end) for e in events] == [expected]
