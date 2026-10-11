@@ -393,6 +393,31 @@ class TestESvitloClientDisconnections:
         assert len(events) == 1
         assert events[0].end == end
 
+    async def test_period_from_midnight_to_midnight_is_the_whole_day(
+        self, client, mock_session_post
+    ):
+        """«00:00»-«00:00» is an outage of the whole day, not an empty one."""
+        client.is_authenticated = True
+        client.group = "4.1"
+        response_data = {
+            "data": {
+                "date_today": "15.12.2025",
+                "lst_time_disc": [{"start_time": "00:00", "end_time": "00:00"}],
+            }
+        }
+        mock_resp = AsyncMock(status=200)
+        mock_resp.json = AsyncMock(return_value=response_data)
+        mock_session_post.return_value.__aenter__.return_value = mock_resp
+
+        events = await client.get_disconnections()
+
+        assert [(e.start, e.end) for e in events] == [
+            (
+                datetime(2025, 12, 15, 0, 0, tzinfo=TZ_UA),
+                datetime(2025, 12, 16, 0, 0, tzinfo=TZ_UA),
+            )
+        ]
+
     async def test_get_disconnections_parse_error(self, client, mock_session_post):
         """Test parsing error."""
         client.is_authenticated = True
