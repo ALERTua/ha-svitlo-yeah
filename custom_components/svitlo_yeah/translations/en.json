@@ -31,7 +31,7 @@
           "group": "Select your group:"
         },
         "data_description": {
-          "group": "Find your group at: {yasno_url} / {dtek_url} / {soe_url}"
+          "group": "Find your group at: {url}"
         }
       },
       "esvitlo_auth": {

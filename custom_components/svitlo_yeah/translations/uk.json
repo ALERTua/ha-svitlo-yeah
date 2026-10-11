@@ -31,7 +31,7 @@
           "group": "Оберіть свою групу:"
         },
         "data_description": {
-          "group": "Знайдіть свою групу на: {yasno_url} / {dtek_url} / {soe_url}"
+          "group": "Знайдіть свою групу на: {url}"
         }
       },
       "esvitlo_auth": {
