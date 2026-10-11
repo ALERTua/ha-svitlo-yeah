@@ -1,6 +1,6 @@
 """Tests for the client of the public schedule of SOE (Sumyoblenergo)."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 from aiohttp import ClientError
@@ -222,15 +222,20 @@ async def test_the_answer_of_yesterday_gives_no_outages_today(
     ]
 
 
-async def test_the_day_is_the_day_in_kyiv(hass, aioclient_mock, freezer):
-    """At 23:30 UTC it is already the next day in Kyiv, and the answer belongs to it."""
-    freezer.move_to(datetime(2026, 10, 11, 23, 30, tzinfo=TZ_UA) - timedelta(hours=3))
+@pytest.mark.parametrize(
+    ("moment", "day"),
+    [
+        (datetime(2026, 10, 11, 20, 59, tzinfo=UTC), 11),
+        (datetime(2026, 10, 11, 21, 30, tzinfo=UTC), 12),
+    ],
+    ids=["before_midnight_in_kyiv", "after_midnight_in_kyiv"],
+)
+async def test_the_day_is_the_day_in_kyiv(hass, aioclient_mock, freezer, moment, day):
+    """At 21:30 UTC it is 00:30 of the next day in Kyiv, and the answer is of it."""
+    freezer.move_to(moment)
     client = await _client(hass, aioclient_mock, "1.1", ANSWER)
 
-    assert client.day == _kyiv(11, 0).date()
-    freezer.move_to(_kyiv(12, 0, 30))
-    assert await client.fetch_data() is True
-    assert client.day == _kyiv(12, 0).date()
+    assert client.day == _kyiv(day, 0).date()
 
 
 async def test_restore_uses_the_kept_answer_and_its_day(hass):
