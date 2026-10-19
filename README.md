@@ -41,6 +41,8 @@ providing outage calendars, countdown timers, and status updates.
 
 ## Installation
 
+The integration needs Home Assistant 2026.9.0 or later.
+
 The quickest way to install this integration is via [HACS][hacs-url] by clicking the button below:
 
 [![Add to HACS via My Home Assistant][hacs-install-image]][hasc-install-url]

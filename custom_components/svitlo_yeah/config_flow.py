@@ -3,7 +3,7 @@
 import logging
 from typing import TYPE_CHECKING, Any, override
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
     ConfigFlow,

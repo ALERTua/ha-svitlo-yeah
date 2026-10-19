@@ -3,8 +3,8 @@
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+import probatio as vol
 import pytest
-import voluptuous as vol
 from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
