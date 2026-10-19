@@ -31,18 +31,17 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-class ESvitloCoordinator(IntegrationCoordinator):
+class ESvitloCoordinator(IntegrationCoordinator[ESvitloClient, None]):
     """Coordinator for E-Svitlo API integration."""
-
-    api: ESvitloClient
-    provider: ESvitloProvider
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the E-Svitlo coordinator."""
         super().__init__(hass, config_entry)
+        # The login names the account, so E-Svitlo has no provider id
+        self.provider_id = None
 
         # Create provider from config entry data
-        self.provider: ESvitloProvider = ESvitloProvider(
+        self._provider = ESvitloProvider(
             user_name=self._required_setting(
                 CONF_USERNAME, translation_key="entry_without_login"
             ),
@@ -53,10 +52,15 @@ class ESvitloCoordinator(IntegrationCoordinator):
         )
 
         # Initialize API client
-        self.api: ESvitloClient = ESvitloClient(hass, self.provider)
+        self.api = ESvitloClient(hass, self._provider)
 
         # Set group to auto - will be updated after first API call
         self.group = "auto"
+
+    @property
+    def provider(self) -> ESvitloProvider:
+        """Get the provider of the account, with the region that the server names."""
+        return self._provider
 
     @property
     def region_name(self) -> str:
