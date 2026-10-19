@@ -50,3 +50,15 @@ exclude_lines = [
 [tool.ty.src]
 # The tests use mocks and wrong values on purpose, so ty checks the integration only.
 include = ["custom_components"]
+
+[[tool.ty.overrides]]
+# An entity of Home Assistant replaces the attributes of its base class with properties
+# and narrows entity_description, as the integrations of Home Assistant core do.
+include = [
+    "custom_components/svitlo_yeah/entity.py",
+    "custom_components/svitlo_yeah/sensor.py",
+]
+
+[tool.ty.overrides.rules]
+invalid-mutable-override = "ignore"
+invalid-property-type-override = "ignore"

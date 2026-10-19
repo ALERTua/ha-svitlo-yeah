@@ -32,7 +32,6 @@ from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEvent,
     PlannedOutageEventType,
-    YasnoRegion,
 )
 
 if TYPE_CHECKING:
@@ -75,20 +74,22 @@ def store_key(entry_id: str) -> str:
 type SvitloYeahConfigEntry = ConfigEntry[IntegrationCoordinator]
 
 
-class IntegrationCoordinator(DataUpdateCoordinator[None]):
+class IntegrationCoordinator[
+    ApiT: DtekAPIBase | YasnoApi | ESvitloClient | SoeClient,
+    ProviderIdT: str | int | None,
+](DataUpdateCoordinator[None]):
     """
     Base class to manage fetching outages data.
 
     The coordinator keeps no data of its own: the API client of each provider
-    holds the schedule, so the data of the coordinator is None.
+    holds the schedule, so the data of the coordinator is None. Each provider
+    names the type of its API client and of its provider id.
     """
 
     config_entry: SvitloYeahConfigEntry
-    api: DtekAPIBase | YasnoApi | ESvitloClient | SoeClient
-    region: YasnoRegion
-    provider: BaseProvider
-    # The DTEK source key or the Yasno dso id; E-Svitlo has none
-    provider_id: str | int | None = None
+    api: ApiT
+    # The DTEK source key, the Yasno dso id or the SOE provider id; E-Svitlo has none
+    provider_id: ProviderIdT
 
     def __init__(
         self, hass: HomeAssistant, config_entry: SvitloYeahConfigEntry
@@ -228,7 +229,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         if failed == self.last_fetch_failed:
             return
         # An E-Svitlo entry has no provider_id, and its address is personal data
-        source = self.provider_id or self.provider.region_name
+        source = self.provider_id or getattr(self.provider, "region_name", None)
         if failed:
             LOGGER.info(
                 "The source of provider %s does not answer for group %s, "
@@ -424,6 +425,11 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
     @property
     def provider_name(self) -> str:
         """Get the configured provider name."""
+        raise NotImplementedError
+
+    @property
+    def provider(self) -> BaseProvider | None:
+        """Get the configured provider; a Yasno entry has none without its region."""
         raise NotImplementedError
 
     def get_current_event(self) -> CalendarEvent | None:

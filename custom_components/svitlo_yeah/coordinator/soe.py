@@ -25,23 +25,24 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-class SoeCoordinator(IntegrationCoordinator):
+class SoeCoordinator(IntegrationCoordinator[SoeClient, str]):
     """Coordinator of one sub-queue of the schedule on the site of SOE."""
-
-    api: SoeClient
-    provider: SoeProvider
-    provider_id: str
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator of the configured sub-queue."""
         super().__init__(hass, config_entry)
-        self.provider = SoeProvider()
-        self.provider_id = self.provider.provider_id
+        self._provider = SoeProvider()
+        self.provider_id = self._provider.provider_id
         self.group = self._required_setting(
             CONF_GROUP, translation_key="entry_without_group"
         )
         # One client for the coordinator, so a failed request keeps the last answer
         self.api = SoeClient(hass, self.group)
+
+    @property
+    def provider(self) -> SoeProvider:
+        """Get the provider: one for all entries of SOE."""
+        return self._provider
 
     @property
     def region_name(self) -> str:

@@ -31,13 +31,11 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-class DtekCoordinatorBase(IntegrationCoordinator):
+class DtekCoordinatorBase[DtekApiT: DtekAPIBase](IntegrationCoordinator[DtekApiT, str]):
     """Class to manage fetching DTEK outages data."""
 
     config_entry: ConfigEntry
-    api: DtekAPIBase
     region_name: str = ""
-    provider_id: str
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""

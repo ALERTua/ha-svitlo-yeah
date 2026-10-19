@@ -202,9 +202,12 @@ class TestCheckOutageDataChanged:
     @pytest.fixture(autouse=True)
     def setup_coordinator(self, coordinator):
         """Set up coordinator with required attributes."""
-        coordinator.region = MagicMock()
-        coordinator.provider = MagicMock()
         coordinator.group = "test_group"
+        # The base class has no provider, and fire_event reads its fields
+        with patch.object(
+            IntegrationCoordinator, "provider", new_callable=PropertyMock
+        ):
+            yield
 
     def test_first_call_initializes_tracking(self, coordinator):
         """Test that first call initializes outage data tracking and returns False."""

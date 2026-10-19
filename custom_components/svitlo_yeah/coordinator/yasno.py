@@ -33,11 +33,8 @@ from .coordinator import IntegrationCoordinator
 LOGGER = logging.getLogger(__name__)
 
 
-class YasnoCoordinator(IntegrationCoordinator):
+class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
     """Class to manage fetching Yasno outages data."""
-
-    api: YasnoApi
-    provider_id: int
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
