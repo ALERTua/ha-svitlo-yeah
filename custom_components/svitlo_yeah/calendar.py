@@ -13,7 +13,7 @@ from homeassistant.util import slugify
 from .entity import IntegrationEntity
 
 if TYPE_CHECKING:
-    import datetime
+    import datetime as dt
 
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -80,8 +80,8 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
     async def async_get_events(
         self,
         hass: HomeAssistant,
-        start_date: datetime.datetime,
-        end_date: datetime.datetime,
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
         return self.coordinator.get_events_between(start_date, end_date)
@@ -126,8 +126,8 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
     async def async_get_events(
         self,
         hass: HomeAssistant,
-        start_date: datetime.datetime,
-        end_date: datetime.datetime,
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
         return self.coordinator.get_scheduled_events_between(start_date, end_date)

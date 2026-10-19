@@ -1,6 +1,6 @@
 """Common tools for API clients."""
 
-import datetime
+import datetime as dt
 import logging
 from typing import TYPE_CHECKING
 
@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 REQUEST_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
 
 
-def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
+def parse_timestamp(timestamp_str: str) -> dt.datetime | None:
     """
     Parse a timestamp string into a datetime object.
 
@@ -47,9 +47,9 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
 
     # Try parsing with Home Assistant's datetime parser (handles ISO 8601)
     try:
-        dt = dt_utils.parse_datetime(timestamp_str)
-        if dt:
-            return dt_utils.as_local(dt)
+        parsed = dt_utils.parse_datetime(timestamp_str)
+        if parsed:
+            return dt_utils.as_local(parsed)
     except (ValueError, TypeError):  # fmt: skip  # remove in 2027
         pass
 
@@ -61,7 +61,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
 
     for fmt in date_formats:
         try:
-            naive_dt = datetime.datetime.strptime(timestamp_str, fmt)  # noqa: DTZ007
+            naive_dt = dt.datetime.strptime(timestamp_str, fmt)  # noqa: DTZ007
             utc_dt = naive_dt.replace(tzinfo=TZ_UA)
             return dt_utils.as_local(utc_dt)
         except (ValueError, TypeError):  # fmt: skip  # remove in 2027
@@ -71,7 +71,7 @@ def parse_timestamp(timestamp_str: str) -> datetime.datetime | None:
     return None
 
 
-def parse_periods(periods: object, day: datetime.date) -> list[PlannedOutageEvent]:
+def parse_periods(periods: object, day: dt.date) -> list[PlannedOutageEvent]:
     """
     Return the outages of one day from a list of periods; another shape has none.
 
@@ -85,7 +85,7 @@ def parse_periods(periods: object, day: datetime.date) -> list[PlannedOutageEven
     return [event for period in periods if (event := _parse_period(period, day))]
 
 
-def _parse_period(period: object, day: datetime.date) -> PlannedOutageEvent | None:
+def _parse_period(period: object, day: dt.date) -> PlannedOutageEvent | None:
     """Return the outage of one period, or None for a period without usable times."""
     if not isinstance(period, dict):
         # A period of another shape has no times, as a period without them
@@ -95,26 +95,26 @@ def _parse_period(period: object, day: datetime.date) -> PlannedOutageEvent | No
     if not start_text or not end_text:
         return None
     try:
-        start_time = datetime.time.fromisoformat(start_text)
-        end_time = datetime.time.fromisoformat(end_text)
+        start_time = dt.time.fromisoformat(start_text)
+        end_time = dt.time.fromisoformat(end_text)
     except (ValueError, TypeError):  # fmt: skip  # remove in 2027
         LOGGER.exception("Failed to parse disconnection period %s", period)
         return None
 
-    start = datetime.datetime.combine(day, start_time, tzinfo=TZ_UA)
-    end = datetime.datetime.combine(day, end_time, tzinfo=TZ_UA)
-    if end_time == datetime.time.min or end_time < start_time:
-        end += datetime.timedelta(days=1)
+    start = dt.datetime.combine(day, start_time, tzinfo=TZ_UA)
+    end = dt.datetime.combine(day, end_time, tzinfo=TZ_UA)
+    if end_time == dt.time.min or end_time < start_time:
+        end += dt.timedelta(days=1)
     return PlannedOutageEvent(
         start=start, end=end, event_type=PlannedOutageEventType.DEFINITE
     )
 
 
-def start_moment(event: PlannedOutageEvent | CalendarEvent) -> datetime.datetime:
+def start_moment(event: PlannedOutageEvent | CalendarEvent) -> dt.datetime:
     """Return when the event starts; an all-day event starts at its Kyiv midnight."""
-    if isinstance(event.start, datetime.datetime):
+    if isinstance(event.start, dt.datetime):
         return event.start
-    return datetime.datetime.combine(event.start, datetime.time.min, tzinfo=TZ_UA)
+    return dt.datetime.combine(event.start, dt.time.min, tzinfo=TZ_UA)
 
 
 def _merge_adjacent_events(
@@ -146,7 +146,7 @@ def _merge_adjacent_events(
             # For datetime events, merge if they are adjacent
             # and next day starts at 00:00:00
             # adding a second is currently viable only for DTEK
-            if current.end + datetime.timedelta(seconds=1) >= next_event.start:
+            if current.end + dt.timedelta(seconds=1) >= next_event.start:
                 # Extend current event to the end of the next event
                 current = PlannedOutageEvent(
                     start=current.start,

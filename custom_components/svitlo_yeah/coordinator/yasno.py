@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import datetime
+    import datetime as dt
 
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.config_entries import ConfigEntry
@@ -171,8 +171,8 @@ class YasnoCoordinator(IntegrationCoordinator):
 
     def get_scheduled_events_between(
         self,
-        start_date: datetime.datetime,
-        end_date: datetime.datetime,
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
         """Get scheduled outage events."""
         events = self.api.get_scheduled_events(start_date, end_date)

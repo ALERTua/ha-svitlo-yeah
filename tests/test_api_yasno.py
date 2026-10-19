@@ -1,6 +1,6 @@
 """Tests for Svitlo Yeah API."""
 
-import datetime
+import datetime as dt
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -512,7 +512,7 @@ class TestYasnoApiEvents:
             TEST_GROUP: {
                 "today": {
                     "slots": [{"start": 600, "end": 660, "type": "Definite"}],
-                    "date": today.astimezone(datetime.UTC).isoformat(),
+                    "date": today.astimezone(dt.UTC).isoformat(),
                     "status": "ScheduleApplies",
                 },
             }
@@ -586,7 +586,7 @@ class TestYasnoApiScheduledEvents:
         }
 
         start_date = today
-        end_date = today + datetime.timedelta(days=1)
+        end_date = today + dt.timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
         assert len(events) == 1
@@ -606,7 +606,7 @@ class TestYasnoApiScheduledEvents:
         }
 
         start_date = today
-        end_date = today + datetime.timedelta(days=1)
+        end_date = today + dt.timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
         # EmergencyShutdowns status is now ignored, only WaitingForSchedule is processed
@@ -617,7 +617,7 @@ class TestYasnoApiScheduledEvents:
         api.planned_outage_data = None
 
         start_date = today
-        end_date = today + datetime.timedelta(days=1)
+        end_date = today + dt.timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
         assert events == []
@@ -642,7 +642,7 @@ class TestYasnoApiScheduledEvents:
 
         # Test range that only includes today
         start_date = today
-        end_date = today + datetime.timedelta(days=1)
+        end_date = today + dt.timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
         assert len(events) == 1
@@ -650,7 +650,7 @@ class TestYasnoApiScheduledEvents:
 
         # Test range that includes both days
         start_date = today
-        end_date = tomorrow + datetime.timedelta(days=1)
+        end_date = tomorrow + dt.timedelta(days=1)
         events = api.get_scheduled_events(start_date, end_date)
 
         assert len(events) == 2

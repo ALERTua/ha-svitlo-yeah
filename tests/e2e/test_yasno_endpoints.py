@@ -1,6 +1,6 @@
 """End-to-end tests against the real Yasno API (real network access)."""
 
-import datetime
+import datetime as dt
 import re
 from unittest.mock import MagicMock, patch
 
@@ -33,7 +33,7 @@ async def test_planned_outages_real_endpoints(monkeypatch):
             assert regions, "the Yasno API gave no regions"
 
             start = dt_utils.now()
-            end = start + datetime.timedelta(days=2)
+            end = start + dt.timedelta(days=2)
             providers_with_groups = 0
             for region in regions:
                 for provider in region.dsos:
@@ -55,7 +55,7 @@ async def test_planned_outages_real_endpoints(monkeypatch):
                         for event in api.get_events(start, end):
                             if event.all_day:
                                 # An emergency day is an all-day event with dates.
-                                assert not isinstance(event.start, datetime.datetime), (
+                                assert not isinstance(event.start, dt.datetime), (
                                     f"{name} {group}: all-day event with a time"
                                 )
                             else:

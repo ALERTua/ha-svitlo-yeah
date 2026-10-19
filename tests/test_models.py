@@ -1,6 +1,6 @@
 """Tests for Svitlo Yeah models."""
 
-import datetime
+import datetime as dt
 
 import pytest
 
@@ -75,8 +75,8 @@ class TestYasnoPlannedOutageEvent:
 
     def test_create_with_datetime(self):
         """Test creating event with datetime."""
-        start = datetime.datetime(2025, 1, 27, 10, 0, 0, tzinfo=datetime.UTC)
-        end = datetime.datetime(2025, 1, 27, 12, 0, 0, tzinfo=datetime.UTC)
+        start = dt.datetime(2025, 1, 27, 10, 0, 0, tzinfo=dt.UTC)
+        end = dt.datetime(2025, 1, 27, 12, 0, 0, tzinfo=dt.UTC)
         event = PlannedOutageEvent(
             event_type=PlannedOutageEventType.DEFINITE,
             start=start,
@@ -89,8 +89,8 @@ class TestYasnoPlannedOutageEvent:
 
     def test_create_with_date(self):
         """Test creating event with date."""
-        start = datetime.date(2025, 1, 27)
-        end = datetime.date(2025, 1, 27)
+        start = dt.date(2025, 1, 27)
+        end = dt.date(2025, 1, 27)
         event = PlannedOutageEvent(
             event_type=PlannedOutageEventType.EMERGENCY,
             start=start,
@@ -105,9 +105,9 @@ class TestYasnoPlannedOutageEvent:
         """Test that event is frozen."""
         event = PlannedOutageEvent(
             event_type=PlannedOutageEventType.DEFINITE,
-            start=datetime.datetime(2025, 1, 27, 10, 0, 0, tzinfo=datetime.UTC),
-            end=datetime.datetime(2025, 1, 27, 12, 0, 0, tzinfo=datetime.UTC),
+            start=dt.datetime(2025, 1, 27, 10, 0, 0, tzinfo=dt.UTC),
+            end=dt.datetime(2025, 1, 27, 12, 0, 0, tzinfo=dt.UTC),
         )
         with pytest.raises(AttributeError):
             # noinspection PyDataclass
-            event.start = datetime.datetime(2025, 1, 28, 10, 0, 0, tzinfo=datetime.UTC)
+            event.start = dt.datetime(2025, 1, 28, 10, 0, 0, tzinfo=dt.UTC)

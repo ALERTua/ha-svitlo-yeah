@@ -1,6 +1,6 @@
 """Base class for DTEK API implementations."""
 
-import datetime
+import datetime as dt
 import logging
 from enum import Enum
 
@@ -32,14 +32,14 @@ class FetchResult(Enum):
     UNAVAILABLE = "unavailable"  # no source could be fetched/parsed at all
 
 
-def fact_day_start(key: str) -> datetime.datetime | None:
+def fact_day_start(key: str) -> dt.datetime | None:
     """Return the Kyiv midnight that a fact day key names, or None for another key."""
     # int() also takes a sign, spaces, underscores and digits of other scripts
     if not (key.isascii() and key.isdigit()):
         return None
     try:
         # The key is the Kyiv midnight of the day, whatever the time zone of HA
-        return datetime.datetime.fromtimestamp(int(key), tz=TZ_UA)
+        return dt.datetime.fromtimestamp(int(key), tz=TZ_UA)
     except (ValueError, OverflowError, OSError):  # fmt: skip  # remove in 2027
         # fromtimestamp() refuses a year out of its range
         return None
@@ -47,7 +47,7 @@ def fact_day_start(key: str) -> datetime.datetime | None:
 
 def _parse_group_hours(
     group_hours: dict[str, str],
-) -> list[tuple[datetime.time, datetime.time]]:
+) -> list[tuple[dt.time, dt.time]]:
     """
     Parse group hours data into a list of outage time ranges.
 
@@ -78,11 +78,11 @@ def _parse_group_hours(
         """Return the key of the hour that starts at hour:00."""
         return str(hour if zero_based else hour + 1)
 
-    def safe_time(hour: int, minute: int = 0) -> datetime.time:
+    def safe_time(hour: int, minute: int = 0) -> dt.time:
         """Create datetime.time handling hour 24 as midnight (0:00)."""
         if hour >= HOURS_IN_DAY:
-            return datetime.time(0, minute)
-        return datetime.time(hour, minute)
+            return dt.time(0, minute)
+        return dt.time(hour, minute)
 
     for hour in hours_range:
         key = get_key(hour)
@@ -119,14 +119,14 @@ def _parse_group_hours(
 
     # Close any remaining outage at end of day
     if outage_start is not None:
-        ranges.append((outage_start, datetime.time(23, 59, 59)))
+        ranges.append((outage_start, dt.time(23, 59, 59)))
 
     return ranges
 
 
 def _ranges_to_events(
-    day: datetime.datetime,
-    time_ranges: list[tuple[datetime.time, datetime.time]],
+    day: dt.datetime,
+    time_ranges: list[tuple[dt.time, dt.time]],
 ) -> list[PlannedOutageEvent]:
     """
     Turn the outage time ranges of one day into events.
@@ -134,7 +134,7 @@ def _ranges_to_events(
     ``day`` is any moment of the day in Europe/Kyiv. A range that ends at 23:59
     or at 0:00 ends at the midnight after the day.
     """
-    next_midnight = (day + datetime.timedelta(days=1)).replace(
+    next_midnight = (day + dt.timedelta(days=1)).replace(
         hour=0,
         minute=0,
         second=0,
@@ -254,16 +254,16 @@ class DtekAPIBase:
             return None
         return f"GPV{self.group}" in listed
 
-    def get_current_event(self, at: datetime.datetime) -> PlannedOutageEvent | None:
+    def get_current_event(self, at: dt.datetime) -> PlannedOutageEvent | None:
         """Get the current event at a specific time."""
-        events = self.get_events(at, at + datetime.timedelta(days=1))
+        events = self.get_events(at, at + dt.timedelta(days=1))
         for event in events:
             if event.start <= at < event.end:
                 return event
         return None
 
     def get_events(
-        self, start_date: datetime.datetime, end_date: datetime.datetime
+        self, start_date: dt.datetime, end_date: dt.datetime
     ) -> list[PlannedOutageEvent]:
         """Get all events within the date range."""
         if (
@@ -287,7 +287,7 @@ class DtekAPIBase:
         events = _merge_adjacent_events(events)
         return [e for e in events if not (e.end <= start_date or e.start >= end_date)]
 
-    def get_updated_on(self) -> datetime.datetime | None:
+    def get_updated_on(self) -> dt.datetime | None:
         """Get the updated on timestamp."""
         if not self.data or "update" not in self.data:
             return None
@@ -296,7 +296,7 @@ class DtekAPIBase:
         return parse_timestamp(update_str)
 
     def get_scheduled_events(
-        self, start_date: datetime.datetime, end_date: datetime.datetime
+        self, start_date: dt.datetime, end_date: dt.datetime
     ) -> list[PlannedOutageEvent]:
         """Get scheduled events within the date range from preset data."""
         preset_groups = self._preset_section("data")
@@ -317,13 +317,11 @@ class DtekAPIBase:
                 days_ahead = (day_num - 1) - base_date.weekday() + (week_offset * 7)
                 if days_ahead < 0:
                     days_ahead += 7  # Next occurrence of this weekday
-                target_date = base_date + datetime.timedelta(days=days_ahead)
+                target_date = base_date + dt.timedelta(days=days_ahead)
 
                 # Check if this date is within our range
-                day_start = datetime.datetime.combine(
-                    target_date, datetime.time.min, tzinfo=TZ_UA
-                )
-                day_end = day_start + datetime.timedelta(days=1)
+                day_start = dt.datetime.combine(target_date, dt.time.min, tzinfo=TZ_UA)
+                day_end = day_start + dt.timedelta(days=1)
 
                 if day_end <= start_date or day_start >= end_date:
                     continue
