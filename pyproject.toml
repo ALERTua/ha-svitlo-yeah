@@ -10,7 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "homeassistant>=2026.7.0",
+    "homeassistant>=2026.9.0",  # The minimum of hacs.json: probatio replaced voluptuous
     "pre-commit-uv",
     "pytest",
     "freezegun",
