@@ -1,6 +1,6 @@
 """Tests for sensor functionality."""
 
-import datetime
+import datetime as dt
 from unittest.mock import MagicMock
 
 import pytest
@@ -56,7 +56,7 @@ class MockCoordinator:
         scheduled_events = sorted(
             self.get_scheduled_events_between(
                 now,
-                now + datetime.timedelta(hours=24),
+                now + dt.timedelta(hours=24),
             ),
             key=lambda _: _.start,
         )
@@ -83,7 +83,7 @@ class TestNextPlannedOutageSensor:
     def test_next_planned_outage_with_future_event(self, coordinator):
         """Test sensor returns future planned outage time."""
         now = dt_utils.now()
-        future_time = now + datetime.timedelta(hours=2)
+        future_time = now + dt.timedelta(hours=2)
 
         # Set the next_planned_outage property on the mock coordinator
         coordinator.next_planned_outage = future_time
@@ -128,7 +128,7 @@ class TestNextPlannedOutageSensor:
     def test_next_planned_outage_mixed_events(self, coordinator):
         """Test sensor returns earliest future planned event."""
         now = dt_utils.now()
-        near_future = now + datetime.timedelta(hours=1)
+        near_future = now + dt.timedelta(hours=1)
 
         # Set the next_planned_outage to the earliest future event
         coordinator.next_planned_outage = near_future
@@ -149,13 +149,13 @@ class TestNextScheduledOutageSensor:
     def test_next_scheduled_outage_returns_scheduled_when_only_scheduled_exists(self):
         """Test sensor returns scheduled outage when only scheduled exists."""
         now = dt_utils.now()
-        scheduled_time = now + datetime.timedelta(hours=2)
+        scheduled_time = now + dt.timedelta(hours=2)
 
         # Create mock coordinator with scheduled event
         coordinator = MockCoordinator()
         scheduled_event = PlannedOutageEvent(
             start=scheduled_time,
-            end=scheduled_time + datetime.timedelta(hours=1),
+            end=scheduled_time + dt.timedelta(hours=1),
             event_type=PlannedOutageEventType.SCHEDULED,
         )
         coordinator.scheduled_events = [scheduled_event]
@@ -173,7 +173,7 @@ class TestNextScheduledOutageSensor:
     def test_next_scheduled_outage_returns_planned_when_only_planned_exists(self):
         """Test sensor returns planned outage when only planned exists."""
         now = dt_utils.now()
-        planned_time = now + datetime.timedelta(hours=3)
+        planned_time = now + dt.timedelta(hours=3)
 
         # Create mock coordinator with planned outage
         coordinator = MockCoordinator()
@@ -192,14 +192,14 @@ class TestNextScheduledOutageSensor:
     def test_next_scheduled_outage_returns_scheduled_when_scheduled_is_earlier(self):
         """Test sensor returns scheduled outage when it's earlier than planned."""
         now = dt_utils.now()
-        scheduled_time = now + datetime.timedelta(hours=1)
-        planned_time = now + datetime.timedelta(hours=3)
+        scheduled_time = now + dt.timedelta(hours=1)
+        planned_time = now + dt.timedelta(hours=3)
 
         # Create mock coordinator with both events
         coordinator = MockCoordinator()
         scheduled_event = PlannedOutageEvent(
             start=scheduled_time,
-            end=scheduled_time + datetime.timedelta(hours=1),
+            end=scheduled_time + dt.timedelta(hours=1),
             event_type=PlannedOutageEventType.SCHEDULED,
         )
         coordinator.scheduled_events = [scheduled_event]
@@ -217,14 +217,14 @@ class TestNextScheduledOutageSensor:
     def test_next_scheduled_outage_returns_planned_when_planned_is_earlier(self):
         """Test sensor returns planned outage when it's earlier than scheduled."""
         now = dt_utils.now()
-        scheduled_time = now + datetime.timedelta(hours=3)
-        planned_time = now + datetime.timedelta(hours=1)
+        scheduled_time = now + dt.timedelta(hours=3)
+        planned_time = now + dt.timedelta(hours=1)
 
         # Create mock coordinator with both events
         coordinator = MockCoordinator()
         scheduled_event = PlannedOutageEvent(
             start=scheduled_time,
-            end=scheduled_time + datetime.timedelta(hours=1),
+            end=scheduled_time + dt.timedelta(hours=1),
             event_type=PlannedOutageEventType.SCHEDULED,
         )
         coordinator.scheduled_events = [scheduled_event]

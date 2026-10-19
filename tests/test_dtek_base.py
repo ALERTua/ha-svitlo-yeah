@@ -1,6 +1,6 @@
 """Tests for DTEK base API functionality."""
 
-import datetime
+import datetime as dt
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -237,7 +237,7 @@ class TestDtekAPIBaseEventsListShapedData:
         """get_events must return [] instead of raising AttributeError."""
         api.data = {"data": [], "update": "29.06.2026 08:24", "today": True}
         now = dt_utils.now()
-        assert api.get_events(now, now + datetime.timedelta(hours=24)) == []
+        assert api.get_events(now, now + dt.timedelta(hours=24)) == []
 
     def test_get_current_event_list_shaped_data(self, api):
         """get_current_event must return None on list-shaped data."""
@@ -250,7 +250,7 @@ class TestDtekAPIBaseDayKeys:
 
     def test_key_names_the_kyiv_midnight(self):
         """A key of the source gives the midnight in Kyiv."""
-        midnight = datetime.datetime(2025, 10, 29, tzinfo=TZ_UA)
+        midnight = dt.datetime(2025, 10, 29, tzinfo=TZ_UA)
 
         assert fact_day_start(TEST_TIMESTAMP) == midnight
 
@@ -287,9 +287,9 @@ class TestDtekAPIBaseDayKeys:
         """The day under such a key gives no events, and the other days stay."""
         sample_data["data"]["²"] = sample_data["data"][TEST_TIMESTAMP]
         api.data = sample_data
-        midnight = datetime.datetime(2025, 10, 29, tzinfo=TZ_UA)
+        midnight = dt.datetime(2025, 10, 29, tzinfo=TZ_UA)
 
-        events = api.get_events(midnight, midnight + datetime.timedelta(days=1))
+        events = api.get_events(midnight, midnight + dt.timedelta(days=1))
 
         assert [(e.start, e.end) for e in events] == [
             (midnight.replace(hour=12, minute=30), midnight.replace(hour=16, minute=30))
@@ -307,7 +307,7 @@ class TestDtekAPIBaseParseGroupHours:
             # 1 All no - full day outage
             (
                 {str(i): "no" for i in range(1, 25)},
-                [(datetime.time(0, 0), datetime.time(23, 59, 59))],
+                [(dt.time(0, 0), dt.time(23, 59, 59))],
             ),
             # 2 One range of no
             (
@@ -317,7 +317,7 @@ class TestDtekAPIBaseParseGroupHours:
                     "15": "no",
                     "16": "no",
                 },
-                [(datetime.time(13, 0), datetime.time(16, 0))],
+                [(dt.time(13, 0), dt.time(16, 0))],
             ),
             # 3 Two ranges of no
             (
@@ -329,8 +329,8 @@ class TestDtekAPIBaseParseGroupHours:
                     "21": "no",
                 },
                 [
-                    (datetime.time(8, 0), datetime.time(10, 0)),
-                    (datetime.time(19, 0), datetime.time(21, 0)),
+                    (dt.time(8, 0), dt.time(10, 0)),
+                    (dt.time(19, 0), dt.time(21, 0)),
                 ],
             ),
             # 4 One range: second + no + first
@@ -343,7 +343,7 @@ class TestDtekAPIBaseParseGroupHours:
                     "16": "no",
                     "17": "first",
                 },
-                [(datetime.time(12, 30), datetime.time(16, 30))],
+                [(dt.time(12, 30), dt.time(16, 30))],
             ),
             # 5 Two ranges: second + no + first
             (
@@ -357,8 +357,8 @@ class TestDtekAPIBaseParseGroupHours:
                     "22": "first",
                 },
                 [
-                    (datetime.time(8, 30), datetime.time(10, 30)),
-                    (datetime.time(19, 30), datetime.time(21, 30)),
+                    (dt.time(8, 30), dt.time(10, 30)),
+                    (dt.time(19, 30), dt.time(21, 30)),
                 ],
             ),
             # 6 Adjacent second + first
@@ -368,7 +368,7 @@ class TestDtekAPIBaseParseGroupHours:
                     "21": "second",
                     "22": "first",
                 },
-                [(datetime.time(20, 30), datetime.time(21, 30))],
+                [(dt.time(20, 30), dt.time(21, 30))],
             ),
             # 7 mfirst status converted to no (ends at hour boundary)
             (
@@ -380,7 +380,7 @@ class TestDtekAPIBaseParseGroupHours:
                     "16": "no",
                     "17": "mfirst",
                 },
-                [(datetime.time(12, 30), datetime.time(16, 30))],
+                [(dt.time(12, 30), dt.time(16, 30))],
             ),
             # 8 msecond + mfirst combination (full outage)
             (
@@ -392,7 +392,7 @@ class TestDtekAPIBaseParseGroupHours:
                     "16": "no",
                     "17": "mfirst",
                 },
-                [(datetime.time(12, 30), datetime.time(16, 30))],
+                [(dt.time(12, 30), dt.time(16, 30))],
             ),
             # 9 Full day schedule with mfirst and msecond parts.
             # Should return 09:30-12:00 and 19:00-23:30
@@ -424,8 +424,8 @@ class TestDtekAPIBaseParseGroupHours:
                     "24": "mfirst",
                 },
                 [
-                    (datetime.time(9, 30), datetime.time(12, 00)),
-                    (datetime.time(19, 0), datetime.time(23, 30)),
+                    (dt.time(9, 30), dt.time(12, 00)),
+                    (dt.time(19, 0), dt.time(23, 30)),
                 ],
             ),
         ],
@@ -454,7 +454,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     "10": "no",
                     "11": "no",
                 },
-                [(datetime.time(10, 0), datetime.time(12, 0))],
+                [(dt.time(10, 0), dt.time(12, 0))],
             ),
             # Test hour format detection - no "0" key (1-24 format)
             (
@@ -468,7 +468,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     "11": "no",
                     "12": "no",
                 },
-                [(datetime.time(10, 0), datetime.time(12, 0))],
+                [(dt.time(10, 0), dt.time(12, 0))],
             ),
             # Test half-hour precision with "first" and "second"
             (
@@ -478,8 +478,8 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     "12": "second",  # 11:30-12:00
                 },
                 [
-                    (datetime.time(10, 0), datetime.time(10, 30)),
-                    (datetime.time(11, 30), datetime.time(12, 0)),
+                    (dt.time(10, 0), dt.time(10, 30)),
+                    (dt.time(11, 30), dt.time(12, 0)),
                 ],
             ),
             # Test "maybe" status (treated as outage)
@@ -488,7 +488,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     **{str(i): "yes" for i in range(1, 25)},
                     "16": "maybe",
                 },
-                [(datetime.time(15, 0), datetime.time(16, 0))],
+                [(dt.time(15, 0), dt.time(16, 0))],
             ),
             # Test multiple separate outages
             (
@@ -499,8 +499,8 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     "21": "no",
                 },
                 [
-                    (datetime.time(9, 0), datetime.time(11, 0)),
-                    (datetime.time(20, 0), datetime.time(21, 0)),
+                    (dt.time(9, 0), dt.time(11, 0)),
+                    (dt.time(20, 0), dt.time(21, 0)),
                 ],
             ),
             # Test continuous outage across multiple hours
@@ -512,7 +512,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     "15": "no",
                     "16": "no",
                 },
-                [(datetime.time(12, 0), datetime.time(16, 0))],
+                [(dt.time(12, 0), dt.time(16, 0))],
             ),
             # Test "second" starting new outage
             (
@@ -520,7 +520,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     **{str(i): "yes" for i in range(1, 25)},
                     "11": "second",  # Starts at 10:30
                 },
-                [(datetime.time(10, 30), datetime.time(11, 0))],
+                [(dt.time(10, 30), dt.time(11, 0))],
             ),
             # Test "first" ending outage at half-hour
             (
@@ -528,7 +528,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     **{str(i): "yes" for i in range(1, 25)},
                     "11": "first",  # Ends at 10:30
                 },
-                [(datetime.time(10, 0), datetime.time(10, 30))],
+                [(dt.time(10, 0), dt.time(10, 30))],
             ),
             # Test end of day handling
             (
@@ -536,7 +536,7 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     **{str(i): "yes" for i in range(1, 25)},
                     "24": "no",  # Last hour
                 },
-                [(datetime.time(23, 0), datetime.time(23, 59, 59))],
+                [(dt.time(23, 0), dt.time(23, 59, 59))],
             ),
             # Complex real-world scenario with msecond/mfirst transitions
             (
@@ -567,9 +567,9 @@ class TestDtekAPIBaseParsePresetGroupHours:
                     "24": "yes",
                 },
                 [
-                    (datetime.time(1, 30), datetime.time(8, 0)),
-                    (datetime.time(9, 0), datetime.time(16, 30)),
-                    (datetime.time(17, 30), datetime.time(23, 0)),
+                    (dt.time(1, 30), dt.time(8, 0)),
+                    (dt.time(9, 0), dt.time(16, 30)),
+                    (dt.time(17, 30), dt.time(23, 0)),
                 ],
             ),
         ],
@@ -597,7 +597,7 @@ class TestDtekAPIBaseScheduledEvents:
         api.group = "1.1"
 
         start_date = dt_utils.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=7)
+        end_date = start_date + dt.timedelta(days=7)
 
         events = api.get_scheduled_events(start_date, end_date)
 
@@ -615,7 +615,7 @@ class TestDtekAPIBaseScheduledEvents:
         api.group = "1.1"
 
         start_date = dt_utils.now()
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_scheduled_events(start_date, end_date)
         assert events == []
@@ -626,7 +626,7 @@ class TestDtekAPIBaseScheduledEvents:
         api.group = None
 
         start_date = dt_utils.now()
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_scheduled_events(start_date, end_date)
         assert events == []
@@ -637,7 +637,7 @@ class TestDtekAPIBaseScheduledEvents:
         api.group = "1.1"
 
         start_date = dt_utils.now()
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_scheduled_events(start_date, end_date)
         assert events == []
@@ -648,7 +648,7 @@ class TestDtekAPIBaseScheduledEvents:
         api.group = "1.1"
 
         start_date = dt_utils.now()
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_scheduled_events(start_date, end_date)
         assert events == []
@@ -669,16 +669,16 @@ class TestDtekAPIBaseScheduledEvents:
 
         # Test range that includes Monday
         days_until_monday = (0 - base_date.weekday()) % 7
-        monday = base_date + datetime.timedelta(days=days_until_monday)
+        monday = base_date + dt.timedelta(days=days_until_monday)
         start_date = monday
-        end_date = monday + datetime.timedelta(days=1)
+        end_date = monday + dt.timedelta(days=1)
 
         events = api.get_scheduled_events(start_date, end_date)
         assert len(events) > 0
 
         # Test range that excludes Monday
-        start_date = monday + datetime.timedelta(days=2)
-        end_date = monday + datetime.timedelta(days=3)
+        start_date = monday + dt.timedelta(days=2)
+        end_date = monday + dt.timedelta(days=3)
 
         events = api.get_scheduled_events(start_date, end_date)
         assert len(events) == 0
@@ -691,12 +691,12 @@ class TestDtekAPIBaseScheduledEvents:
         # Monday: hours 23 and 24 are 22:00-24:00
         api.preset_data = {"data": {"GPV1.1": {"1": {"23": "no", "24": "no"}}}}
         api.group = "1.1"
-        monday = base_date + datetime.timedelta(days=(0 - base_date.weekday()) % 7)
+        monday = base_date + dt.timedelta(days=(0 - base_date.weekday()) % 7)
 
-        events = api.get_scheduled_events(monday, monday + datetime.timedelta(days=1))
+        events = api.get_scheduled_events(monday, monday + dt.timedelta(days=1))
 
         assert [(e.start, e.end) for e in events] == [
-            (monday.replace(hour=22), monday + datetime.timedelta(days=1))
+            (monday.replace(hour=22), monday + dt.timedelta(days=1))
         ]
 
 
@@ -731,7 +731,7 @@ class TestDtekAPIBaseEvents:
         api.data = sample_data
 
         # Create a time during the outage (13:00 on the test day)
-        day_dt = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
         current_time = day_dt.replace(hour=13, minute=0)
 
         event = api.get_current_event(current_time)
@@ -743,7 +743,7 @@ class TestDtekAPIBaseEvents:
         api.data = sample_data
 
         # Create a time outside the outage (10:00 on the test day)
-        day_dt = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
         current_time = day_dt.replace(hour=10, minute=0)
 
         event = api.get_current_event(current_time)
@@ -777,10 +777,10 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_events(start_date, end_date)
 
@@ -812,10 +812,10 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_events(start_date, end_date)
 
@@ -845,10 +845,10 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_events(start_date, end_date)
 
@@ -878,10 +878,10 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_events(start_date, end_date)
 
@@ -910,10 +910,10 @@ class TestDtekAPIBaseEventMerging:
             "update": "29.10.2025 13:51",
         }
 
-        day_dt = datetime.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
+        day_dt = dt.datetime.fromtimestamp(int(test_timestamp), tz=TZ_UA)
 
         start_date = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date + dt.timedelta(days=1)
 
         events = api.get_events(start_date, end_date)
 
@@ -931,13 +931,13 @@ class TestDtekAPIBaseUnusualDays:
     def test_second_half_after_an_unknown_status_starts_at_the_full_hour(self):
         """A «second» after an unknown status opens the outage at the full hour."""
         assert _parse_group_hours({"13": "?", "14": "second"}) == [
-            (datetime.time(13, 0), datetime.time(14, 0))
+            (dt.time(13, 0), dt.time(14, 0))
         ]
 
     def test_day_without_the_group_has_no_events(self, api, sample_data):
         """A day of the schedule that does not list the group gives no events."""
         hours = sample_data["data"][TEST_TIMESTAMP]["GPV1.1"]
         api.data = {**sample_data, "data": {TEST_TIMESTAMP: {"GPV2.1": hours}}}
-        day = datetime.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
+        day = dt.datetime.fromtimestamp(int(TEST_TIMESTAMP), tz=TZ_UA)
 
-        assert api.get_events(day, day + datetime.timedelta(days=1)) == []
+        assert api.get_events(day, day + dt.timedelta(days=1)) == []

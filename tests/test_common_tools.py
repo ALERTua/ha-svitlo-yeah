@@ -1,6 +1,6 @@
 """Tests for common_tools module."""
 
-import datetime
+import datetime as dt
 import logging
 
 import pytest
@@ -13,11 +13,11 @@ from custom_components.svitlo_yeah.api.common_tools import (
 from custom_components.svitlo_yeah.const import TZ_UA
 from custom_components.svitlo_yeah.models import PlannedOutageEventType
 
-DAY = datetime.date(2026, 10, 11)
+DAY = dt.date(2026, 10, 11)
 
 
-def _kyiv(day: int, hour: int, minute: int = 0) -> datetime.datetime:
-    return datetime.datetime(2026, 10, day, hour, minute, tzinfo=TZ_UA)
+def _kyiv(day: int, hour: int, minute: int = 0) -> dt.datetime:
+    return dt.datetime(2026, 10, day, hour, minute, tzinfo=TZ_UA)
 
 
 class TestParsePeriods:
@@ -119,7 +119,7 @@ class TestParseTimestamp:
         assert result is not None, (
             f"Failed to parse {expected_description}: {timestamp_str}"
         )
-        assert isinstance(result, datetime.datetime)
+        assert isinstance(result, dt.datetime)
         assert result.tzinfo is not None, (
             f"Parsed datetime should be timezone-aware: {result}"
         )
@@ -151,7 +151,7 @@ class TestParseTimestamp:
 
         assert result is not None
         # Should be parsed as Europe/Kyiv and converted to local
-        expected_kyiv = datetime.datetime(2025, 12, 7, 0, 1, tzinfo=TZ_UA)
+        expected_kyiv = dt.datetime(2025, 12, 7, 0, 1, tzinfo=TZ_UA)
         expected_local = dt_utils.as_local(expected_kyiv)
         assert result == expected_local
 
@@ -162,9 +162,7 @@ class TestParseTimestamp:
 
         assert result is not None
         # Should be converted to local timezone
-        expected_utc = datetime.datetime(
-            2025, 12, 7, 9, 10, 49, 815000, tzinfo=datetime.UTC
-        )
+        expected_utc = dt.datetime(2025, 12, 7, 9, 10, 49, 815000, tzinfo=dt.UTC)
         expected_local = dt_utils.as_local(expected_utc)
         assert result == expected_local
 
@@ -174,8 +172,6 @@ class TestParseTimestamp:
         result = parse_timestamp(timestamp_str)
 
         assert result is not None
-        expected_utc = datetime.datetime(
-            2025, 12, 7, 11, 10, 49, 815000, tzinfo=datetime.UTC
-        )
+        expected_utc = dt.datetime(2025, 12, 7, 11, 10, 49, 815000, tzinfo=dt.UTC)
         expected_local = dt_utils.as_local(expected_utc)
         assert result == expected_local

@@ -1,6 +1,6 @@
 """Client of the public outage schedule of Sumyoblenergo (SOE) on soe.com.ua."""
 
-import datetime
+import datetime as dt
 import logging
 from typing import TYPE_CHECKING, TypeIs
 
@@ -51,7 +51,7 @@ def is_soe_answer(answer: object) -> TypeIs[dict]:
     )
 
 
-def _kyiv_today() -> datetime.date:
+def _kyiv_today() -> dt.date:
     """Return the day in Kyiv: the site gives the schedule of this day only."""
     return dt_utils.now(TZ_UA).date()
 
@@ -70,7 +70,7 @@ class SoeClient:
         self.session: aiohttp.ClientSession = async_get_clientsession(hass)
         self.group = group
         self.answer: dict | None = None
-        self.day: datetime.date | None = None
+        self.day: dt.date | None = None
         # The outages of the sub-queue in the last answer, parsed once for each answer
         self._outages: list[PlannedOutageEvent] = []
 
@@ -101,7 +101,7 @@ class SoeClient:
         if not is_soe_answer(answer) or not isinstance(day, str):
             return
         try:
-            kept_day = datetime.date.fromisoformat(day)
+            kept_day = dt.date.fromisoformat(day)
         except ValueError:
             return
         self.answer = answer
@@ -141,17 +141,17 @@ class SoeClient:
         # The end of one outage is the start of the next one, so they are one
         return _merge_adjacent_events(sorted(events, key=lambda e: e.start))
 
-    def get_current_event(self, at: datetime.datetime) -> PlannedOutageEvent | None:
+    def get_current_event(self, at: dt.datetime) -> PlannedOutageEvent | None:
         """Return the outage at the moment, or None."""
         return next((e for e in self._outages if e.start <= at < e.end), None)
 
     def get_events(
-        self, start_date: datetime.datetime, end_date: datetime.datetime
+        self, start_date: dt.datetime, end_date: dt.datetime
     ) -> list[PlannedOutageEvent]:
         """Return the outages that overlap the range."""
         return [e for e in self._outages if e.end > start_date and e.start < end_date]
 
-    def get_updated_on(self) -> datetime.datetime | None:
+    def get_updated_on(self) -> dt.datetime | None:
         """Return when SOE last updated the schedule of the sub-queue, or None."""
         group = self._group_data()
         text = group.get("last_update") if group else None

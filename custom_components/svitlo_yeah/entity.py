@@ -1,6 +1,6 @@
 """Svitlo Yeah entity."""
 
-import datetime
+import datetime as dt
 import logging
 from typing import TYPE_CHECKING, Any, override
 
@@ -119,15 +119,13 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
         next_boundary = None
         now = dt_utils.now()
         for boundary in boundaries:
-            if boundary - dt_utils.now() <= datetime.timedelta(seconds=1):
+            if boundary - dt_utils.now() <= dt.timedelta(seconds=1):
                 continue
 
             next_boundary = boundary
             break
 
-        next_boundary = next_boundary or now + datetime.timedelta(
-            minutes=UPDATE_INTERVAL
-        )
+        next_boundary = next_boundary or now + dt.timedelta(minutes=UPDATE_INTERVAL)
         # noinspection PyTypeChecker
         self._unsubscribe_boundary = async_track_point_in_time(
             self.hass, self._handle_boundary, next_boundary

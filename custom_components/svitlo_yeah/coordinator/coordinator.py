@@ -1,6 +1,6 @@
 """Base coordinator for Svitlo Yeah integration."""
 
-import datetime
+import datetime as dt
 import logging
 from typing import TYPE_CHECKING, Any, override
 
@@ -45,9 +45,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 # How far ahead the next-outage sensors and the diagnostics look
-TIMEFRAME_TO_CHECK = datetime.timedelta(hours=24)
+TIMEFRAME_TO_CHECK = dt.timedelta(hours=24)
 # Longer than the schedule of any source, so the change check sees each future outage
-CHANGE_CHECK_WINDOW = datetime.timedelta(days=7)
+CHANGE_CHECK_WINDOW = dt.timedelta(days=7)
 
 # The version of the store that keeps the last data of an entry across a restart
 STORE_VERSION = 1
@@ -58,9 +58,9 @@ def group_not_listed_issue_id(entry_id: str) -> str:
     return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
 
 
-def _ends_after(event: PlannedOutageEvent, now: datetime.datetime) -> bool:
+def _ends_after(event: PlannedOutageEvent, now: dt.datetime) -> bool:
     """Return whether the event ends after now (an all-day one at its end date)."""
-    if isinstance(event.end, datetime.datetime):
+    if isinstance(event.end, dt.datetime):
         return event.end > now
     # The date of an all-day event is a day in Kyiv
     return event.end > now.astimezone(TZ_UA).date()
@@ -98,12 +98,12 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
             hass,
             LOGGER,
             name=DOMAIN,
-            update_interval=datetime.timedelta(minutes=UPDATE_INTERVAL),
+            update_interval=dt.timedelta(minutes=UPDATE_INTERVAL),
             config_entry=config_entry,
         )
         self.translations = {}
         self._previous_outage_events: list[PlannedOutageEvent] | None = None
-        self.outage_data_last_changed: datetime.datetime | None = None
+        self.outage_data_last_changed: dt.datetime | None = None
         self.group: str | None = None
         # Whether the source lists the group, or None until data that can tell arrives
         self.group_listed: bool | None = None
@@ -314,7 +314,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
     def _get_first_future_start(
         self,
         events: Sequence[PlannedOutageEvent | CalendarEvent],
-    ) -> datetime.date | datetime.datetime | None:
+    ) -> dt.date | dt.datetime | None:
         """Get the start time of the first future event."""
         now = dt_utils.as_local(dt_utils.now())
         # The date of an all-day event is a day in Kyiv
@@ -328,8 +328,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
 
     def _get_earliest_start_time(
         self,
-        candidates: list[datetime.date | datetime.datetime | None],
-    ) -> datetime.date | datetime.datetime | None:
+        candidates: list[dt.date | dt.datetime | None],
+    ) -> dt.date | dt.datetime | None:
         """Get the earliest start time from candidates, ignoring None values."""
         valid_candidates = [c for c in candidates if c is not None]
         return min(valid_candidates) if valid_candidates else None
@@ -357,7 +357,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         return None
 
     @property
-    def next_planned_outage(self) -> datetime.date | datetime.datetime | None:
+    def next_planned_outage(self) -> dt.date | dt.datetime | None:
         """Get the next planned outage time."""
         event = self._get_next_event_of_type(ConnectivityState.STATE_PLANNED_OUTAGE)
         return event.start if event else None
@@ -368,7 +368,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         return self._get_next_event_of_type(None)
 
     @property
-    def next_connectivity(self) -> datetime.date | datetime.datetime | None:
+    def next_connectivity(self) -> dt.date | dt.datetime | None:
         """Get next connectivity time."""
         current_event = self.get_current_event()
         current_state = self._event_to_state(current_event)
@@ -382,7 +382,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         return event.end if event else None
 
     @property
-    def next_scheduled_outage(self) -> datetime.date | datetime.datetime | None:
+    def next_scheduled_outage(self) -> dt.date | dt.datetime | None:
         """Get the next scheduled or planned outage time, whichever is nearest."""
         now = dt_utils.as_local(dt_utils.now())
 
@@ -412,7 +412,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         return self._event_to_state(event)
 
     @property
-    def schedule_updated_on(self) -> datetime.datetime | None:
+    def schedule_updated_on(self) -> dt.datetime | None:
         """Get the schedule last updated timestamp."""
         return self.api.get_updated_on()
 
@@ -430,15 +430,15 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         """Get the event at the present time."""
         return self.get_event_at(dt_utils.now())
 
-    def get_event_at(self, at: datetime.datetime) -> CalendarEvent | None:
+    def get_event_at(self, at: dt.datetime) -> CalendarEvent | None:
         """Get the event at a given time."""
         event = self.api.get_current_event(at)
         return self._get_calendar_event(event)
 
     def get_events_between(
         self,
-        start_date: datetime.datetime,
-        end_date: datetime.datetime,
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
         """Get all events."""
         events = self.api.get_events(start_date, end_date)
@@ -447,8 +447,8 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
 
     def get_scheduled_events_between(
         self,
-        start_date: datetime.datetime,  # noqa: ARG002  # a provider with a schedule reads it
-        end_date: datetime.datetime,  # noqa: ARG002  # a provider with a schedule reads it
+        start_date: dt.datetime,  # noqa: ARG002  # a provider with a schedule reads it
+        end_date: dt.datetime,  # noqa: ARG002  # a provider with a schedule reads it
     ) -> list[CalendarEvent]:
         """Get scheduled outage events: none for a provider without such a schedule."""
         return []
@@ -540,7 +540,7 @@ class IntegrationCoordinator(DataUpdateCoordinator[None]):
         LOGGER.debug("Fired %s event for %s", EVENT_DATA_CHANGED, self.group)
 
     def check_outage_data_changed(
-        self, current_events: list[PlannedOutageEvent], now: datetime.datetime
+        self, current_events: list[PlannedOutageEvent], now: dt.datetime
     ) -> bool:
         """
         Check whether the outages that end after now changed, and record the time.

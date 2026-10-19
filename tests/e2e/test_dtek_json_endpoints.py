@@ -1,6 +1,6 @@
 """End-to-end tests against the real DTEK JSON sources (real network access)."""
 
-import datetime
+import datetime as dt
 from unittest.mock import MagicMock
 
 import aiohttp
@@ -106,7 +106,7 @@ class TestJsonDtekAPIRealEndpoints:
                 pytest.skip(f"{provider_key}: no preset schedule {urls}")
 
             start = dt_utils.now()
-            end = start + datetime.timedelta(days=7)
+            end = start + dt.timedelta(days=7)
             for group in api.get_dtek_region_groups():
                 api.group = group
                 for event in api.get_scheduled_events(start, end):

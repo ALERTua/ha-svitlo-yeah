@@ -10,7 +10,7 @@ from .const import CONF_ACCOUNT_ID, CONF_ADDRESS_STR
 from .coordinator.coordinator import TIMEFRAME_TO_CHECK
 
 if TYPE_CHECKING:
-    import datetime
+    import datetime as dt
 
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.core import HomeAssistant
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCOUNT_ID, CONF_ADDRESS_STR}
 
 
-def _iso(value: datetime.datetime | datetime.date | None) -> str | None:
+def _iso(value: dt.datetime | dt.date | None) -> str | None:
     return value.isoformat() if value else None
 
 

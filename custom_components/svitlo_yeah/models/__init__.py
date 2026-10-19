@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from .providers import ESvitloProvider, SoeProvider, YasnoProvider
 
 if TYPE_CHECKING:
-    import datetime
+    import datetime as dt
 
 __all__ = [
     "ConnectivityState",
@@ -53,8 +53,8 @@ class PlannedOutageEvent:
     """Represents an outage event."""
 
     event_type: PlannedOutageEventType
-    start: datetime.datetime | datetime.date
-    end: datetime.datetime | datetime.date
+    start: dt.datetime | dt.date
+    end: dt.datetime | dt.date
     all_day: bool = False
 
 
