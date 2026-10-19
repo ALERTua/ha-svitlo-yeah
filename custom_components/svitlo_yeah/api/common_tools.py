@@ -2,7 +2,7 @@
 
 import datetime as dt
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import aiohttp
 from homeassistant.util import dt as dt_utils
@@ -20,6 +20,21 @@ LOGGER = logging.getLogger(__name__)
 
 # No usable answer: no connection, a timeout, or a body that is not JSON
 REQUEST_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
+
+
+class OutageApi(Protocol):
+    """The calls of the base coordinator to the API client of each provider."""
+
+    def get_events(
+        self, start_date: dt.datetime, end_date: dt.datetime
+    ) -> list[PlannedOutageEvent]:
+        """Return the outages that overlap the range."""
+
+    def get_current_event(self, at: dt.datetime) -> PlannedOutageEvent | None:
+        """Return the outage at the moment, or None."""
+
+    def get_updated_on(self) -> dt.datetime | None:
+        """Return when the source last updated the schedule, or None."""
 
 
 def parse_timestamp(timestamp_str: str) -> dt.datetime | None:
