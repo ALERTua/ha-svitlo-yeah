@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-from custom_components.svitlo_yeah.api.common_tools import start_moment
+from custom_components.svitlo_yeah.api.common_tools import OutageApi, start_moment
 from custom_components.svitlo_yeah.const import (
     DOMAIN,
     EVENT_DATA_CHANGED,
@@ -35,10 +35,6 @@ from custom_components.svitlo_yeah.models import (
 )
 
 if TYPE_CHECKING:
-    from custom_components.svitlo_yeah.api.dtek.base import DtekAPIBase
-    from custom_components.svitlo_yeah.api.e_svitlo import ESvitloClient
-    from custom_components.svitlo_yeah.api.soe import SoeClient
-    from custom_components.svitlo_yeah.api.yasno import YasnoApi
     from custom_components.svitlo_yeah.models.providers import BaseProvider
 
 LOGGER = logging.getLogger(__name__)
@@ -74,16 +70,16 @@ def store_key(entry_id: str) -> str:
 type SvitloYeahConfigEntry = ConfigEntry[IntegrationCoordinator]
 
 
-class IntegrationCoordinator[
-    ApiT: DtekAPIBase | YasnoApi | ESvitloClient | SoeClient,
-    ProviderIdT: str | int | None,
-](DataUpdateCoordinator[None]):
+class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
+    DataUpdateCoordinator[None]
+):
     """
     Base class to manage fetching outages data.
 
     The coordinator keeps no data of its own: the API client of each provider
     holds the schedule, so the data of the coordinator is None. Each provider
-    names the type of its API client and of its provider id.
+    names the type of its API client and of its provider id. The API client
+    has the methods of OutageApi, which the base class calls.
     """
 
     config_entry: SvitloYeahConfigEntry
