@@ -124,6 +124,7 @@ DTEK_PROVIDER_URLS: dict[str, list[str]] = {
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Chernihivoblenergo.json",
     ],
     "zaporizhzhia": [
+        "https://github.com/milkmann/gpv-zoe-zaporizhzhia/raw/main/data/Zaporizhzhiaoblenergo.json",
         "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zaporizhzhiaoblenergo.json",
     ],
     "vinnytsia": [
