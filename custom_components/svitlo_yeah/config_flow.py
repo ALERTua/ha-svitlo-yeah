@@ -464,6 +464,16 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 return None
         return self._show_address_form(errors)
 
+    def _city_id(self) -> int | None:
+        """Return the id of the chosen city, or None without a city."""
+        city = self._chosen.get(CONF_CITY)
+        return city.id if city else None
+
+    def _city_name(self) -> str | None:
+        """Return the name of the chosen city as Yasno writes it, or None."""
+        city = self._chosen.get(CONF_CITY)
+        return city.value if city else None
+
     async def _async_search_address(self) -> ConfigFlowResult:
         """Search the city and the street without a match, then show the houses."""
         api = self._yasno_api()
@@ -471,11 +481,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             items = await api.search_cities(self._typed[CONF_CITY])
             if (step := await self._async_take_match(CONF_CITY, items)) is not None:
                 return step
-        city = self._chosen.get(CONF_CITY)
-        city_id = city.id if city else None
-
         if CONF_STREET not in self._chosen:
-            items = await api.search_streets(self._typed[CONF_STREET], city_id)
+            items = await api.search_streets(self._typed[CONF_STREET], self._city_id())
             if (step := await self._async_take_match(CONF_STREET, items)) is not None:
                 return step
         # noinspection PyTypeChecker
@@ -543,8 +550,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if self.source != SOURCE_RECONFIGURE:
             return None
         current = YasnoAddress.from_entry_data(self._get_reconfigure_entry().data)
-        city = self._chosen.get(CONF_CITY)
-        chosen = (self._chosen[CONF_STREET].value, city.value if city else None)
+        chosen = (self._chosen[CONF_STREET].value, self._city_name())
         if current is None or (current.street, current.city) != chosen:
             return None
         return current.house
@@ -563,10 +569,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if listed := exact_matches(self._houses or [], text):
             return listed[0] if len(listed) == 1 else {CONF_HOUSE: "name_not_unique"}
         street = self._chosen[CONF_STREET]
-        city = self._chosen.get(CONF_CITY)
         # Yasno does not find a house that has a Latin letter in its number
         found = await api.search_houses(
-            street.id, cyrillic_look_alikes(text), city.id if city else None
+            street.id, cyrillic_look_alikes(text), self._city_id()
         )
         if found is None:
             return {"base": "yasno_no_answer"}
@@ -581,11 +586,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self, api: YasnoApi, house: YasnoAddressItem
     ) -> ConfigFlowResult:
         """Ask for the group of the chosen house, and save it with the address."""
-        city = self._chosen.get(CONF_CITY)
         street = self._chosen[CONF_STREET]
         self._chosen[CONF_HOUSE] = house
         result, group = await api.get_address_group(
-            street.id, house.id, city.id if city else None
+            street.id, house.id, self._city_id()
         )
         errors: dict[str, str] = {}
         if result is AddressResult.NOT_FOUND:
@@ -603,7 +607,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             address = YasnoAddress(
                 street=street.value,
                 house=house.value,
-                city=city.value if city else None,
+                city=self._city_name(),
             )
             if self.source == SOURCE_RECONFIGURE:
                 await self._async_keep_found_address(address)
@@ -703,8 +707,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             if self._houses is None:
                 # The first show of the form asks Yasno for the houses of the street
                 street = self._chosen[CONF_STREET]
-                city = self._chosen.get(CONF_CITY)
-                houses = await api.all_houses(street.id, city.id if city else None)
+                houses = await api.all_houses(street.id, self._city_id())
                 errors: dict[str, str] = {}
                 if houses is None:
                     errors["base"] = "yasno_no_answer"

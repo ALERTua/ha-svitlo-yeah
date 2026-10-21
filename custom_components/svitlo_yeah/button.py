@@ -14,7 +14,7 @@ from homeassistant.helpers import entity_registry as er
 from .api.yasno import AddressResult
 from .const import DOMAIN
 from .coordinator.yasno import YasnoCoordinator
-from .entity import IntegrationEntity
+from .entity import IntegrationEntity, registry_entity_id
 from .models import YasnoAddress
 
 if TYPE_CHECKING:
@@ -56,10 +56,8 @@ async def async_setup_entry(
         # A Reconfigure can take the address away, and the button of the address
         # stays in the registry. Home Assistant would show it as unavailable.
         registry = er.async_get(hass)
-        if entity_id := registry.async_get_entity_id(
-            Platform.BUTTON,
-            DOMAIN,
-            f"{config_entry.entry_id}_{CHECK_GROUP_BUTTON.key}",
+        if entity_id := registry_entity_id(
+            registry, Platform.BUTTON, config_entry.entry_id, CHECK_GROUP_BUTTON.key
         ):
             # The entity id has the address, so the log names the entry only
             LOGGER.debug("Remove the group button of entry %s", config_entry.entry_id)

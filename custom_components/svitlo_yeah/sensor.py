@@ -12,8 +12,8 @@ from homeassistant.components.sensor.const import SensorDeviceClass
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_PROVIDER_TYPE, DOMAIN, PROVIDER_TYPE_YASNO
-from .entity import IntegrationEntity
+from .const import CONF_PROVIDER_TYPE, PROVIDER_TYPE_YASNO
+from .entity import IntegrationEntity, registry_entity_id
 from .models import ConnectivityState, YasnoAddress
 
 if TYPE_CHECKING:
@@ -131,8 +131,8 @@ def _enable_group_sensor(
     if config_entry.pref_disable_new_entities:
         return
     registry = er.async_get(hass)
-    entity_id = registry.async_get_entity_id(
-        Platform.SENSOR, DOMAIN, f"{config_entry.entry_id}_{GROUP_SENSOR.key}"
+    entity_id = registry_entity_id(
+        registry, Platform.SENSOR, config_entry.entry_id, GROUP_SENSOR.key
     )
     entity = registry.async_get(entity_id) if entity_id else None
     if entity is None or entity.disabled_by is not er.RegistryEntryDisabler.INTEGRATION:

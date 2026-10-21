@@ -22,8 +22,17 @@ from .models import YasnoAddress
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
+    from homeassistant.const import Platform
+    from homeassistant.helpers import entity_registry as er
 
 LOGGER = logging.getLogger(__name__)
+
+
+def registry_entity_id(
+    registry: er.EntityRegistry, platform: Platform, entry_id: str, key: str
+) -> str | None:
+    """Return the entity id of an entity of the entry, by the key of its description."""
+    return registry.async_get_entity_id(platform, DOMAIN, f"{entry_id}_{key}")
 
 
 class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
