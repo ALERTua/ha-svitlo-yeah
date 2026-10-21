@@ -36,7 +36,6 @@ providing outage calendars, countdown timers, and status updates.
 | **Poltava and Oblast**         | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Poltavaoblenergo.json)                                                                                                                      |
 | **Rivne and Oblast**           | ROE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Rivneoblenergo.json)                                                                                                                        |
 | **Vinnytsia and Oblast**       | VOE      | [olnet93/gpv-voe-vinnytsia](https://github.com/olnet93/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json)<br/>[vn-progr/gpv-voe-vinnytsia](https://github.com/vn-progr/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json) |
-| **Sumy and Oblast**            | SOE      | [E-Svitlo API](https://sm.e-svitlo.com.ua/)                                                                                                                                                                                             |
 | **Sumy and Oblast**            | SOE      | [soe.com.ua](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules)                                                                                                                                                           |
 
 ## Installation
@@ -61,7 +60,7 @@ This integration is configurable via UI. On **Devices and Services** page, click
 
 ### Setup parameters
 
-Before you start, find your outage group on the website of your provider. A Yasno provider (Kyiv or Dnipro) can find the group for you: you give the address of your house, and the integration asks Yasno for the group. See [Yasno address](#yasno-address). Sumy and Oblast has two options. «SOE — Sumy and Oblast — SOE» needs no login: find your sub-queue by address on [the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules). «E-Svitlo — Sumy and Oblast — SOE» needs the login and the password of your E-Svitlo personal cabinet instead, because E-Svitlo gives the group of your personal account. See [Sumy and Oblast (soe.com.ua)](#sumy-and-oblast-soecomua).
+Before you start, find your outage group on the website of your provider. A Yasno provider (Kyiv or Dnipro) can find the group for you: you give the address of your house, and the integration asks Yasno for the group. See [Yasno address](#yasno-address). For «SOE — Sumy and Oblast — SOE», find your sub-queue by address on [the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules). See [Sumy and Oblast (soe.com.ua)](#sumy-and-oblast-soecomua).
 
 | Step | Field | Description |
 |---|---|---|
@@ -73,15 +72,12 @@ Before you start, find your outage group on the website of your provider. A Yasn
 | Select your city, Select your street | City, Street | Shows when more than one name matches. The list has at most 20 names. Its last option is «My city is not in the list, search again» or «My street is not in the list, search again». |
 | Select your house | House | A dropdown with a search box. It lists all houses of the street. Select your house, or type its number. The first option, «This is not my street, search again», goes back to the address form. |
 | Settings | Select your group | Your outage group, for example `1.1`. Find it on the website of your provider, for example [Yasno](https://static.yasno.ua/kyiv/outages) or [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). For DTEK Dnipro, the list shows a CEK group with its number in the source, for example «ЦЕК 1.1 (1001.1)». |
-| E-Svitlo Authentication | Username | The login of your [E-Svitlo personal cabinet](https://sm.e-svitlo.com.ua/). |
-| E-Svitlo Authentication | Password | The password of your E-Svitlo personal cabinet. |
-| Select Account | Account | The personal account (address) whose outage schedule the entry shows. For another address, add one more entry. |
 
-Each region and group is a separate entry, and so is each Yasno address. To change the group of a DTEK or soe.com.ua entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again. Reconfigure does not change an E-Svitlo entry, because E-Svitlo gives the group of the personal account. For another personal account, delete the entry and add it again.
+Each region and group is a separate entry, and so is each Yasno address. To change the group of a DTEK or soe.com.ua entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again.
 
 For a Yasno entry, **Reconfigure** shows the same menu as the setup. **By address** suggests the current street (and city), and then the current house, so a check of the same address takes two clicks. **By group** preselects the current group. A group entry can get an address, and an address entry can go back to a group. Then it loses the **Update group** button, and it keeps the **Group** sensor. A new address in the same group is saved. Reconfigure ends with «Nothing changed» only when the group and the address are the same.
 
-The integration gives a new entry the name of its device in the language of your Home Assistant, for example «Київ ДТЕК 52.1». An entry with an address, and its device, get the address as the name, for example «вул. Хрещатик, 36». In a region with cities, the name starts with the city, for example «м. Дніпро, вул. Грушевського Михайла, 1». The entity IDs come from the address too, for example `sensor.vul_khreshchatik_36_electricity`, so a new group does not change them. The name of an E-Svitlo entry has no address, for example «Суми E-Svitlo», and the name of its device has none either, for example «Суми E-Svitlo 4.1». The device of an E-Svitlo entry from an earlier version gets this name at the next start of Home Assistant, but its entity IDs stay. The same happens to the English name of a DTEK Kyiv Oblast device: «Kyiv Region 1.1» becomes «Kyiv Oblast 1.1». To update the entity IDs, open the device and select **Recreate entity IDs**. Reconfigure puts the new group or the new address into a name that the integration gave, and keeps a name that you gave. An entry from an earlier version keeps the name «Svitlo Yeah | Світло Є» until you rename it or Reconfigure changes its group or address.
+The integration gives a new entry the name of its device in the language of your Home Assistant, for example «Київ ДТЕК 52.1». An entry with an address, and its device, get the address as the name, for example «вул. Хрещатик, 36». In a region with cities, the name starts with the city, for example «м. Дніпро, вул. Грушевського Михайла, 1». The entity IDs come from the address too, for example `sensor.vul_khreshchatik_36_electricity`, so a new group does not change them. The English name of a DTEK Kyiv Oblast device from an earlier version changes at the next start of Home Assistant: «Kyiv Region 1.1» becomes «Kyiv Oblast 1.1», but its entity IDs stay. To update the entity IDs, open the device and select **Recreate entity IDs**. Reconfigure puts the new group or the new address into a name that the integration gave, and keeps a name that you gave. An entry from an earlier version keeps the name «Svitlo Yeah | Світло Є» until you rename it or Reconfigure changes its group or address.
 
 <details>
 <summary>Screenshots of the setup</summary>
@@ -160,10 +156,6 @@ The outdated data serves only the choice of the group, and the integration does 
 ### Sumy and Oblast (soe.com.ua)
 
 The option «SOE — Sumy and Oblast — SOE» reads the schedule that the site of Sumyoblenergo shows. The site gives the schedule of the current day only, so the calendar and the next-outage sensors show the outages of tomorrow after midnight. A sub-queue without outages has an empty list on the site, and the **Electricity** sensor shows normal for it. If the site stops listing your sub-queue, the sensor shows unknown, and **Settings** → **Repairs** shows a warning. The site has no emergency schedules (ГАВ), which use other queue numbers. When Sumyoblenergo applies them, the hourly schedule on the site and in the integration does not apply.
-
-### E-Svitlo refuses the login
-
-If E-Svitlo refuses the login of an entry, for example after you change the password, Home Assistant shows a notification on the **Devices & services** page. Open it, and enter the current login and password. The new login must have access to the personal account of the entry. Until then, the entities show the last schedule, and the integration tries the old login at each update. If E-Svitlo refuses the login only for a while, for example during maintenance, the next update that logs in brings the schedule back by itself, and the notification disappears.
 
 ### Here's how the devices look
 
@@ -314,7 +306,7 @@ The event has no address, because the recorder of Home Assistant keeps each even
 
 ## Data updates
 
-The integration asks the source of each entry for the outage schedule every 15 minutes. The source is the Yasno API, the E-Svitlo API, or a JSON file on GitHub that a community project updates for a DTEK region (see [Supported Regions](#supported-regions)). Between two updates, each entity changes its state exactly at the start and at the end of an outage, without a new request. To update now, press the **Force refresh now** button of the entry, or call the `homeassistant.update_entity` action on one of its entities. The integration also checks the group of each address entry once a week, after a regular update. See [New Yasno group of an address](#new-yasno-group-of-an-address).
+The integration asks the source of each entry for the outage schedule every 15 minutes. The source is the Yasno API or a JSON file on GitHub that a community project updates for a DTEK region (see [Supported Regions](#supported-regions)). Between two updates, each entity changes its state exactly at the start and at the end of an outage, without a new request. To update now, press the **Force refresh now** button of the entry, or call the `homeassistant.update_entity` action on one of its entities. The integration also checks the group of each address entry once a week, after a regular update. See [New Yasno group of an address](#new-yasno-group-of-an-address).
 
 The integration keeps the last schedule of each entry, also across a restart of Home Assistant. If the source does not answer, or a DTEK source has no data newer than 2 days, the entities keep the last schedule until the source gives fresh data. The integration then writes one line to the log, and one more line when the source answers again.
 
@@ -322,10 +314,9 @@ The integration keeps the last schedule of each entry, also across a restart of 
 
 - The **Next Planned Outage**, **Next Scheduled Outage** and **Next Connectivity** sensors look 24 hours ahead. An outage that starts later shows only in the calendars.
 - A DTEK JSON source is a community copy of the DTEK schedule. It can come later than the website of DTEK, and it has no emergency outages.
-- E-Svitlo serves Sumy and Sumy Oblast only.
 - The update interval is 15 minutes, and you cannot change it.
 - Reconfigure changes the group of an entry, or the address of a Yasno entry, but not its entity IDs. To update them, open the device and select **Recreate entity IDs**.
-- One entry shows one group: the group that you selected, the group of its Yasno address, or the group of its E-Svitlo personal account. For another group, address or account, add one more entry.
+- One entry shows one group: the group that you selected, or the group of its Yasno address. For another group or address, add one more entry.
 - Only the Yasno regions (Kyiv and Dnipro) can find a group by address.
 - The weekly check of an address can find a new group up to a week late. A second check one hour later must confirm it. To switch at once, press **Update group**.
 
@@ -380,9 +371,14 @@ The integration keeps the last schedule of each entry, also across a restart of 
 </details>
 
 <details>
-<summary>E-Svitlo asks to sign in again</summary>
+<summary>The entry does not load, and Repairs shows «Version 0.11.0 removed the source of …»</summary>
 
-**Resolution:** see [E-Svitlo refuses the login](#e-svitlo-refuses-the-login).
+**Description:** the entry uses E-Svitlo, a source that version 0.11.0 of the integration removed. The source stopped giving the outage schedule to other programs. The outage section of [sm.e-svitlo.com.ua](https://sm.e-svitlo.com.ua/) is empty, and the site sends each user to [the schedule on the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules). No other open source of the Sumy schedule exists, so the integration has no replacement for this entry. The integration does not delete the entry itself.
+
+**Resolution:**
+
+1. Go to **Settings** → **Devices & services** → **Svitlo Yeah!**.
+2. Next to the entry, select the three dots **⋮** menu, and select **Delete**. The repair message disappears with the entry.
 
 </details>
 
@@ -400,14 +396,14 @@ To report a problem, get the debug log and the diagnostics, as the [troubleshoot
 1. Go to **Settings** → **Devices & services** → **Svitlo Yeah!**. Open the three dots **⋮** menu at the top right, and select **Enable debug logging**.
 2. Make the problem happen again, for example press **Force refresh now**.
 3. In the same menu, select **Disable debug logging**, and save the log file.
-4. Open the menu of the entry, and select **Download diagnostics**. The diagnostics do not include the E-Svitlo login, password, personal account or address. They do not include the city, the street or the house of a Yasno address either. The log has no Yasno address: it names the entry by its ID.
+4. Open the menu of the entry, and select **Download diagnostics**. The diagnostics do not include the city, the street or the house of a Yasno address. The log has no Yasno address: it names the entry by its ID.
 5. Open an issue on [GitHub](https://github.com/ALERTua/ha-svitlo-yeah/issues), and attach both files.
 
 ## Removing the integration
 
 This integration follows standard integration removal. Each entry keeps its last schedule in the storage of Home Assistant. When you delete an entry, Home Assistant removes its device and its entities. The integration removes its repair issues, its stored schedule and its notification about a new group.
 
-Each provider and group is a separate entry, and so are each Yasno address and each E-Svitlo account. To remove an entry:
+Each provider and group is a separate entry, and so is each Yasno address. To remove an entry:
 
 1. Go to **Settings** → **Devices & services**, and select the **Svitlo Yeah!** card.
 2. Next to the entry that you want to remove, select the three dots **⋮** menu.

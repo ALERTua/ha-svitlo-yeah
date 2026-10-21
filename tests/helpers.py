@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, MagicMock
 from aiohttp import ClientError
 
 from custom_components.svitlo_yeah.const import (
-    CONF_ACCOUNT_ID,
-    CONF_ADDRESS_STR,
     CONF_GROUP,
     CONF_HOUSE,
     CONF_PROVIDER,
@@ -17,9 +15,7 @@ from custom_components.svitlo_yeah.const import (
     CONF_REGION,
     CONF_STREET,
     DTEK_PROVIDER_URLS,
-    E_SVITLO_SUMY_BASE_URL,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
     SOE_SCHEDULE_URL,
@@ -79,20 +75,16 @@ YASNO_ENTRY_NOT_FOUND_REPLY = {
     "json": {"code": "EntryNotFound", "detail": "House 41362 not found"},
 }
 
-E_SVITLO_ACCOUNT_101 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO,
+# An entry of E-Svitlo, which release 0.11.0 removed, as an earlier config flow wrote
+# it: the login, the personal account and its address. Each value is made up.
+REMOVED_E_SVITLO_ENTRY = {
+    CONF_PROVIDER_TYPE: "e-svitlo",
     CONF_PROVIDER: "sumy",
     "username": "user",
     "password": "secret",
-    CONF_ACCOUNT_ID: "101",
-    CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
+    "account_id": "101",
+    "address_str": "Суми, вул. Тестова, 0",
 }
-E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
-E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
-E_SVITLO_DETAILS_URL = E_SVITLO_SUMY_BASE_URL + "/api_main_reg/all_details_ls_api.json"
-E_SVITLO_DISCONNECTIONS_URL = (
-    E_SVITLO_SUMY_BASE_URL + "api_main/get_user_disconnections_image_api.json"
-)
 
 SOE_SUMY_4_1 = {
     CONF_PROVIDER_TYPE: PROVIDER_TYPE_SOE,
@@ -128,18 +120,6 @@ def yasno_outage_all_day_today() -> dict:
                 "status": "ScheduleApplies",
             },
             "updatedOn": today.isoformat(),
-        }
-    }
-
-
-def e_svitlo_outage_all_day_today() -> dict:
-    """Build an E-Svitlo answer with an outage all day today, updated at 10:00."""
-    today = datetime.now(TZ_UA)
-    return {
-        "data": {
-            "date_today": today.strftime("%d.%m.%Y"),
-            "lst_time_disc": [{"start_time": "00:00", "end_time": "23:59"}],
-            "last_update": f"Оновлено: {today:%d.%m.%Y} 10:00",
         }
     }
 
@@ -218,18 +198,6 @@ def yasno_address_answers(
     aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "group", **group)
 
 
-def e_svitlo_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the E-Svitlo login and disconnections, or fail the disconnections."""
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    if answer:
-        aioclient_mock.post(
-            E_SVITLO_DISCONNECTIONS_URL, json=e_svitlo_outage_all_day_today()
-        )
-    else:
-        aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, exc=ClientError())
-
-
 # For each provider: the entry data, and a function that makes its source
 # answer with an outage all day today, or fail
 PROVIDERS = {
@@ -242,10 +210,6 @@ PROVIDERS = {
     "yasno": (
         YASNO_KYIV_1_1,
         lambda mock, *, answer: yasno_answers(mock, answer=answer),
-    ),
-    "e_svitlo": (
-        E_SVITLO_ACCOUNT_101,
-        lambda mock, *, answer: e_svitlo_answers(mock, answer=answer),
     ),
     "soe": (
         SOE_SUMY_4_1,

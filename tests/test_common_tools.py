@@ -21,7 +21,7 @@ def _kyiv(day: int, hour: int, minute: int = 0) -> dt.datetime:
 
 
 class TestParsePeriods:
-    """The periods of E-Svitlo and of the site of SOE give the outages of one day."""
+    """The periods of the site of SOE give the outages of one day."""
 
     @pytest.mark.parametrize(
         ("start", "end", "expected"),

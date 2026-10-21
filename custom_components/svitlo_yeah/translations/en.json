@@ -2,18 +2,14 @@
   "title": "Svitlo Yeah!",
   "config": {
     "abort": {
-      "already_configured": "The integration already has an entry for this group of this provider, for this address, or for this E-Svitlo account.",
+      "already_configured": "The integration already has an entry for this group of this provider, or for this address.",
       "reconfigure_successful": "The entry now uses the new group or the new address. To update the entity IDs, open the device and select Recreate entity IDs.",
       "reconfigure_unchanged": "The entry already uses this group and this address. Nothing changed.",
-      "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
-      "no_accounts_found": "No accounts found",
-      "e_svitlo_connection_error": "Failed to get the accounts from E-Svitlo.\nThe E-Svitlo server is unreachable, or it answered with an error.\nMake sure that Home Assistant can connect to the Internet, and try again later.",
+      "provider_removed": "Version 0.11.0 of the integration removed the source {provider}, so Reconfigure cannot change this entry. The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. Delete this entry: go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete.",
       "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
       "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}",
-      "soe_unavailable": "Failed to get the sub-queues from the site of Sumyoblenergo.\nThe site is unreachable, or its answer has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
-      "reauth_successful": "The entry now uses the new login.",
-      "wrong_account": "This login has no access to the personal account of this entry. Sign in with the login that owns this personal account."
+      "soe_unavailable": "Failed to get the sub-queues from the site of Sumyoblenergo.\nThe site is unreachable, or its answer has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}"
     },
     "step": {
       "user": {
@@ -87,28 +83,6 @@
           "group": "Find your group at: {url}"
         }
       },
-      "esvitlo_auth": {
-        "title": "E-Svitlo Authentication",
-        "description": "Enter your E-Svitlo credentials",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        },
-        "data_description": {
-          "username": "Use login and password from E-Svitlo personal cabinet: {esvitlo_url}",
-          "password": "The password of your E-Svitlo personal cabinet."
-        }
-      },
-      "esvitlo_account": {
-        "title": "Select Account",
-        "description": "Select the account (address) to monitor",
-        "data": {
-          "account_id": "Account"
-        },
-        "data_description": {
-          "account_id": "The personal account (address) whose outage schedule the integration shows. For another address, add one more integration entry."
-        }
-      },
       "stale_confirm": {
         "title": "Outdated schedule data",
         "description": "No fresh outage data is available right now. The source last updated the schedule on {updated}.\n\nYou can pick a group from this outdated schedule, but once outages resume please double-check that your group assignment has not changed.",
@@ -118,23 +92,9 @@
         "data_description": {
           "acknowledge": "To continue with the outdated schedule, select this checkbox."
         }
-      },
-      "reauth_confirm": {
-        "title": "Sign in to E-Svitlo again",
-        "description": "E-Svitlo refused the login of this entry. Enter the current login and password of your E-Svitlo personal cabinet. Until then, the entities show the last schedule. If E-Svitlo has maintenance now, you can also wait: the integration tries the old login at each update.",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        },
-        "data_description": {
-          "username": "The login of your E-Svitlo personal cabinet: {esvitlo_url}",
-          "password": "The current password of your E-Svitlo personal cabinet."
-        }
       }
     },
     "error": {
-      "invalid_auth": "Invalid username or password",
-      "cannot_connect": "Failed to connect to E-Svitlo. Make sure that Home Assistant can connect to the Internet, and try again.",
       "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it.",
       "street_too_short": "Enter at least 3 letters of the street name.",
       "city_not_found": "Yasno does not know this city.",
@@ -154,9 +114,6 @@
     },
     "device_name_dtek": {
       "name": "{provider_name} {group}"
-    },
-    "device_name_e_svitlo": {
-      "name": "{region_name} {provider_name} {group}"
     },
     "device_name_soe": {
       "name": "{region_name} {provider_name} {group}"
@@ -182,7 +139,6 @@
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
-        "esvitloprovider_sumy": "E-Svitlo — Sumy and Oblast — SOE",
         "soeprovider_sumy": "SOE — Sumy and Oblast — SOE"
       }
     },
@@ -256,14 +212,15 @@
     "address_not_found": {
       "title": "Yasno does not find the address of {entry}",
       "description": "Yasno does not know the address of the entry «{entry}» any more. The integration keeps the schedule of the group {group}. Look for the address on the Yasno site: {url}. To give the entry the address as Yasno writes it now, go to Settings > Devices & services > {integration}, open the menu of this entry, select Reconfigure, and then select By address.\n\nThis message disappears when Yasno finds the address again."
+    },
+    "provider_removed": {
+      "title": "Version 0.11.0 removed the source of {entry}",
+      "description": "Version 0.11.0 of the integration removed the source {provider}, so the integration cannot load the entry «{entry}». The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. To delete the entry, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete.\n\nThis message disappears when you delete the entry."
     }
   },
   "exceptions": {
     "refresh_failed": {
       "message": "Failed to get a new outage schedule, because the source did not answer. The entities keep the last schedule. Make sure that Home Assistant can connect to the Internet, and try again later."
-    },
-    "login_rejected": {
-      "message": "E-Svitlo refused the login. To enter the current password, go to Settings > Devices & services. If E-Svitlo has maintenance now, try again later."
     },
     "check_group_failed": {
       "message": "Yasno does not answer, so the group stays. Try again in a few minutes."
@@ -286,8 +243,8 @@
     "entry_without_group": {
       "message": "This entry has no group. Delete the entry and add it again."
     },
-    "entry_without_login": {
-      "message": "This E-Svitlo entry has no login or password. Delete the entry and add it again."
+    "provider_removed": {
+      "message": "Version 0.11.0 of the integration removed the source {provider}. The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. Delete this entry: go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete."
     }
   },
   "common": {

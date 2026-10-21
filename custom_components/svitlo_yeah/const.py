@@ -10,8 +10,6 @@ NAME: Final = "Svitlo Yeah | Світло Є"
 CONF_REGION: Final = "region"
 CONF_PROVIDER: Final = "provider"
 CONF_GROUP: Final = "group"
-CONF_ACCOUNT_ID: Final = "account_id"
-CONF_ADDRESS_STR: Final = "address_str"
 CONF_PROVIDER_TYPE: Final = "provider_type"
 # The optional keys of a Yasno entry with an address. Each holds the text that Yasno
 # writes, never an id, because Yasno changes its ids. A group entry has none of them.
@@ -25,8 +23,9 @@ CONF_HOUSE: Final = "house"
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"
 PROVIDER_TYPE_DTEK_JSON: Final = "dtek_json"
-PROVIDER_TYPE_E_SVITLO: Final = "e-svitlo"
 PROVIDER_TYPE_SOE: Final = "soe"
+# The provider types that release 0.11.0 removed, with the name that the texts show
+REMOVED_PROVIDERS: Final[dict[str, str]] = {"e-svitlo": "E-Svitlo"}
 
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
@@ -75,12 +74,10 @@ BLOCK_KEY_STATUS: Final = "status"
 DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"
 DEVICE_NAME_DTEK_TRANSLATION_KEY = "device_name_dtek"
 DEVICE_MANUFACTURER = NAME
-DEVICE_NAME_E_SVITLO_TRANSLATION_KEY = "device_name_e_svitlo"
 DEVICE_NAME_SOE_TRANSLATION_KEY = "device_name_soe"
 PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_YASNO: DEVICE_NAME_YASNO_TRANSLATION_KEY,
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
-    PROVIDER_TYPE_E_SVITLO: DEVICE_NAME_E_SVITLO_TRANSLATION_KEY,
     PROVIDER_TYPE_SOE: DEVICE_NAME_SOE_TRANSLATION_KEY,
 }
 
@@ -102,14 +99,7 @@ TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = common_translation_key(
 # Repair issues: the translation key, and the prefix of the issue id
 ISSUE_GROUP_NOT_LISTED: Final = "group_not_listed"
 ISSUE_ADDRESS_NOT_FOUND: Final = "address_not_found"
-
-# E-Svitlo Constants
-# The site of the personal cabinet, which the login forms name
-E_SVITLO_URL: Final = "https://sm.e-svitlo.com.ua/"
-E_SVITLO_SUMY_BASE_URL: Final = (
-    "https://sm.e-svitlo.com.ua/ip_cabinet/restfull_api/improvise/"
-)
-E_SVITLO_ERROR_NOT_LOGGED_IN: Final = "Ви не увійшли до кабінету"
+ISSUE_PROVIDER_REMOVED: Final = "provider_removed"
 
 # SOE (Sumyoblenergo) Constants
 # The page of the hourly schedules, where a user finds the sub-queue of an address
