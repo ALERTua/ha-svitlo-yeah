@@ -1,6 +1,8 @@
 """Yasno API client for Svitlo Yeah integration."""
 
+import asyncio
 import logging
+import re
 from datetime import datetime, timedelta
 from enum import StrEnum
 from http import HTTPStatus
@@ -22,6 +24,7 @@ from custom_components.svitlo_yeah.const import (
     TZ_UA,
     YASNO_ADDRESS_MATCHES_CAP,
     YASNO_ADDRESSES_ENDPOINT,
+    YASNO_HOUSE_LIST_REQUESTS_MAX,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -44,6 +47,19 @@ from .common_tools import (
 LOGGER = logging.getLogger(__name__)
 
 _TIMEOUT_SECS: Final = 60
+
+# The list of the houses of a street asks this many requests at the same time
+_HOUSE_REQUESTS_AT_ONCE: Final = 5
+# The list of the houses of a street asks one query for each digit
+_DIGITS: Final = "0123456789"
+# The number at the start of the number of a house, for the natural order
+_LEADING_NUMBER = re.compile(r"\d+")
+# The kind of a place at the start of its name: a word with a dot, with or without
+# a space after it («вул. Хрещатик», «м.Дніпро»), or the kinds of a settlement and of
+# a town, which stand with a space
+_PLACE_KIND = re.compile(
+    r"^(?:\w+(?:-\w+)?\.\s*|(?:смт|с-ще)\s+)"  # noqa: RUF001  # the Cyrillic kinds
+)
 
 # Yasno does not find a house when a letter of its number is Latin. Each Latin
 # letter on the left looks like the Cyrillic letter at the same place on the right.
@@ -87,6 +103,16 @@ def normalize_name(name: str) -> str:
     return cyrillic_look_alikes(" ".join(name.split()).casefold())
 
 
+def name_without_kind(name: str) -> str:
+    """
+    Return the normal form of the name without the kind of the place at its start.
+
+    «вул. Хрещатик» gives «хрещатик», and «м. Дніпро» gives «дніпро». Only one kind
+    goes away: a second word with a dot stays.
+    """
+    return _PLACE_KIND.sub("", normalize_name(name), count=1)
+
+
 def exact_matches(items: list[YasnoAddressItem], name: str) -> list[YasnoAddressItem]:
     """Return the items whose value is the name, as normalize_name reads both."""
     wanted = normalize_name(name)
@@ -108,6 +134,18 @@ def _address_items(answer: object) -> list[YasnoAddressItem] | None:
             return None
         items.append(YasnoAddressItem(id=item["id"], value=item["value"]))
     return items
+
+
+def _house_order(house: YasnoAddressItem) -> tuple[int, int, str]:
+    """
+    Return the key of a house for the natural order: 2, 6, 6Б, 10, 10Б.
+
+    The number at the start comes first, as a number, and the rest of the value
+    follows. A value without a number at the start goes last.
+    """
+    if number := _LEADING_NUMBER.match(house.value):
+        return 0, int(number[0]), house.value[number.end() :].casefold()
+    return 1, 0, house.value.casefold()
 
 
 def _one_match(
@@ -633,6 +671,47 @@ class YasnoApi:
         return await self._search_address(
             "houses", city_id, streetId=street_id, query=query.strip()
         )
+
+    async def all_houses(
+        self, street_id: int, city_id: int | None = None
+    ) -> list[YasnoAddressItem] | None:
+        """
+        Return all houses of a street in the natural order, or None without an answer.
+
+        Yasno gives at most YASNO_ADDRESS_MATCHES_CAP houses for one query, and it
+        finds a query inside the number of a house. So the search asks one query for
+        each digit, and a query that got the cap gets ten longer ones: the query and
+        each digit. A wave of queries runs at the same time, a few requests at once.
+        Any query without a sure answer gives None. After
+        YASNO_HOUSE_LIST_REQUESTS_MAX requests the search stops, and it returns the
+        houses that it found.
+        """
+        semaphore = asyncio.Semaphore(_HOUSE_REQUESTS_AT_ONCE)
+
+        async def search(query: str) -> list[YasnoAddressItem] | None:
+            async with semaphore:
+                return await self.search_houses(street_id, query, city_id)
+
+        houses: dict[int, YasnoAddressItem] = {}
+        queries = list(_DIGITS)
+        asked = 0
+        while queries:
+            room = YASNO_HOUSE_LIST_REQUESTS_MAX - asked
+            if room <= 0:
+                # The log has the number of requests only, never an address
+                LOGGER.debug("The list of houses stops after %s requests", asked)
+                break
+            wave, queries = queries[:room], queries[room:]
+            asked += len(wave)
+            answers = await asyncio.gather(*(search(query) for query in wave))
+            for query, answer in zip(wave, answers, strict=True):
+                if answer is None:
+                    return None
+                for house in answer:
+                    houses.setdefault(house.id, house)
+                if len(answer) >= YASNO_ADDRESS_MATCHES_CAP:
+                    queries.extend(query + digit for digit in _DIGITS)
+        return sorted(houses.values(), key=_house_order)
 
     async def get_address_group(
         self, street_id: int, house_id: int, city_id: int | None = None

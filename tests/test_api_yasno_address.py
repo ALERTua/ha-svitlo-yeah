@@ -1,12 +1,17 @@
 """Tests for the address search of the Yasno client."""
 
+import asyncio
 import logging
+import re
 from urllib.parse import quote
 
 import aiohttp
 import pytest
 from aiohttp import ClientError
 from multidict import CIMultiDict, CIMultiDictProxy
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMockResponse,
+)
 from yarl import URL
 
 from custom_components.svitlo_yeah.api.yasno import (
@@ -14,6 +19,7 @@ from custom_components.svitlo_yeah.api.yasno import (
     YasnoApi,
     cyrillic_look_alikes,
     exact_matches,
+    name_without_kind,
     normalize_name,
 )
 from custom_components.svitlo_yeah.const import (
@@ -27,7 +33,10 @@ from custom_components.svitlo_yeah.models import (
 )
 
 # Yasno writes the number of a house with a Cyrillic letter
-HOUSE_6A = "6\N{CYRILLIC CAPITAL LETTER A}"
+LETTER_A = "\N{CYRILLIC CAPITAL LETTER A}"
+HOUSE_6A = f"6{LETTER_A}"
+# The kind of a village is one letter, and ruff reads it as the Latin letter
+VILLAGE = "\N{CYRILLIC SMALL LETTER ES}"
 HOUSE_6A_LATIN = "6A"
 
 # The measured chain of Київ (region 25, DSO 902): street, house, group
@@ -129,6 +138,48 @@ def _others(count: int) -> list[dict]:
     return [{"id": 9000 + _, "value": f"вул. Інша {_}"} for _ in range(count)]
 
 
+def _houses_endpoint(mock, answer) -> None:
+    """
+    Serve the houses with a function: it gets the query, and gives the reply.
+
+    The mock answers a request with a query that no mock holds with an error, so
+    one function answers each query of a search of all houses.
+    """
+
+    async def side_effect(method, url, _data):
+        return AiohttpClientMockResponse(method, url, **answer(url.query["query"]))
+
+    mock.get(_url("houses"), side_effect=side_effect)
+
+
+def _natural(value: str) -> tuple[int, str]:
+    """Return the order of Yasno: by the number at the start, no number last."""
+    number = re.match(r"\d+", value)
+    return (int(number[0]), value) if number else (10**9, value)
+
+
+def _as_yasno(values: list[str]):
+    """
+    Return the function that answers a query as the houses endpoint of Yasno does.
+
+    The answer holds the houses with the query in their number, in numeric order,
+    and at most as many as the cap. The id of a house follows its value.
+    """
+    houses = [{"id": 40000 + n, "value": value} for n, value in enumerate(values)]
+    houses.sort(key=lambda house: _natural(house["value"]))
+
+    def answer(query: str) -> dict:
+        found = [_ for _ in houses if query.casefold() in _["value"].casefold()]
+        return {"json": found[:YASNO_ADDRESS_MATCHES_CAP]}
+
+    return answer
+
+
+def _queries(mock) -> list[str]:
+    """Return the query of each request that went out, in order."""
+    return [query["query"] for _, query in _requests(mock)]
+
+
 # The mock must patch the creation of the session before the client takes its session
 @pytest.fixture(name="kyiv")
 def _kyiv(hass, aioclient_mock) -> YasnoApi:  # noqa: ARG001
@@ -168,6 +219,42 @@ def _dnipro(hass, aioclient_mock) -> YasnoApi:  # noqa: ARG001
 def test_normalize_name(name, normal):
     """Two writings of one name give one normal form."""
     assert normalize_name(name) == normal
+
+
+@pytest.mark.parametrize(
+    ("name", "bare"),
+    [
+        pytest.param("вул. Хрещатик", "хрещатик", id="street"),
+        pytest.param("м. Дніпро", "дніпро", id="city"),
+        pytest.param(f"{VILLAGE}. Дніпрове", "дніпрове", id="village"),
+        pytest.param("пров. Тестовий", "тестовий", id="lane"),
+        pytest.param("просп. Перемоги", "перемоги", id="avenue"),
+        pytest.param("бульв. Лесі Українки", "лесі українки", id="boulevard"),
+        pytest.param("пл. Ринок", "ринок", id="square"),
+        pytest.param("наб. Дніпровська", "дніпровська", id="embankment"),
+        pytest.param("вул.Садова 30", "садова 30", id="no_space_after_the_dot"),
+        pytest.param("  ВУЛ.   Хрещатик ", "хрещатик", id="case_and_spaces"),
+        pytest.param("Хрещатик", "хрещатик", id="no_kind"),
+        pytest.param("Нова Каховка", "нова каховка", id="no_kind_two_words"),
+        pytest.param(f"{VILLAGE}-ще. Нове", "нове", id="hyphen_word_with_a_dot"),
+        pytest.param(f"{VILLAGE}-ще Нове", "нове", id="settlement_with_a_space"),
+        pytest.param("смт Нова Каховка", "нова каховка", id="town_with_a_space"),
+        pytest.param("смт. Нова Каховка", "нова каховка", id="town_with_a_dot"),
+        # One kind goes away: the rest keeps its words, also a second word with a dot
+        pytest.param("вул. Л. Українки", "л. українки", id="only_one_kind"),
+        pytest.param("вул. вул. Тестова", "вул. тестова", id="the_kind_twice"),
+        pytest.param(
+            "вул. \N{LATIN CAPITAL LETTER C}верстюка",
+            "сверстюка",
+            id="latin_letter_in_a_word",
+        ),
+        pytest.param("вул.", "", id="only_the_kind"),
+        pytest.param("", "", id="empty"),
+    ],
+)
+def test_name_without_kind(name, bare):
+    """The normal form of a name loses the kind of the place that stands first."""
+    assert name_without_kind(name) == bare
 
 
 def test_exact_matches_are_the_items_with_the_name():
@@ -600,6 +687,202 @@ async def test_resolve_address_skips_the_city_of_an_address_without_one(
     assert all("cityId" not in query for _, query in requests)
 
 
+class TestAllHouses:
+    """All houses of a street: one query for each digit, and more for a cut answer."""
+
+    async def test_a_short_street_takes_one_query_for_each_digit(
+        self, kyiv, aioclient_mock
+    ):
+        """No answer has the cap, so the ten digits are all the requests."""
+        values = ["1", "2", "6", HOUSE_6A, "10", "12Б"]
+        _houses_endpoint(aioclient_mock, _as_yasno(values))
+
+        houses = await kyiv.all_houses(1647)
+
+        assert [_.value for _ in houses] == values
+        assert _queries(aioclient_mock) == list("0123456789")
+        base = {"regionId": "25", "dsoId": "902", "streetId": "1647"}
+        assert all(
+            query == base | {"query": query["query"]}
+            for _, query in _requests(aioclient_mock)
+        )
+
+    async def test_a_street_of_a_city_asks_with_the_city(self, dnipro, aioclient_mock):
+        """Each query of a street in a region with cities holds the id of the city."""
+        _houses_endpoint(aioclient_mock, _as_yasno(["1"]))
+
+        houses = await dnipro.all_houses(644, 6)
+
+        assert houses == [YasnoAddressItem(id=40000, value="1")]
+        assert len(_requests(aioclient_mock)) == 10
+        assert all(
+            query["cityId"] == "6" and query["streetId"] == "644"
+            for _, query in _requests(aioclient_mock)
+        )
+
+    async def test_a_house_that_many_queries_find_is_one_house(
+        self, kyiv, aioclient_mock
+    ):
+        """The houses merge by their id: «12Б» answers to «1», to «2» and to «12»."""
+        _houses_endpoint(aioclient_mock, _as_yasno(["12Б"]))
+
+        houses = await kyiv.all_houses(1647)
+
+        assert houses == [YasnoAddressItem(id=40000, value="12Б")]
+
+    @pytest.mark.parametrize(
+        "reply",
+        [
+            pytest.param({"json": []}, id="no_houses"),
+            pytest.param({"status": 404, "json": ENTRY_NOT_FOUND}, id="not_found"),
+        ],
+    )
+    async def test_a_street_without_houses_gives_an_empty_list(
+        self, kyiv, aioclient_mock, reply
+    ):
+        """An empty answer and a 404 are an answer: the street has no house."""
+        aioclient_mock.get(_url("houses"), **reply)
+
+        assert await kyiv.all_houses(1647) == []
+        assert len(_requests(aioclient_mock)) == 10
+
+    async def test_a_cut_answer_gets_ten_longer_queries(self, kyiv, aioclient_mock):
+        """
+        Yasno cuts a long street: a query with the cap gets the query and each digit.
+
+        The street has 133 houses, as Велика Васильківська has. The list has each
+        house, in the natural order, and no query repeats.
+        """
+        letters = {6: [HOUSE_6A, "6Б"], 10: [f"10{LETTER_A}"]}
+        expected = []
+        for number in range(1, 134):
+            expected += [str(number), *letters.get(number, [])]
+        answer = _as_yasno(expected)
+        _houses_endpoint(aioclient_mock, answer)
+
+        houses = await kyiv.all_houses(128)
+
+        assert [_.value for _ in houses] == expected
+        queries = _queries(aioclient_mock)
+        assert len(queries) > 10
+        assert len(queries) == len(set(queries))
+        # «1» gets the cap from Yasno, so the ten longer queries follow it
+        assert len(answer("1")["json"]) == YASNO_ADDRESS_MATCHES_CAP
+        assert {f"1{digit}" for digit in "0123456789"} <= set(queries)
+
+    async def test_the_houses_come_in_the_natural_order(self, kyiv, aioclient_mock):
+        """The number at the start sorts as a number, and the rest sorts as a text."""
+        values = ["10", "2", "1/2", "1-3/2", f"1{LETTER_A}", "10Б", "10,12"]
+        values += [f"{LETTER_A}1", "1", "ТЦ 5"]
+        _houses_endpoint(aioclient_mock, _as_yasno(values))
+
+        houses = await kyiv.all_houses(1647)
+
+        assert [_.value for _ in houses] == [
+            "1",
+            "1-3/2",
+            "1/2",
+            f"1{LETTER_A}",
+            "2",
+            "10",
+            "10,12",
+            "10Б",
+            f"{LETTER_A}1",
+            "ТЦ 5",
+        ]
+
+    @pytest.mark.parametrize("reply", [*NO_SURE_ANSWER, *ODD_LISTS])
+    @pytest.mark.parametrize("query", ["5", "13"], ids=["first_wave", "later_wave"])
+    async def test_one_query_without_an_answer_gives_none(
+        self, kyiv, aioclient_mock, query, reply
+    ):
+        """A query that says nothing sure leaves a hole, so the list says nothing."""
+        good = _as_yasno([str(n) for n in range(1, 134)])
+
+        def answer(asked: str) -> dict:
+            return reply if asked == query else good(asked)
+
+        _houses_endpoint(aioclient_mock, answer)
+
+        assert await kyiv.all_houses(128) is None
+        # The premise: the query of the later wave is asked, as «1» has the cap
+        assert query in _queries(aioclient_mock)
+
+    async def test_at_most_five_requests_run_at_the_same_time(
+        self, kyiv, aioclient_mock
+    ):
+        """A wave of ten queries goes in groups, so Yasno gets no burst."""
+        running = peak = 0
+
+        async def side_effect(method, url, _data):
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            # The other queries of the wave start while this request waits
+            await asyncio.sleep(0)
+            running -= 1
+            return AiohttpClientMockResponse(method, url, json=[])
+
+        aioclient_mock.get(_url("houses"), side_effect=side_effect)
+
+        assert await kyiv.all_houses(1647) == []
+
+        assert peak == 5
+        assert len(_requests(aioclient_mock)) == 10
+
+    async def test_the_limit_of_requests_ends_the_search(
+        self, kyiv, aioclient_mock, monkeypatch, caplog
+    ):
+        """A search that never stops ends at the limit, with the houses it found."""
+        monkeypatch.setattr(
+            "custom_components.svitlo_yeah.api.yasno.YASNO_HOUSE_LIST_REQUESTS_MAX", 25
+        )
+        caplog.set_level(
+            logging.DEBUG, logger="custom_components.svitlo_yeah.api.yasno"
+        )
+        asked = 0
+
+        def answer(_query: str) -> dict:
+            # Each query gets the cap, and its own houses
+            nonlocal asked
+            asked += 1
+            return {
+                "json": [
+                    {"id": 1000 * asked + n, "value": f"{1000 * asked + n}"}
+                    for n in range(YASNO_ADDRESS_MATCHES_CAP)
+                ]
+            }
+
+        _houses_endpoint(aioclient_mock, answer)
+
+        houses = await kyiv.all_houses(1647)
+
+        # The first wave has ten queries, and the second wave only the rest of the room
+        assert len(_requests(aioclient_mock)) == 25
+        assert len(houses) == 25 * YASNO_ADDRESS_MATCHES_CAP
+        stops = [_ for _ in caplog.messages if "stops after" in _]
+        # The line has the count of requests, and no text of an address
+        assert stops == ["The list of houses stops after 25 requests"]
+
+    async def test_a_search_that_ends_at_the_limit_by_chance_has_no_stop_line(
+        self, kyiv, aioclient_mock, monkeypatch, caplog
+    ):
+        """The limit is no news when the last wave leaves no query to ask."""
+        monkeypatch.setattr(
+            "custom_components.svitlo_yeah.api.yasno.YASNO_HOUSE_LIST_REQUESTS_MAX", 10
+        )
+        caplog.set_level(
+            logging.DEBUG, logger="custom_components.svitlo_yeah.api.yasno"
+        )
+        _houses_endpoint(aioclient_mock, _as_yasno(["1", "2"]))
+
+        houses = await kyiv.all_houses(1647)
+
+        assert [_.value for _ in houses] == ["1", "2"]
+        assert len(_requests(aioclient_mock)) == 10
+        assert "stops after" not in caplog.text
+
+
 async def test_requests_without_a_region_ask_nothing(hass, aioclient_mock, caplog):
     """A client without a region or a DSO cannot ask, so it says nothing sure."""
     api = YasnoApi(hass)
@@ -607,6 +890,7 @@ async def test_requests_without_a_region_ask_nothing(hass, aioclient_mock, caplo
     assert await api.search_cities("дні") is None
     assert await api.search_streets("свер") is None
     assert await api.search_houses(1647, "6") is None
+    assert await api.all_houses(1647) is None
     assert await api.get_address_group(1647, 41362) == (AddressResult.UNKNOWN, None)
     assert await api.resolve_address(KYIV_ADDRESS) == (AddressResult.UNKNOWN, None)
 
