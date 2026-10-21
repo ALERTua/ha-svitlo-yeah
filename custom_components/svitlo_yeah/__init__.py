@@ -21,6 +21,7 @@ from .coordinator.coordinator import (
     STORE_VERSION,
     async_integration_title,
     group_not_listed_issue_id,
+    provider_removed_issue_id,
     store_key,
 )
 from .coordinator.dtek.json import DtekCoordinatorJson
@@ -33,16 +34,17 @@ from .coordinator.yasno import (
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-    from .coordinator.coordinator import SvitloYeahConfigEntry
+    from .coordinator.coordinator import IntegrationCoordinator, SvitloYeahConfigEntry
 
 LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
-
-def provider_removed_issue_id(entry_id: str) -> str:
-    """Return the id of the repair issue about an entry of a removed provider."""
-    return f"{ISSUE_PROVIDER_REMOVED}_{entry_id}"
+# The coordinator of each provider type that this version supports
+COORDINATORS: dict[str, type[IntegrationCoordinator]] = {
+    PROVIDER_TYPE_DTEK_JSON: DtekCoordinatorJson,
+    PROVIDER_TYPE_YASNO: YasnoCoordinator,
+}
 
 
 async def _async_stop_removed_provider(
@@ -86,17 +88,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -
         # No other provider gives this schedule, so the user deletes the entry
         await _async_stop_removed_provider(hass, entry, provider)
 
-    if provider_type == PROVIDER_TYPE_DTEK_JSON:
-        coordinator = DtekCoordinatorJson(hass, entry)
-    elif provider_type == PROVIDER_TYPE_YASNO:
-        coordinator = YasnoCoordinator(hass, entry)
-    else:
+    if (coordinator_class := COORDINATORS.get(provider_type)) is None:
         # Nothing can make the entry usable, so the user adds it again
         raise ConfigEntryError(
             translation_domain=DOMAIN,
             translation_key="unknown_provider_type",
             translation_placeholders={"provider_type": str(provider_type)},
         )
+    coordinator = coordinator_class(hass, entry)
 
     await coordinator.async_config_entry_first_refresh()
 

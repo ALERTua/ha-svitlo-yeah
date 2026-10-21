@@ -42,7 +42,7 @@ from custom_components.svitlo_yeah.models import (
     YasnoRegion,
 )
 
-from .coordinator import IntegrationCoordinator
+from .coordinator import IntegrationCoordinator, async_integration_title
 
 LOGGER = logging.getLogger(__name__)
 
@@ -485,7 +485,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         The issue shows only while the state counts enough Not found results: a
         Reconfigure that finds the address can clear them while the texts load.
         """
-        integration = await self._async_integration_title()
+        integration = await async_integration_title(self.hass)
         check = self._address_check
         if check is None or check.not_found_count < NOT_FOUND_IN_A_ROW:
             return

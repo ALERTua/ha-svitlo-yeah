@@ -23,6 +23,7 @@ from custom_components.svitlo_yeah.const import (
     DOMAIN,
     EVENT_DATA_CHANGED,
     ISSUE_GROUP_NOT_LISTED,
+    ISSUE_PROVIDER_REMOVED,
     NAME,
     TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
     TZ_UA,
@@ -51,6 +52,11 @@ STORE_VERSION = 1
 def group_not_listed_issue_id(entry_id: str) -> str:
     """Return the id of the repair issue about a group that the source lacks."""
     return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
+
+
+def provider_removed_issue_id(entry_id: str) -> str:
+    """Return the id of the repair issue about an entry of a removed provider."""
+    return f"{ISSUE_PROVIDER_REMOVED}_{entry_id}"
 
 
 async def async_integration_title(hass: HomeAssistant) -> str:
@@ -300,7 +306,7 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
                         filter(None, (self.region_name, self.provider_name))
                     ),
                     # The way to Reconfigure goes through the list of integrations
-                    "integration": await self._async_integration_title(),
+                    "integration": await async_integration_title(self.hass),
                 },
             )
         elif self.group_listed is False:
@@ -309,10 +315,6 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
             )
             ir.async_delete_issue(self.hass, DOMAIN, issue_id)
         self.group_listed = listed
-
-    async def _async_integration_title(self) -> str:
-        """Return the integration name that the list of integrations shows."""
-        return await async_integration_title(self.hass)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
