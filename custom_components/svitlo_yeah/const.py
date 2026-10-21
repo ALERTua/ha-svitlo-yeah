@@ -55,6 +55,12 @@ YASNO_REGION_PAGES: Final[dict[int, str]] = {
     3: "https://static.yasno.ua/dnipro/outages",
 }
 
+
+def yasno_region_page(region_id: int | None) -> str:
+    """Return the Yasno page of the region, or the page of Київ for another region."""
+    return YASNO_REGION_PAGES.get(region_id, YASNO_REGION_PAGES[25])
+
+
 # Yasno gives at most this many matches of one search of an address
 YASNO_ADDRESS_MATCHES_CAP: Final = 20
 # Yasno finds a street only from this many letters

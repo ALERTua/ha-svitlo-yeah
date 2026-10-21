@@ -48,9 +48,9 @@ from .const import (
     PROVIDER_TYPE_YASNO,
     REMOVED_PROVIDERS,
     TZ_UA,
-    YASNO_REGION_PAGES,
     YASNO_STREET_QUERY_MIN,
     common_translation_key,
+    yasno_region_page,
 )
 from .coordinator.coordinator import async_integration_title
 from .coordinator.yasno import YasnoCoordinator
@@ -67,9 +67,9 @@ LOGGER = logging.getLogger(__name__)
 # The checkbox of the form that accepts outdated DTEK data
 CONF_ACKNOWLEDGE = "acknowledge"
 
-# The page where a user finds the group, for the text under the group field
+# The page where a user finds the group, for the text under the group field. A
+# Yasno region has its own page (yasno_region_page).
 GROUP_PAGE_URLS: dict[str, str] = {
-    PROVIDER_TYPE_YASNO: "https://static.yasno.ua/kyiv/outages",
     PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
 }
 
@@ -399,9 +399,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _yasno_page(self) -> str:
         """Return the Yasno page of the region of the flow, or the page of Київ."""
-        return YASNO_REGION_PAGES.get(
-            self.data.get(CONF_REGION), GROUP_PAGE_URLS[PROVIDER_TYPE_YASNO]
-        )
+        return yasno_region_page(self.data.get(CONF_REGION))
 
     async def _async_show_pick_form(self, field: str) -> ConfigFlowResult:
         """
