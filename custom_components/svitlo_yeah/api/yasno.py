@@ -693,8 +693,8 @@ class YasnoApi:
         YASNO_ADDRESS_MATCHES_CAP houses for one query. So each digit is a query, and
         a query that got the cap gets ten longer ones. A cut answer can hide a house,
         so the house step also searches a typed number at Yasno. A query without a
-        sure answer gives None. The search stops after YASNO_HOUSE_LIST_REQUESTS_MAX
-        requests.
+        sure answer gives None. After YASNO_HOUSE_LIST_REQUESTS_MAX requests the search
+        stops, and it returns the houses that it found.
         """
         semaphore = asyncio.Semaphore(_HOUSE_REQUESTS_AT_ONCE)
 

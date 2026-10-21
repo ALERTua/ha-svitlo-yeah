@@ -1184,7 +1184,7 @@ class TestNameNotUnique:
 
 
 class TestHouseStep:
-    """The house step lists all houses of the street, and takes a typed number too."""
+    """The house step lists the houses that Yasno gives, and takes a typed number."""
 
     async def test_dropdown_lists_the_houses_in_the_natural_order(
         self, hass, aioclient_mock

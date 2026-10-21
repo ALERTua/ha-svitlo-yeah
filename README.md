@@ -69,7 +69,7 @@ Before you start, find your outage group on the website of your provider. A Yasn
 | Address | City | Shows only where Yasno lists cities, today Dnipro. The name of your city, or a part of it. |
 | Address | Street | The name of your street, or a part of it, at least three letters. |
 | Select your city, Select your street | City, Street | Shows when more than one name matches. The list has at most 20 names. Its last option is «My city is not in the list, search again» or «My street is not in the list, search again». |
-| Select your house | House | A dropdown with a search box. It lists all houses of the street. Select your house, or type its number. The first option, «This is not my street, search again», goes back to the address form. |
+| Select your house | House | A dropdown with a search box. It lists the houses of the street that Yasno gives. Select your house, or type its number. The first option, «This is not my street, search again», goes back to the address form. |
 | Settings | Select your group | Your outage group, for example `1.1`. Find it on the website of your provider, for example [Yasno](https://static.yasno.ua/kyiv/outages) or [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). For DTEK Dnipro, the list shows a CEK group with its number in the source, for example «ЦЕК 1.1 (1001.1)». |
 
 Each region and group is a separate entry, and so is each Yasno address. To change the group of a DTEK entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again.
@@ -96,7 +96,7 @@ To add an entry by address, select a Yasno provider, and then select **By addres
 1. Enter the street. Type at least three letters of its name, or a part of it. Where Yasno lists cities (today Dnipro), the form asks for the **City** first.
 2. If Yasno finds one name only, or your text is exactly one name, the setup goes on. The kind of the place is not necessary: «Хрещатик» is «вул. Хрещатик».
 3. If more than one name matches, select yours in the list. The list has at most 20 names, and the text above it names the address so far. If your name is not there, select «My street is not in the list, search again». For a city, the option says «My city is not in the list, search again».
-4. Select your house in the dropdown, or type its number in the search box. The dropdown lists all houses of the street. If the list lacks the number that you type, the integration searches for it at Yasno. If the street is wrong, select «This is not my street, search again».
+4. Select your house in the dropdown, or type its number in the search box. The dropdown lists the houses of the street that Yasno gives, and a long street can lack some of them. If the list lacks the number that you type, the integration searches for it at Yasno. If the street is wrong, select «This is not my street, search again».
 5. Read the dialog after the setup. It names the address that Yasno found, and its group.
 
 A form shows an error, and keeps your text, in these cases:
