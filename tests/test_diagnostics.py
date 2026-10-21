@@ -15,10 +15,21 @@ pytestmark = pytest.mark.usefixtures(
 )
 
 
-async def _diagnostics(hass, hass_client, aioclient_mock, provider: str) -> dict:
+# The keys of an entry of the removed E-Svitlo provider: a login and an account
+E_SVITLO_DATA = {
+    "username": "user@example.com",
+    "password": "a password",
+    "account_id": "1234567",
+    "address_str": "м. Тестове, вул. Тестова, 1",
+}
+
+
+async def _diagnostics(
+    hass, hass_client, aioclient_mock, provider: str, extra: dict | None = None
+) -> dict:
     data, answers = PROVIDERS[provider]
     answers(aioclient_mock, answer=True)
-    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry = MockConfigEntry(domain=DOMAIN, data={**data, **(extra or {})})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -41,3 +52,19 @@ async def test_diagnostics_show_what_the_coordinator_knows(
     assert len(result["events"]) == 1
     assert result["events"][0]["start"] is not None
     assert isinstance(result["scheduled_events"], list)
+
+
+@pytest.mark.parametrize("provider", PROVIDERS)
+async def test_diagnostics_hide_the_login_of_an_old_e_svitlo_entry(
+    hass, hass_client, aioclient_mock, provider
+):
+    """The data of an entry of the removed E-Svitlo provider never shows its login."""
+    result = await _diagnostics(
+        hass, hass_client, aioclient_mock, provider, E_SVITLO_DATA
+    )
+
+    data = result["entry"]["data"]
+    assert {key: data[key] for key in E_SVITLO_DATA} == dict.fromkeys(
+        E_SVITLO_DATA, "**REDACTED**"
+    )
+    assert not [_ for _ in E_SVITLO_DATA.values() if _ in str(result)]
