@@ -185,6 +185,21 @@
         "esvitloprovider_sumy": "E-Svitlo — Sumy and Oblast — SOE",
         "soeprovider_sumy": "SOE — Sumy and Oblast — SOE"
       }
+    },
+    "city_match": {
+      "options": {
+        "search_again": "My city is not in the list, search again"
+      }
+    },
+    "street_match": {
+      "options": {
+        "search_again": "My street is not in the list, search again"
+      }
+    },
+    "house_match": {
+      "options": {
+        "search_again": "This is not my street, search again"
+      }
     }
   },
   "entity": {
@@ -277,9 +292,6 @@
     "zhytomyr": "Zhytomyr",
     "sumy": "Sumy",
     "poltava": "Poltava",
-    "rivne": "Rivne",
-    "search_again_city": "My city is not in the list, search again",
-    "search_again_street": "My street is not in the list, search again",
-    "search_again_house_street": "This is not my street, search again"
+    "rivne": "Rivne"
   }
 }

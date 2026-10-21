@@ -95,6 +95,11 @@ DNIPRO_ORDER = ["cities", "streets", "houses", "group"]
 # The queries of the ten requests that list the houses of a street
 LIST_QUERIES = list("0123456789")
 
+# A region that Yasno could add later, with no page of its own in the integration.
+# Its name and its ids are made up.
+OTHER_KEY = "yasnoprovider_99_999"
+OTHER_PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=99, dso_id=999)
+
 REGIONS = [
     {
         "id": 25,
@@ -108,6 +113,12 @@ REGIONS = [
         "hasCities": True,
         "dsos": [{"id": 301, "name": "ДнЕМ"}, {"id": 303, "name": "ЦЕК"}],
     },
+    {
+        "id": 99,
+        "value": "Тестове місто",
+        "hasCities": False,
+        "dsos": [{"id": 999, "name": "Тестовий оператор"}],
+    },
 ]
 
 # What Yasno answers for an id that it does not know
@@ -116,14 +127,25 @@ ENTRY_NOT_FOUND = {
     "detail": "Street 644 not found in Region 3 and Dso 301",
 }
 
-ADDRESS_PAGE_URL = "https://static.yasno.ua/kyiv/outages"
+# The Yasno page that a form names for the region of Київ and of Дніпро
+KYIV_PAGE_URL = "https://static.yasno.ua/kyiv/outages"
+DNIPRO_PAGE_URL = "https://static.yasno.ua/dnipro/outages"
+# The page of the group form of a DTEK provider: only Yasno has a page for each region
+DTEK_PAGE_URL = "https://www.dtek-krem.com.ua/ua/shutdowns"
 ADDRESS_PATH = URL(YASNO_ADDRESSES_ENDPOINT).path
 
-# The English text of the option that searches again, for each select
+# The English text of the option that searches again, for each select. It is the
+# label that the frontend shows when the language of the user has no text for it.
 SEARCH_AGAIN_EN = {
     CONF_CITY: "My city is not in the list, search again",
     CONF_STREET: "My street is not in the list, search again",
     CONF_HOUSE: "This is not my street, search again",
+}
+# The translation key of each select: it gives the option the text of the language
+TRANSLATION_KEYS = {
+    CONF_CITY: "city_match",
+    CONF_STREET: "street_match",
+    CONF_HOUSE: "house_match",
 }
 
 # The lists of several matches. The names of the other matches are made up, and the
@@ -140,6 +162,49 @@ CITY_MATCHES = [
 ]
 MATCHES = {CONF_CITY: CITY_MATCHES, CONF_STREET: STREET_MATCHES}
 LEVELS = [CONF_CITY, CONF_STREET]
+
+# The reply that Yasno gives for the group, the errors of the house form, and the
+# placeholders of its text. The group of the schedule check is in each case.
+GROUP_ERRORS = [
+    pytest.param(
+        {"group": {"status": 404, "json": ENTRY_NOT_FOUND}},
+        {"house": "house_not_found"},
+        {},
+        id="group_of_an_unknown_house",
+    ),
+    pytest.param(
+        {"group": {"exc": ClientError()}},
+        {"base": "yasno_no_answer"},
+        {},
+        id="group_without_an_answer",
+    ),
+    pytest.param(
+        {"planned": {"exc": ClientError()}},
+        {"base": "yasno_no_answer"},
+        {},
+        id="schedule_without_a_connection",
+    ),
+    pytest.param(
+        {"planned": {"status": 500}},
+        {"base": "yasno_no_answer"},
+        {},
+        id="schedule_server_error",
+    ),
+    pytest.param(
+        {"planned": {"json": []}},
+        {"base": "yasno_no_answer"},
+        {},
+        id="schedule_of_another_shape",
+    ),
+    pytest.param(
+        {"planned": {"json": {"1.1": {}, "2.1": {}}}},
+        {"base": "address_group_not_listed"},
+        {"group": "53.1"},
+        id="group_that_the_schedule_does_not_list",
+    ),
+]
+# The same cases, without the placeholders of the text
+GROUP_ERROR_REPLIES = [pytest.param(*_.values[:2], id=_.id) for _ in GROUP_ERRORS]
 
 
 @pytest.fixture(autouse=True)
@@ -411,7 +476,7 @@ class TestMenu:
         assert result["step_id"] == "address"
         assert _fields(result) == [CONF_STREET]
         assert not result["errors"]
-        assert result["description_placeholders"] == {"url": ADDRESS_PAGE_URL}
+        assert result["description_placeholders"] == {"url": KYIV_PAGE_URL}
         # Each field is required, and the form has no text from an earlier try
         for key in result["data_schema"].schema:
             assert isinstance(key, vol.Required)
@@ -424,7 +489,77 @@ class TestMenu:
 
         assert result["step_id"] == "address"
         assert _fields(result) == [CONF_CITY, CONF_STREET]
-        assert result["description_placeholders"] == {"url": ADDRESS_PAGE_URL}
+        assert result["description_placeholders"] == {"url": DNIPRO_PAGE_URL}
+
+
+class TestRegionPage:
+    """A Yasno form names the Yasno page of its region, and a DTEK form its own page."""
+
+    # The provider and the page of its region. A region with no page of its own gets
+    # the page of Київ.
+    @pytest.mark.parametrize(
+        ("key", "page"),
+        [
+            pytest.param(KYIV_KEY, KYIV_PAGE_URL, id="kyiv"),
+            pytest.param(DNIPRO_KEY, DNIPRO_PAGE_URL, id="dnipro"),
+            pytest.param(OTHER_KEY, KYIV_PAGE_URL, id="another_region"),
+        ],
+    )
+    async def test_address_form_names_the_page_of_its_region(
+        self, hass, aioclient_mock, key, page
+    ):
+        """The text under the address form names the page of the region of Yasno."""
+        result = await _open_address_form(hass, aioclient_mock, key)
+
+        assert result["step_id"] == "address"
+        assert result["description_placeholders"] == {"url": page}
+        assert _asked(aioclient_mock) == []
+
+    # The provider, the schedule that its group form asks for, and the region page
+    @pytest.mark.parametrize(
+        ("key", "planned_url", "page"),
+        [
+            pytest.param(KYIV_KEY, YASNO_PLANNED_URL, KYIV_PAGE_URL, id="kyiv"),
+            pytest.param(DNIPRO_KEY, DNIPRO_PLANNED_URL, DNIPRO_PAGE_URL, id="dnipro"),
+            pytest.param(
+                OTHER_KEY, OTHER_PLANNED_URL, KYIV_PAGE_URL, id="another_region"
+            ),
+        ],
+    )
+    async def test_group_form_names_the_page_of_its_region(
+        self, hass, aioclient_mock, key, planned_url, page
+    ):
+        """The text under the group form of Yasno names the page of its region."""
+        aioclient_mock.get(planned_url, json={"1.1": {}})
+        result = await _open_menu(hass, aioclient_mock, key)
+
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "group"
+        assert result["description_placeholders"] == {"url": page}
+
+    async def test_group_form_of_a_dtek_provider_names_the_page_of_dtek(
+        self, hass, aioclient_mock
+    ):
+        """The page of a region is for Yasno only: DTEK keeps its own page."""
+        dtek_answers(aioclient_mock, fact_with_an_outage_today(datetime.now(UTC)))
+
+        result = await _open_menu(hass, aioclient_mock, "dtekjsonprovider_kyiv_region")
+
+        assert result["step_id"] == "group"
+        assert result["description_placeholders"] == {"url": DTEK_PAGE_URL}
+
+    async def test_address_form_after_an_error_names_the_page_of_its_region(
+        self, hass, aioclient_mock
+    ):
+        """The form that shows an error names the page of the region too."""
+        result = await _dnipro_form(hass, aioclient_mock)
+
+        result = await _submit_dnipro(hass, result, street="св")
+
+        assert result["errors"] == {"street": "street_too_short"}
+        assert result["description_placeholders"] == {"url": DNIPRO_PAGE_URL}
 
 
 class TestFoundAddress:
@@ -699,13 +834,17 @@ class TestSeveralMatches:
         else:
             assert {query["streetId"] for _, query in later} == {"9002"}
 
+    # The level, the text of the level, and the page of the region of the address
     @pytest.mark.parametrize(
-        ("level", "text"),
-        [(CONF_CITY, "дніпр"), (CONF_STREET, "сверст")],
+        ("level", "text", "page"),
+        [
+            (CONF_CITY, "дніпр", DNIPRO_PAGE_URL),
+            (CONF_STREET, "сверст", KYIV_PAGE_URL),
+        ],
         ids=LEVELS,
     )
     async def test_search_again_shows_the_address_form_with_the_typed_texts(
-        self, hass, aioclient_mock, level, text
+        self, hass, aioclient_mock, level, text, page
     ):
         """«Search again» asks no more, and gives back the form with what was typed."""
         result, typed = await _open_pick(hass, aioclient_mock, level, text)
@@ -716,7 +855,7 @@ class TestSeveralMatches:
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "address"
         assert not result["errors"]
-        assert result["description_placeholders"] == {"url": ADDRESS_PAGE_URL}
+        assert result["description_placeholders"] == {"url": page}
         assert _asked(aioclient_mock) == asked
         assert _fields(result) == list(typed)
         assert {_: _suggested(result, _) for _ in typed} == typed
@@ -736,29 +875,31 @@ class TestSeveralMatches:
         assert result["description_placeholders"]["place"] == KYIV_PLACE
         assert _asked(aioclient_mock) == ["streets", "houses"]
 
-    async def test_label_is_in_the_language_of_the_server(self, hass, aioclient_mock):
-        """The option that searches again has its text from the common translations."""
-        hass.config.language = "uk"
+    @pytest.mark.parametrize(
+        ("level", "text"),
+        [(CONF_CITY, "дніпр"), (CONF_STREET, "сверст")],
+        ids=LEVELS,
+    )
+    async def test_select_has_its_translation_key(
+        self, hass, aioclient_mock, level, text
+    ):
+        """The frontend gives «search again» its text by the translation key."""
+        result, _ = await _open_pick(hass, aioclient_mock, level, text)
 
-        result, _ = await _open_pick(hass, aioclient_mock, CONF_STREET, "сверст")
-
-        assert _select_options(result, CONF_STREET)[-1] == {
-            "value": "search_again",
-            "label": "Моєї вулиці немає, шукати знову",
-        }
+        assert _config(result, level)["translation_key"] == TRANSLATION_KEYS[level]
 
     @pytest.mark.parametrize(
         ("level", "text"),
         [(CONF_CITY, "дніпр"), (CONF_STREET, "сверст")],
         ids=LEVELS,
     )
-    async def test_label_falls_back_to_english(self, hass, aioclient_mock, level, text):
-        """A language file without the text gives the English text."""
-        with patch(
-            "custom_components.svitlo_yeah.config_flow.async_get_translations",
-            return_value={},
-        ):
-            result, _ = await _open_pick(hass, aioclient_mock, level, text)
+    async def test_label_is_the_english_text_in_each_language(
+        self, hass, aioclient_mock, level, text
+    ):
+        """The flow does not translate: the label is the English fallback."""
+        hass.config.language = "uk"
+
+        result, _ = await _open_pick(hass, aioclient_mock, level, text)
 
         assert _select_options(result, level)[-1] == {
             "value": "search_again",
@@ -813,7 +954,7 @@ class TestHouseStep:
     async def test_dropdown_lists_the_houses_in_the_natural_order(
         self, hass, aioclient_mock
     ):
-        """The dropdown has a search box, the houses in order, and «search again»."""
+        """The dropdown has a search box, «search again», and the houses in order."""
         result = await _kyiv_house_form(hass, aioclient_mock)
 
         assert result["type"] is FlowResultType.FORM
@@ -826,43 +967,65 @@ class TestHouseStep:
         assert config["custom_value"] is True
         assert config["sort"] is False
         assert config["options"] == [
-            *_options_of(KYIV_HOUSES_SORTED),
             {"value": "search_again", "label": SEARCH_AGAIN_EN[CONF_HOUSE]},
+            *_options_of(KYIV_HOUSES_SORTED),
         ]
         # The frontend shows the value of the chosen option in the field, so the value
         # of each house is its number, and never its id
         numbers = [_["value"] for _ in KYIV_HOUSES_SORTED]
-        assert [_["value"] for _ in config["options"][:-1]] == numbers
-        assert [_["label"] for _ in config["options"][:-1]] == numbers
-        # Without a default the frontend chooses nothing for the user
+        assert [_["value"] for _ in config["options"][1:]] == numbers
+        assert [_["label"] for _ in config["options"][1:]] == numbers
+        # Without a default the frontend chooses nothing for the user, and the form has
+        # no house from an earlier try
         assert _default(result, CONF_HOUSE) is None
+        assert _suggested(result, CONF_HOUSE) is None
         assert result["description_placeholders"] == {
             "place": KYIV_PLACE,
             "count": "5",
         }
 
-    async def test_label_is_in_the_language_of_the_server(self, hass, aioclient_mock):
-        """The last option says that the street is wrong, in the server language."""
+    async def test_search_again_option_comes_first_in_a_long_list(
+        self, hass, aioclient_mock
+    ):
+        """A long list hides its last option, so «search again» comes first."""
+        # Yasno gives the houses in its own order, and the dropdown sorts them
+        houses = [{"id": 50000 + number, "value": str(number)} for number in (3, 1, 2)]
+        houses += [
+            {"id": 50000 + number, "value": str(number)} for number in range(40, 3, -1)
+        ]
+
+        result = await _kyiv_house_form(hass, aioclient_mock, houses={"json": houses})
+
+        options = _select_options(result, CONF_HOUSE)
+        assert result["description_placeholders"]["count"] == "40"
+        assert len(options) == 41
+        assert options[0] == {
+            "value": "search_again",
+            "label": SEARCH_AGAIN_EN[CONF_HOUSE],
+        }
+        assert [_["value"] for _ in options[1:]] == [str(_) for _ in range(1, 41)]
+        assert [_["value"] for _ in options].count("search_again") == 1
+
+    async def test_select_has_its_translation_key(self, hass, aioclient_mock):
+        """The frontend gives «search again» its text by the translation key."""
+        result = await _kyiv_house_form(hass, aioclient_mock)
+
+        assert (
+            _config(result, CONF_HOUSE)["translation_key"]
+            == TRANSLATION_KEYS[CONF_HOUSE]
+        )
+
+    async def test_label_is_the_english_text_in_each_language(
+        self, hass, aioclient_mock
+    ):
+        """The flow does not translate: the label is the English fallback."""
         hass.config.language = "uk"
 
         result = await _kyiv_house_form(hass, aioclient_mock)
 
-        assert _select_options(result, CONF_HOUSE)[-1] == {
+        assert _select_options(result, CONF_HOUSE)[0] == {
             "value": "search_again",
-            "label": "Це не моя вулиця, шукати знову",
-        }
-
-    async def test_label_falls_back_to_english(self, hass, aioclient_mock):
-        """A language file without the text gives the English text."""
-        with patch(
-            "custom_components.svitlo_yeah.config_flow.async_get_translations",
-            return_value={},
-        ):
-            result = await _kyiv_house_form(hass, aioclient_mock)
-
-        assert _select_options(result, CONF_HOUSE)[-1] == {
-            "value": "search_again",
-            "label": "This is not my street, search again",
+            "label": SEARCH_AGAIN_EN[CONF_HOUSE],
         }
 
     async def test_houses_of_a_street_in_a_city_ask_with_the_city(
@@ -871,7 +1034,7 @@ class TestHouseStep:
         """The street in a city lists its houses with the id of the city."""
         result = await _dnipro_house_form(hass, aioclient_mock)
 
-        assert _select_options(result, CONF_HOUSE)[:-1] == _options_of([DNIPRO_HOUSE])
+        assert _select_options(result, CONF_HOUSE)[1:] == _options_of([DNIPRO_HOUSE])
         assert result["description_placeholders"] == {
             "place": "Дніпро, м. Дніпро, вул. Шевченка",
             "count": "1",
@@ -927,7 +1090,7 @@ class TestHouseStep:
         """The dropdown has one option for a number, also when two houses have it."""
         result = await _kyiv_twin_house_form(hass, aioclient_mock)
 
-        numbers = [_["value"] for _ in _select_options(result, CONF_HOUSE)[:-1]]
+        numbers = [_["value"] for _ in _select_options(result, CONF_HOUSE)[1:]]
 
         assert numbers == [_["value"] for _ in KYIV_HOUSES_SORTED]
         assert numbers.count(HOUSE_6A) == 1
@@ -1033,7 +1196,7 @@ class TestHouseStep:
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "address"
         assert not result["errors"]
-        assert result["description_placeholders"] == {"url": ADDRESS_PAGE_URL}
+        assert result["description_placeholders"] == {"url": KYIV_PAGE_URL}
         assert _asked(aioclient_mock) == asked
         assert _suggested(result, CONF_STREET) == "сверст"
 
@@ -1050,49 +1213,7 @@ class TestHouseStep:
         assert _select_options(again, CONF_HOUSE) == _select_options(result, CONF_HOUSE)
         assert _asked(aioclient_mock) == asked
 
-    # The reply that Yasno gives for the group, the errors of the form, and the
-    # placeholders of its text. The group of the schedule check is in each case.
-    @pytest.mark.parametrize(
-        ("changes", "errors", "extra"),
-        [
-            pytest.param(
-                {"group": {"status": 404, "json": ENTRY_NOT_FOUND}},
-                {"house": "house_not_found"},
-                {},
-                id="group_of_an_unknown_house",
-            ),
-            pytest.param(
-                {"group": {"exc": ClientError()}},
-                {"base": "yasno_no_answer"},
-                {},
-                id="group_without_an_answer",
-            ),
-            pytest.param(
-                {"planned": {"exc": ClientError()}},
-                {"base": "yasno_no_answer"},
-                {},
-                id="schedule_without_a_connection",
-            ),
-            pytest.param(
-                {"planned": {"status": 500}},
-                {"base": "yasno_no_answer"},
-                {},
-                id="schedule_server_error",
-            ),
-            pytest.param(
-                {"planned": {"json": []}},
-                {"base": "yasno_no_answer"},
-                {},
-                id="schedule_of_another_shape",
-            ),
-            pytest.param(
-                {"planned": {"json": {"1.1": {}, "2.1": {}}}},
-                {"base": "address_group_not_listed"},
-                {"group": "53.1"},
-                id="group_that_the_schedule_does_not_list",
-            ),
-        ],
-    )
+    @pytest.mark.parametrize(("changes", "errors", "extra"), GROUP_ERRORS)
     async def test_error_of_the_group_keeps_the_house_form(
         self, hass, aioclient_mock, changes, errors, extra
     ):
@@ -1113,6 +1234,44 @@ class TestHouseStep:
         assert hass.config_entries.async_entries(DOMAIN) == []
         # The list of the houses is asked once
         assert _asked(aioclient_mock)[:3] == ["streets", "houses", "group"]
+
+    @pytest.mark.parametrize(("changes", "errors"), GROUP_ERROR_REPLIES)
+    async def test_error_of_the_group_suggests_the_chosen_house(
+        self, hass, aioclient_mock, changes, errors
+    ):
+        """After an error of the group, the field shows the house that was chosen."""
+        result = await _kyiv_house_form(hass, aioclient_mock, **changes)
+
+        again = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
+
+        assert again["errors"] == errors
+        assert _suggested(again, CONF_HOUSE) == HOUSE_6A
+
+    async def test_typed_number_that_yasno_does_not_know_stays_in_the_field(
+        self, hass, aioclient_mock
+    ):
+        """After «house not found», the field shows the number that the user typed."""
+        listed = [_ for _ in KYIV_HOUSES if _ != KYIV_HOUSE]
+        houses = _houses_by_query({}, {"json": listed})
+        result = await _kyiv_house_form(hass, aioclient_mock, houses=houses)
+
+        again = await _configure(hass, result, {CONF_HOUSE: "99"})
+
+        assert again["errors"] == {"house": "house_not_found"}
+        assert _suggested(again, CONF_HOUSE) == "99"
+
+    async def test_typed_number_without_an_answer_of_yasno_stays_in_the_field(
+        self, hass, aioclient_mock
+    ):
+        """After no answer of the search, the field shows the number that was typed."""
+        listed = [_ for _ in KYIV_HOUSES if _ != KYIV_HOUSE]
+        houses = _houses_by_query({HOUSE_6A: {"exc": ClientError()}}, {"json": listed})
+        result = await _kyiv_house_form(hass, aioclient_mock, houses=houses)
+
+        again = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A_LATIN})
+
+        assert again["errors"] == {"base": "yasno_no_answer"}
+        assert _suggested(again, CONF_HOUSE) == HOUSE_6A_LATIN
 
     async def test_next_choice_after_an_error_goes_on(self, hass, aioclient_mock):
         """After the error of a group, a new choice of the same form makes the entry."""
