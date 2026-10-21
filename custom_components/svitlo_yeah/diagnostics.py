@@ -17,8 +17,17 @@ if TYPE_CHECKING:
 
     from .coordinator.coordinator import SvitloYeahConfigEntry
 
-# The address of a Yasno entry identifies a person
-TO_REDACT = {CONF_CITY, CONF_STREET, CONF_HOUSE}
+TO_REDACT = {
+    # The address of a Yasno entry identifies a person
+    CONF_CITY,
+    CONF_STREET,
+    CONF_HOUSE,
+    # The data of an entry of the removed E-Svitlo provider still holds a login
+    "username",
+    "password",
+    "account_id",
+    "address_str",
+}
 
 
 def _iso(value: dt.datetime | dt.date | None) -> str | None:
