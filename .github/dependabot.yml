@@ -1,40 +1,32 @@
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# This repository is a fork: Dependabot version updates run only after you enable
+# them in Settings > Code security > Dependabot.
 version: 2
-registries:
-  # auth for the private ALERTua/script submodule; the token lives in
-  # Settings -> Secrets and variables -> Dependabot (NOT Actions)
-  github-alertua:
-    type: git
-    url: https://github.com
-    username: x-access-token
-    password: ${{ secrets.SCRIPT_SUBMODULE_TOKEN }}
 updates:
   - package-ecosystem: github-actions
     directory: "/"
-    registries: "*"
     schedule:
-      interval: "weekly"
+      interval: weekly
     groups:
       actions:
         patterns: ["*"]
-  - package-ecosystem: gitsubmodule
-    directory: "/"
-    registries: "*"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
 
-  - package-ecosystem: "pip"
+  # uv updates pyproject.toml and uv.lock together; pip would leave uv.lock behind
+  - package-ecosystem: uv
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: weekly
     ignore:
-      # Dependabot should not update Home Assistant as that should match the homeassistant key in hacs.json
-      - dependency-name: "homeassistant"
+      # The minimum Home Assistant must match the homeassistant key of hacs.json
+      - dependency-name: homeassistant
+    groups:
+      python:
+        patterns: ["*"]
+
+  - package-ecosystem: pre-commit
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      pre-commit:
+        patterns: ["*"]
