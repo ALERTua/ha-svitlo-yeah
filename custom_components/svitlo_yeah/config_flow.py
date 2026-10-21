@@ -34,6 +34,7 @@ from .api.yasno import (
     normalize_name,
 )
 from .const import (
+    ADDRESS_KEYS,
     CONF_CITY,
     CONF_GROUP,
     CONF_HOUSE,
@@ -72,9 +73,6 @@ CONF_ACKNOWLEDGE = "acknowledge"
 GROUP_PAGE_URLS: dict[str, str] = {
     PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
 }
-
-# The keys of an entry that name the address of a person, so no log line shows them
-ADDRESS_KEYS = (CONF_CITY, CONF_STREET, CONF_HOUSE)
 
 # The option that ends a select of matches or of houses, and shows the address form
 SEARCH_AGAIN = "search_again"
@@ -602,19 +600,15 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             )
         else:
             # The names that Yasno wrote go into the entry, never its ids
-            address = {CONF_STREET: street.value, CONF_HOUSE: house.value}
-            if city:
-                address[CONF_CITY] = city.value
+            address = YasnoAddress(
+                street=street.value,
+                house=house.value,
+                city=city.value if city else None,
+            )
             if self.source == SOURCE_RECONFIGURE:
-                await self._async_keep_found_address(
-                    YasnoAddress(
-                        street=street.value,
-                        house=house.value,
-                        city=city.value if city else None,
-                    )
-                )
+                await self._async_keep_found_address(address)
             return await self._async_save_group(
-                {CONF_GROUP: group, **address},
+                {CONF_GROUP: group, **address.as_entry_data()},
                 description="address",
                 description_placeholders={
                     "address": self._place(with_house=True),

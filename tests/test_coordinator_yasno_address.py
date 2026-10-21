@@ -163,7 +163,7 @@ def _check(
 ) -> dict:
     """Build the kept state of the check of the address of the entry."""
     return {
-        "address": {CONF_CITY: None, CONF_STREET: YASNO_KYIV_STREET, CONF_HOUSE: house},
+        "address": {CONF_STREET: YASNO_KYIV_STREET, CONF_HOUSE: house},
         "next_check": next_check.isoformat(),
         "pending_group": pending,
         "not_found_count": count,

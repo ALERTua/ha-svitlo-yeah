@@ -19,6 +19,8 @@ CONF_CITY: Final = "city"
 CONF_STREET: Final = "street"
 # The house of the address, with its letter if it has one, for example «12Б»
 CONF_HOUSE: Final = "house"
+# The keys of an entry that name the address of a person, so no log line shows them
+ADDRESS_KEYS: Final = (CONF_CITY, CONF_STREET, CONF_HOUSE)
 
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"

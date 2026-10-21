@@ -114,6 +114,13 @@ class YasnoAddress:
             return None
         return cls(street=street, house=house, city=data.get(CONF_CITY))
 
+    def as_entry_data(self) -> dict[str, str]:
+        """Return the address as the data of an entry keeps it: no key for no city."""
+        data = {CONF_STREET: self.street, CONF_HOUSE: self.house}
+        if self.city is not None:
+            data[CONF_CITY] = self.city
+        return data
+
     @property
     def text(self) -> str:
         """
