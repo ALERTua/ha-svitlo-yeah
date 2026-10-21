@@ -23,9 +23,8 @@ CONF_HOUSE: Final = "house"
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"
 PROVIDER_TYPE_DTEK_JSON: Final = "dtek_json"
-PROVIDER_TYPE_SOE: Final = "soe"
 # The provider types that release 0.11.0 removed, with the name that the texts show
-REMOVED_PROVIDERS: Final[dict[str, str]] = {"e-svitlo": "E-Svitlo"}
+REMOVED_PROVIDERS: Final[dict[str, str]] = {"e-svitlo": "E-Svitlo", "soe": "SOE"}
 
 # Provider name simplification
 PROVIDER_DTEK_FULL: Final = "ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ"
@@ -74,11 +73,9 @@ BLOCK_KEY_STATUS: Final = "status"
 DEVICE_NAME_YASNO_TRANSLATION_KEY = "device_name_yasno"
 DEVICE_NAME_DTEK_TRANSLATION_KEY = "device_name_dtek"
 DEVICE_MANUFACTURER = NAME
-DEVICE_NAME_SOE_TRANSLATION_KEY = "device_name_soe"
 PROVIDER_TO_DEVICE_NAME_MAP: Final = {
     PROVIDER_TYPE_YASNO: DEVICE_NAME_YASNO_TRANSLATION_KEY,
     PROVIDER_TYPE_DTEK_JSON: DEVICE_NAME_DTEK_TRANSLATION_KEY,
-    PROVIDER_TYPE_SOE: DEVICE_NAME_SOE_TRANSLATION_KEY,
 }
 
 
@@ -100,14 +97,6 @@ TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = common_translation_key(
 ISSUE_GROUP_NOT_LISTED: Final = "group_not_listed"
 ISSUE_ADDRESS_NOT_FOUND: Final = "address_not_found"
 ISSUE_PROVIDER_REMOVED: Final = "provider_removed"
-
-# SOE (Sumyoblenergo) Constants
-# The page of the hourly schedules, where a user finds the sub-queue of an address
-SOE_SITE_URL: Final = "https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules"
-# The answer that this page reads: each sub-queue with its outages of today
-SOE_SCHEDULE_URL: Final = (
-    "https://www.soe.com.ua/api/vidkluchenya/get_all_data_disconnections_api"
-)
 
 
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"

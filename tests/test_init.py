@@ -36,6 +36,7 @@ from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
 from tests.helpers import (
     PROVIDERS,
     REMOVED_E_SVITLO_ENTRY,
+    REMOVED_PROVIDER_ENTRIES,
     YASNO_PLANNED_URL,
     kyiv_midnight,
     yasno_outage_all_day_today,
@@ -49,8 +50,20 @@ KYIV_REGIONS = [{"id": 25, "value": "Київ", "dsos": [{"id": 902, "name": "Д
 INTEGRATION_LOGGER = "custom_components.svitlo_yeah"
 # The title of an older entry can be the address of a person, so no log line has it
 REMOVED_ENTRY_TITLE = REMOVED_E_SVITLO_ENTRY["address_str"]
-# The names that the texts about a removed provider show, in English
-REMOVED_PLACEHOLDERS = {"provider": "E-Svitlo", "integration": "Svitlo Yeah!"}
+# The integration name that the texts about a removed provider show, in English
+INTEGRATION_TITLE = "Svitlo Yeah!"
+# Each test of a removed provider runs with the entry data of each removed provider,
+# and with the name that the texts show when the test reads it
+FOR_EACH_REMOVED_PROVIDER = pytest.mark.parametrize(
+    ("data", "provider"),
+    list(REMOVED_PROVIDER_ENTRIES.values()),
+    ids=list(REMOVED_PROVIDER_ENTRIES),
+)
+FOR_EACH_REMOVED_ENTRY = pytest.mark.parametrize(
+    "data",
+    [data for data, _ in REMOVED_PROVIDER_ENTRIES.values()],
+    ids=list(REMOVED_PROVIDER_ENTRIES),
+)
 
 
 def _issues(hass) -> list[ir.IssueEntry]:
@@ -145,19 +158,18 @@ async def test_device_without_a_provider_logs_from_the_entity_module(
     await hass.async_block_till_done()
 
 
-async def _set_up_removed_entry(hass) -> MockConfigEntry:
-    """Add an E-Svitlo entry of an earlier release, and start its setup."""
-    entry = MockConfigEntry(
-        domain=DOMAIN, data=REMOVED_E_SVITLO_ENTRY, title=REMOVED_ENTRY_TITLE
-    )
+async def _set_up_removed_entry(hass, data: dict) -> MockConfigEntry:
+    """Add an entry of a removed provider from an earlier release, and set it up."""
+    entry = MockConfigEntry(domain=DOMAIN, data=data, title=REMOVED_ENTRY_TITLE)
     entry.add_to_hass(hass)
     assert not await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     return entry
 
 
+@FOR_EACH_REMOVED_PROVIDER
 async def test_entry_of_a_removed_provider_stops_with_a_repair_issue(
-    hass, aioclient_mock, caplog
+    hass, aioclient_mock, caplog, data, provider
 ):
     """
     The entry does not load, and a repair issue asks the user to delete it.
@@ -166,12 +178,13 @@ async def test_entry_of_a_removed_provider_stops_with_a_repair_issue(
     integration asks no source and logs no title.
     """
     caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
+    placeholders = {"provider": provider, "integration": INTEGRATION_TITLE}
 
-    entry = await _set_up_removed_entry(hass)
+    entry = await _set_up_removed_entry(hass, data)
 
     assert entry.state is ConfigEntryState.SETUP_ERROR
     assert entry.error_reason_translation_key == "provider_removed"
-    assert entry.error_reason_translation_placeholders == REMOVED_PLACEHOLDERS
+    assert entry.error_reason_translation_placeholders == placeholders
     issue = ir.async_get(hass).async_get_issue(
         DOMAIN, provider_removed_issue_id(entry.entry_id)
     )
@@ -179,7 +192,7 @@ async def test_entry_of_a_removed_provider_stops_with_a_repair_issue(
     assert issue.translation_key == "provider_removed"
     assert issue.translation_placeholders == {
         "entry": REMOVED_ENTRY_TITLE,
-        **REMOVED_PLACEHOLDERS,
+        **placeholders,
     }
     assert (issue.severity, issue.is_fixable, issue.is_persistent) == (
         ir.IssueSeverity.ERROR,
@@ -193,9 +206,10 @@ async def test_entry_of_a_removed_provider_stops_with_a_repair_issue(
     assert [r for r in records if REMOVED_ENTRY_TITLE in r.getMessage()] == []
 
 
-async def test_second_setup_of_a_removed_provider_keeps_one_issue(hass):
+@FOR_EACH_REMOVED_ENTRY
+async def test_second_setup_of_a_removed_provider_keeps_one_issue(hass, data):
     """A reload or a restart sets the entry up again, and the issue stays one."""
-    entry = await _set_up_removed_entry(hass)
+    entry = await _set_up_removed_entry(hass, data)
 
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
@@ -206,11 +220,12 @@ async def test_second_setup_of_a_removed_provider_keeps_one_issue(hass):
     ]
 
 
+@FOR_EACH_REMOVED_ENTRY
 async def test_deleted_entry_of_a_removed_provider_takes_its_issue_along(
-    hass, hass_storage
+    hass, hass_storage, data
 ):
     """The user deletes the entry: its issue and the data that it kept go too."""
-    entry = await _set_up_removed_entry(hass)
+    entry = await _set_up_removed_entry(hass, data)
     # The data that an earlier release kept for the entry
     key = store_key(entry.entry_id)
     hass_storage[key] = {

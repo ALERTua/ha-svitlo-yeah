@@ -10,7 +10,7 @@ custom integration (HACS) that tracks electricity-outage schedules from Ukrainia
 energy providers. It exposes outage calendars, an `Electricity` status sensor,
 "next outage / next connectivity" timestamp sensors, a force-refresh button, and
 a `svitlo_yeah_data_changed` event. It supports many regions/providers (DTEK,
-Yasno, SOE, and community JSON feeds) with per-group configuration, all set
+Yasno, and community JSON feeds) with per-group configuration, all set
 up through the Home Assistant UI. See `README.md` for the full region list and
 entity reference.
 
@@ -21,7 +21,7 @@ require a running Home Assistant instance (`hass`).
 
 - `custom_components/svitlo_yeah/` — the integration package (domain: `svitlo_yeah`).
   - `api/` — provider clients that fetch and parse raw outage data
-    (`yasno.py`, `soe.py`, `dtek/`), plus `common_tools.py`.
+    (`yasno.py`, `dtek/`), plus `common_tools.py`.
   - `coordinator/` — `DataUpdateCoordinator` subclasses per provider that own
     fetch/refresh scheduling and expose events to the entities.
   - `entity.py`, `sensor.py`, `calendar.py`, `button.py` — HA entity platforms.
@@ -125,9 +125,9 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
 
 ### Providers & data sources
 
-Outage data comes from several providers, each with its own `api/` client and `coordinator/`: Yasno, SOE (the public schedule of the site of Sumyoblenergo), and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the shared session of `async_get_clientsession(hass)` (rule `inject-websession`), and there is no bespoke HTTP stack. See `README.md` for the authoritative region → provider → source table.
+Outage data comes from two providers, each with its own `api/` client and `coordinator/`: Yasno and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the shared session of `async_get_clientsession(hass)` (rule `inject-websession`), and there is no bespoke HTTP stack. See `README.md` for the authoritative region → provider → source table.
 
-Release 0.11.0 removed E-Svitlo. `REMOVED_PROVIDERS` in `const.py` maps each removed provider type to the name that the texts show. An entry of such a type does not load: `async_setup_entry` creates the repair issue `provider_removed` for the entry and raises a translated `ConfigEntryError`. The issue asks the user to delete the entry, and `async_remove_entry` deletes the issue. The integration never deletes an entry itself. Reconfigure of such an entry aborts with `provider_removed`.
+Release 0.11.0 removed E-Svitlo and SOE, the two sources of Sumy and Oblast. `REMOVED_PROVIDERS` in `const.py` maps each removed provider type to the name that the texts show. An entry of such a type does not load: `async_setup_entry` creates the repair issue `provider_removed` for the entry and raises a translated `ConfigEntryError`. The issue asks the user to delete the entry, and `async_remove_entry` deletes the issue. The integration never deletes an entry itself. Reconfigure of such an entry aborts with `provider_removed`.
 
 ### Old states until new data
 
@@ -135,7 +135,7 @@ The entities must not become unavailable without need. Until a coordinator gets 
 
 After each fetch, each coordinator calls `_set_last_fetch_failed`, which keeps `last_fetch_failed`. An outdated DTEK schedule is an answer, not a failure. The method writes one `info` line when the source stops answering, and one when it answers again (Silver rule `log-when-unavailable`). Thus the API clients log a failed request only at the debug level. The refresh button reads this flag and then raises a translated `HomeAssistantError`, so that the user sees the failure (Silver rule `action-exceptions`). The button never sets `last_update_success` to `False`, because that makes each entity of the entry unavailable.
 
-The old states also stay across a restart. `IntegrationCoordinator` keeps the last data of the source in a `Store` with the key `svitlo_yeah.<entry_id>`. `_async_setup` loads it before the first fetch, `_async_store_last_data` saves it when it changed, and `async_remove_entry` in `__init__.py` deletes it. Each provider coordinator implements `_source_data` and `_restore_source_data`. DTEK keeps `fact` and `preset`, Yasno keeps the planned outages and the region of the entry, and SOE keeps the raw answer with the day in Kyiv of its fetch. The SOE answer has no date, so an answer of an earlier day gives no outages today, also after a restart. A Yasno entry with an address also keeps the state of the check of its address (see «Yasno address»). A kept Yasno region only names the device: the client still asks the source for the regions, so that a change at the source comes through. The kept answer about the group (`group_listed`) counts only when the kept group is the configured group, because a Reconfigure changes the group.
+The old states also stay across a restart. `IntegrationCoordinator` keeps the last data of the source in a `Store` with the key `svitlo_yeah.<entry_id>`. `_async_setup` loads it before the first fetch, `_async_store_last_data` saves it when it changed, and `async_remove_entry` in `__init__.py` deletes it. Each provider coordinator implements `_source_data` and `_restore_source_data`. DTEK keeps `fact` and `preset`, and Yasno keeps the planned outages and the region of the entry. A Yasno entry with an address also keeps the state of the check of its address (see «Yasno address»). A kept Yasno region only names the device: the client still asks the source for the regions, so that a change at the source comes through. The kept answer about the group (`group_listed`) counts only when the kept group is the configured group, because a Reconfigure changes the group.
 
 ### Yasno address
 

@@ -24,7 +24,6 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
-from .api.soe import SoeClient
 from .api.yasno import (
     YASNO_REGIONS_ENDPOINT,
     AddressResult,
@@ -46,10 +45,8 @@ from .const import (
     DTEK_PROVIDER_URLS,
     NAME,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
     REMOVED_PROVIDERS,
-    SOE_SITE_URL,
     TZ_UA,
     YASNO_REGION_PAGES,
     YASNO_STREET_QUERY_MIN,
@@ -58,12 +55,7 @@ from .const import (
 from .coordinator.coordinator import async_integration_title
 from .coordinator.yasno import YasnoCoordinator
 from .models import YasnoAddress
-from .models.providers import (
-    BaseProvider,
-    DTEKJsonProvider,
-    SoeProvider,
-    YasnoProvider,
-)
+from .models.providers import BaseProvider, DTEKJsonProvider, YasnoProvider
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -79,7 +71,6 @@ CONF_ACKNOWLEDGE = "acknowledge"
 GROUP_PAGE_URLS: dict[str, str] = {
     PROVIDER_TYPE_YASNO: "https://static.yasno.ua/kyiv/outages",
     PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
-    PROVIDER_TYPE_SOE: SOE_SITE_URL,
 }
 
 # The keys of an entry that name the address of a person, so no log line shows them
@@ -203,11 +194,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # Create DTEKJsonProvider instances for each available provider key
         dtek_providers = [DTEKJsonProvider(region_name=_) for _ in DTEK_PROVIDER_URLS]
 
-        all_providers = [
-            *yasno_providers,
-            *dtek_providers,
-            SoeProvider(),
-        ]
+        all_providers = [*yasno_providers, *dtek_providers]
         self.available_providers = {_.unique_key: _ for _ in all_providers}
 
         provider_options = [
@@ -253,8 +240,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         provider_name = names.get(
             common_translation_key(str(provider_id)), str(provider_id)
         )
-        if provider_type == PROVIDER_TYPE_SOE:
-            provider_name = f"{provider_name} {SoeProvider().short_name}"
         if provider_type == PROVIDER_TYPE_YASNO:
             api = YasnoApi(self.hass)
             # The regions come from the class cache, if a flow or an entry got them
@@ -806,17 +791,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     # noinspection PyTypeChecker
                     return await self.async_step_stale_confirm()
                 group_labels = temp_api.get_dtek_region_group_labels()
-
-        elif provider_type == PROVIDER_TYPE_SOE:
-            soe_api = SoeClient(self.hass)
-            await soe_api.fetch_data()
-            groups = soe_api.get_groups()
-            if not groups:
-                # noinspection PyTypeChecker
-                return self.async_abort(
-                    reason="soe_unavailable",
-                    description_placeholders={"url": SOE_SITE_URL},
-                )
 
         # A select takes plain values or labeled options, not a mix of both
         group_options: list[str] | list[SelectOptionDict] = groups

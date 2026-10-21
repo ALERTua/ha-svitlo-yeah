@@ -8,8 +8,7 @@
       "provider_removed": "Version 0.11.0 of the integration removed the source {provider}, so Reconfigure cannot change this entry. The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. Delete this entry: go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete.",
       "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
-      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}",
-      "soe_unavailable": "Failed to get the sub-queues from the site of Sumyoblenergo.\nThe site is unreachable, or its answer has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}"
+      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}"
     },
     "step": {
       "user": {
@@ -116,9 +115,6 @@
     },
     "device_name_dtek": {
       "name": "{provider_name} {group}"
-    },
-    "device_name_soe": {
-      "name": "{region_name} {provider_name} {group}"
     }
   },
   "selector": {
@@ -140,8 +136,7 @@
         "dtekjsonprovider_rivne": "DTEK — Rivne and Oblast — ROE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
-        "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
-        "soeprovider_sumy": "SOE — Sumy and Oblast — SOE"
+        "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
       }
     },
     "city_match": {
@@ -270,7 +265,6 @@
     "zaporizhzhia": "Zaporizhzhia",
     "vinnytsia": "Vinnytsia",
     "zhytomyr": "Zhytomyr",
-    "sumy": "Sumy",
     "poltava": "Poltava",
     "rivne": "Rivne"
   }
