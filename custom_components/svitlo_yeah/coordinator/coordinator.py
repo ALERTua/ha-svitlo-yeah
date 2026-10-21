@@ -194,8 +194,8 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
         """
         Do more work at the end of a poll, after the last data is kept.
 
-        Nothing by default. A poll that ends after an unload or a removal of the
-        entry does not come here.
+        Nothing by default. An unload or a removal of the entry can come while the
+        last data saves, so a hook that writes checks _shutdown_requested first.
         """
 
     async def _async_fetch(self) -> Any:
