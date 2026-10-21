@@ -243,8 +243,12 @@ def _select_options(result: dict, field: str) -> list:
 
 
 def _options_of(houses: list[dict]) -> list[dict]:
-    """Return the options that the dropdown of the houses has for these houses."""
-    return [{"value": str(_["id"]), "label": _["value"]} for _ in houses]
+    """
+    Return the options that the dropdown of the houses has for these houses.
+
+    The value of an option is the number of its house, the same as its label.
+    """
+    return [{"value": _["value"], "label": _["value"]} for _ in houses]
 
 
 def _default(result: dict, field: str):
@@ -319,6 +323,21 @@ async def _dnipro_house_form(hass, aioclient_mock, **changes: dict) -> dict:
     result = await _submit_dnipro(hass, result)
     assert result["step_id"] == "house"
     return result
+
+
+async def _kyiv_twin_house_form(hass, aioclient_mock) -> dict:
+    """
+    Serve Київ with a second house of the number of KYIV_HOUSE, and show its dropdown.
+
+    The twin comes last in the answer of Yasno, so the house of the measured chain
+    is the first listed house of that number. The search of Yasno for that number
+    knows only this house: a request for it would show in the requests.
+    """
+    twin = {"id": 41999, "value": HOUSE_6A}
+    houses = _houses_by_query(
+        {HOUSE_6A: {"json": [KYIV_HOUSE]}}, {"json": [*KYIV_HOUSES, twin]}
+    )
+    return await _kyiv_house_form(hass, aioclient_mock, houses=houses)
 
 
 async def _open_pick(
@@ -437,7 +456,7 @@ class TestFoundAddress:
         """The chosen house gives the group, and the entry shows the address."""
         result = await _kyiv_house_form(hass, aioclient_mock)
 
-        result = await _configure(hass, result, {CONF_HOUSE: str(KYIV_HOUSE["id"])})
+        result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"] == {
@@ -496,7 +515,7 @@ class TestFoundAddress:
         """In a region with cities, the entry has the city, and each request has it."""
         result = await _dnipro_house_form(hass, aioclient_mock)
 
-        result = await _configure(hass, result, {CONF_HOUSE: str(DNIPRO_HOUSE["id"])})
+        result = await _configure(hass, result, {CONF_HOUSE: DNIPRO_HOUSE["value"]})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"] == {
@@ -564,7 +583,7 @@ class TestFoundAddress:
         existing.add_to_hass(hass)
         result = await _kyiv_house_form(hass, aioclient_mock)
 
-        result = await _configure(hass, result, {CONF_HOUSE: str(KYIV_HOUSE["id"])})
+        result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "already_configured"
@@ -776,7 +795,7 @@ class TestSeveralMatches:
         result, _ = await _open_pick(hass, aioclient_mock, CONF_CITY, "дніпр")
 
         result = await _configure(hass, result, {CONF_CITY: "6"})
-        result = await _configure(hass, result, {CONF_HOUSE: str(DNIPRO_HOUSE["id"])})
+        result = await _configure(hass, result, {CONF_HOUSE: DNIPRO_HOUSE["value"]})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"][CONF_CITY] == "м. Дніпро"
@@ -810,6 +829,11 @@ class TestHouseStep:
             *_options_of(KYIV_HOUSES_SORTED),
             {"value": "search_again", "label": SEARCH_AGAIN_EN[CONF_HOUSE]},
         ]
+        # The frontend shows the value of the chosen option in the field, so the value
+        # of each house is its number, and never its id
+        numbers = [_["value"] for _ in KYIV_HOUSES_SORTED]
+        assert [_["value"] for _ in config["options"][:-1]] == numbers
+        assert [_["label"] for _ in config["options"][:-1]] == numbers
         # Without a default the frontend chooses nothing for the user
         assert _default(result, CONF_HOUSE) is None
         assert result["description_placeholders"] == {
@@ -897,20 +921,33 @@ class TestHouseStep:
         assert _asked(aioclient_mock) == ["streets", "houses", "houses", "group"]
         assert _address_requests(aioclient_mock)[-1][1]["houseId"] == "41362"
 
-    async def test_typed_number_of_two_listed_houses_goes_to_yasno(
+    async def test_two_listed_houses_with_one_number_give_one_option(
         self, hass, aioclient_mock
     ):
-        """Two listed houses have the number: only the search of Yasno can tell."""
-        twins = [KYIV_HOUSE, {"id": 41999, "value": HOUSE_6A}]
-        houses = _houses_by_query(
-            {HOUSE_6A: {"json": [KYIV_HOUSE]}}, {"json": [*KYIV_HOUSES, twins[1]]}
-        )
-        result = await _kyiv_house_form(hass, aioclient_mock, houses=houses)
+        """The dropdown has one option for a number, also when two houses have it."""
+        result = await _kyiv_twin_house_form(hass, aioclient_mock)
+
+        numbers = [_["value"] for _ in _select_options(result, CONF_HOUSE)[:-1]]
+
+        assert numbers == [_["value"] for _ in KYIV_HOUSES_SORTED]
+        assert numbers.count(HOUSE_6A) == 1
+        # The text counts the houses of the street, so it counts both twins
+        assert result["description_placeholders"]["count"] == "6"
+
+    async def test_number_of_two_listed_houses_takes_the_first_listed_one(
+        self, hass, aioclient_mock
+    ):
+        """Two listed houses have the number: the first one is the house, no search."""
+        result = await _kyiv_twin_house_form(hass, aioclient_mock)
 
         result = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert [_["query"] for _ in _house_searches(aioclient_mock)] == [HOUSE_6A]
+        assert result["data"][CONF_HOUSE] == HOUSE_6A
+        # Yasno is not asked about the number: the list has it
+        assert _house_searches(aioclient_mock) == []
+        assert _asked(aioclient_mock) == ["streets", "houses", "group"]
+        # The group is the one of the first listed house, not of its twin
         assert _address_requests(aioclient_mock)[-1][1]["houseId"] == "41362"
 
     async def test_typed_number_that_yasno_does_not_know(self, hass, aioclient_mock):
@@ -1062,7 +1099,7 @@ class TestHouseStep:
         """An error after the choice shows the dropdown again, for the street."""
         result = await _kyiv_house_form(hass, aioclient_mock, **changes)
 
-        again = await _configure(hass, result, {CONF_HOUSE: str(KYIV_HOUSE["id"])})
+        again = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
 
         assert again["type"] is FlowResultType.FORM
         assert again["step_id"] == "house"
@@ -1082,17 +1119,57 @@ class TestHouseStep:
         result = await _kyiv_house_form(
             hass, aioclient_mock, group={"status": 404, "json": ENTRY_NOT_FOUND}
         )
-        result = await _configure(hass, result, {CONF_HOUSE: str(KYIV_HOUSE["id"])})
+        result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
         assert result["errors"] == {"house": "house_not_found"}
         aioclient_mock.clear_requests()
         _serve_kyiv(aioclient_mock)
 
-        result = await _configure(hass, result, {CONF_HOUSE: "41350"})
+        result = await _configure(hass, result, {CONF_HOUSE: "2"})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"][CONF_HOUSE] == "2"
         assert result["description_placeholders"]["address"] == f"{KYIV_PLACE}, 2"
         assert _asked(aioclient_mock) == ["group"]
+
+
+class TestButton:
+    """The button of a form says Next while a form follows, and Submit at the last."""
+
+    async def test_forms_before_the_house_say_next_and_the_house_form_does_not(
+        self, hass, aioclient_mock
+    ):
+        """The address form and the pick forms are not the last step: a house comes."""
+        result = await _dnipro_form(
+            hass,
+            aioclient_mock,
+            cities={"json": CITY_MATCHES},
+            streets={"json": STREET_MATCHES},
+        )
+        # The frontend shows Next only for a form with last_step set to False
+        assert result["step_id"] == "address"
+        assert result["last_step"] is False
+
+        result = await _submit_dnipro(hass, result, city="дніпр")
+        assert result["step_id"] == "pick_city"
+        assert result["last_step"] is False
+
+        result = await _configure(hass, result, {CONF_CITY: "6"})
+        assert result["step_id"] == "pick_street"
+        assert result["last_step"] is False
+
+        result = await _configure(hass, result, {CONF_STREET: "9001"})
+        assert result["step_id"] == "house"
+        assert result["last_step"] is not False
+
+        # The address form that «search again» shows has the same button
+        result = await _configure(hass, result, {CONF_HOUSE: "search_again"})
+        assert result["step_id"] == "address"
+        assert result["last_step"] is False
+
+        # The address form with an error has it too
+        result = await _submit_dnipro(hass, result, street="св")
+        assert result["errors"] == {"street": "street_too_short"}
+        assert result["last_step"] is False
 
 
 class TestErrors:
@@ -1207,7 +1284,7 @@ class TestErrors:
         assert result["step_id"] == "house"
         assert result["description_placeholders"]["place"] == KYIV_PLACE
         assert _asked(aioclient_mock) == ["streets", "houses"]
-        result = await _configure(hass, result, {CONF_HOUSE: str(KYIV_HOUSE["id"])})
+        result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"][CONF_STREET] == "вул. Сверстюка Євгена"
 
@@ -1256,9 +1333,7 @@ class TestLog:
             )
             result = await _submit_dnipro(hass, result, city="дніпр", street="шевч")
             result = await _configure(hass, result, {CONF_CITY: "6"})
-            result = await _configure(
-                hass, result, {CONF_HOUSE: str(DNIPRO_HOUSE["id"])}
-            )
+            result = await _configure(hass, result, {CONF_HOUSE: DNIPRO_HOUSE["value"]})
         assert result["type"] is FlowResultType.CREATE_ENTRY
         # The entry has the address, so the log could have shown it
         assert CONF_STREET in result["data"]

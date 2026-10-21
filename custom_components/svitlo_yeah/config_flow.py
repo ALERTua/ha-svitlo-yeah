@@ -423,6 +423,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 "url": GROUP_PAGE_URLS[PROVIDER_TYPE_YASNO],
                 **(placeholders or {}),
             },
+            # The house comes after this form, so its button says Next
+            last_step=False,
         )
 
     async def _async_search_again_label(self, field: str) -> str:
@@ -466,6 +468,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 "count": str(len(self._matches)),
                 "query": self._typed[field].strip(),
             },
+            last_step=False,
         )
 
     async def _async_take_match(
@@ -523,9 +526,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         the typed part of the number. The text names the street of the houses.
         """
         houses = self._houses or []
-        options = [
-            SelectOptionDict(value=str(item.id), label=item.value) for item in houses
-        ]
+        # The field shows the value of the chosen option, so the value is the number
+        # of the house, not its id. One number is one option.
+        numbers = dict.fromkeys(item.value for item in houses)
+        options = [SelectOptionDict(value=number, label=number) for number in numbers]
         options.append(
             SelectOptionDict(
                 value=SEARCH_AGAIN,
@@ -561,15 +565,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         Return the house that the user chose or typed, or the errors of the form.
 
-        A listed house comes first, by its id or by its number. A number that the
-        list lacks goes to Yasno, which can know more houses than the list shows.
+        A listed house comes first, by its number. A number that the list lacks
+        goes to Yasno, which can know more houses than the list shows.
         """
-        houses = self._houses or []
-        # The value of an offered option is the id of its house
-        if chosen := [_ for _ in houses if str(_.id) == text]:
-            return chosen[0]
-        listed = exact_matches(houses, text)
-        if len(listed) == 1:
+        # The value of an offered option is the number of its house
+        if listed := exact_matches(self._houses or [], text):
             return listed[0]
         street = self._chosen[CONF_STREET]
         city = self._chosen.get(CONF_CITY)
