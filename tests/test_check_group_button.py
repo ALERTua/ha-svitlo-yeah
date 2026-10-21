@@ -229,6 +229,36 @@ async def test_press_without_a_sure_group_fails_and_keeps_the_states(
     await _unload(hass, entry)
 
 
+async def test_press_that_finds_a_group_without_a_schedule_fails(hass, aioclient_mock):
+    """
+    Yasno gives a new group that the planned outages lack: the press fails.
+
+    The error names the group. The entry keeps its group, and no switch comes.
+    """
+    yasno_address_answers(aioclient_mock, group={"json": {"group": 60, "subgroup": 1}})
+    entry = await _start(hass)
+    coordinator = entry.runtime_data
+
+    with pytest.raises(HomeAssistantError) as error:
+        await _press(hass)
+
+    assert error.value.translation_domain == DOMAIN
+    assert error.value.translation_key == "check_group_not_listed"
+    assert error.value.translation_placeholders == {"group": "60.1"}
+    assert coordinator.address_check_result is AddressResult.FOUND
+    assert entry.data[CONF_GROUP] == "1.1"
+    assert entry.runtime_data is coordinator
+    assert hass.states.get(GROUP_SENSOR_ID).state == "1.1"
+
+    # A later press that finds the group of the entry succeeds
+    aioclient_mock.clear_requests()
+    yasno_address_answers(aioclient_mock, group=YASNO_GROUP_1_1_REPLY)
+    await _press(hass)
+
+    assert coordinator.address_check_group_not_listed is None
+    await _unload(hass, entry)
+
+
 async def test_poll_that_stops_before_the_check_fails_the_press(hass, aioclient_mock):
     """The press does not count the result of an earlier check as its own."""
     yasno_address_answers(aioclient_mock, group=YASNO_GROUP_1_1_REPLY)

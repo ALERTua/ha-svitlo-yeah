@@ -167,6 +167,9 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         self._address_check: AddressCheck | None = None
         # The result of the last check of the address, for the button and diagnostics
         self.address_check_result: AddressResult | None = None
+        # The new group that the last check found and the planned outages lack, which
+        # the button names
+        self.address_check_group_not_listed: str | None = None
         # Whether the next check runs at once and switches to a new group at once
         self._force_address_check = False
 
@@ -249,10 +252,12 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         The check runs inside a poll, so it waits for the lock of the poll. A poll
         that runs already can take the force, and then its check is the check of
         this call. After it, address_check_result is the result of this check, or
-        None when the poll stopped before the check.
+        None when the poll stopped before the check. A found group that the planned
+        outages lack is in address_check_group_not_listed, and no switch comes.
         """
         # The result of an earlier check must not count as the result of this one
         self.address_check_result = None
+        self.address_check_group_not_listed = None
         self._force_address_check = True
         try:
             await self.async_refresh()
@@ -344,6 +349,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             )
             result, group = AddressResult.UNKNOWN, None
         self.address_check_result = result
+        self.address_check_group_not_listed = None
         # The entry can be unloaded, removed or get another address meanwhile, and a
         # Reconfigure that found the address makes this answer an old one
         if (
@@ -380,6 +386,8 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             await self._async_address_not_found(check, now)
         else:
             # No sure answer, or a new group that the planned outages do not list
+            if result is AddressResult.FOUND:
+                self.address_check_group_not_listed = group
             self._address_check = replace(
                 check, next_check=now + ADDRESS_RETRY_INTERVAL
             )
