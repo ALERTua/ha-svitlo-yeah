@@ -77,10 +77,8 @@ GROUP_PAGE_URLS: dict[str, str] = {
 # The option that ends a select of matches or of houses, and shows the address form
 SEARCH_AGAIN = "search_again"
 
-# For each select: its translation key, which gives the "search again" option a text in
-# the language of the user, and the English text for a language without one. The select
-# of the houses lists the houses of the street, so its option says that the street is
-# wrong. The frontend keeps the label of each other option, which has no translation.
+# For each select: the translation key of its «search again» option, and the English
+# text for a language without one. The other options are names, with no translation.
 SEARCH_AGAIN_TEXTS: dict[str, tuple[str, str]] = {
     CONF_CITY: ("city_match", "My city is not in the list, search again"),
     CONF_STREET: ("street_match", "My street is not in the list, search again"),
@@ -222,11 +220,11 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_entry_title(self, data: Mapping[str, Any]) -> str:
         """
-        Return the device name in the language of the server, as the entry title.
+        Return the title of a new entry: its address, or the device name.
 
-        Thus the entries differ on the page of the integration. A Yasno entry with
-        an address has the address, because the user knows the address, and its
-        group can change: the user chose this over an address-free log.
+        The device name is in the language of the server, so the entries differ on
+        the page of the integration. An address names the place that the user knows,
+        and its group can change. The user chose this over an address-free log.
         """
         if address := YasnoAddress.from_entry_data(data):
             return address.text
@@ -256,10 +254,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         Abort when another entry already has this group or this address.
 
-        One entry for each group of a provider, or for each address: a second one
-        only repeats it. Two addresses in one group are two places, and an address
-        entry with the group of a group entry is another kind of entry, so they
-        pass in either order. The entry of a Reconfigure is not another entry.
+        Two addresses in one group are two places, and an address entry and a group
+        entry never repeat each other. The entry of a Reconfigure is not another one.
         """
         is_address = CONF_STREET in self.data
         keys = (CONF_PROVIDER_TYPE, CONF_REGION, CONF_PROVIDER)
@@ -284,10 +280,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         Create the entry with the chosen group, or give the group to the entry.
 
-        The input is the group, and for an address also the names of the address.
-        The input decides the kind of the entry: a Reconfigure to a group drops the
-        address. The description is the key of the text that the dialog shows after
-        it created the entry. Reconfigure ends with an abort, so it has no such text.
+        The input is the group, with the names of an address or without them, so a
+        Reconfigure to a group drops the address. The description is the key of the
+        text after a new entry: a Reconfigure ends with an abort, without such text.
         """
         LOGGER.debug("async_step_group: User input: %s", _without_address(user_input))
         self.data = {
@@ -497,10 +492,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         Show the dropdown of all houses of the street, and the option to search again.
 
-        The dropdown takes a typed text too, and its search box finds a house by
-        the typed part of the number. The text names the street of the houses.
-        After an error, the field shows the house that the user gave. A Reconfigure
-        on the street of its entry shows the house of the entry.
+        The dropdown takes a typed number too. The field suggests the house of an
+        error, or the house of the entry in a Reconfigure on the street of the entry.
         """
         houses = self._houses or []
         translation_key, english = SEARCH_AGAIN_TEXTS[CONF_HOUSE]
@@ -623,10 +616,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_keep_found_address(self, address: YasnoAddress) -> None:
         """
-        Tell the coordinator of the entry of a Reconfigure that Yasno found the address.
+        Tell the loaded coordinator of a Reconfigure that Yasno found the address.
 
-        When it is the address of the entry, its Not found results and its repair
-        issue go away, also when the data stays the same and the entry does not
+        Its Not found results and its repair issue go, also when the entry does not
         reload. An entry that is not loaded has no coordinator and no issue.
         """
         entry = self._get_reconfigure_entry()
