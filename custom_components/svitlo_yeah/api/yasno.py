@@ -54,6 +54,8 @@ _HOUSE_REQUESTS_AT_ONCE: Final = 5
 _DIGITS: Final = "0123456789"
 # The number at the start of the number of a house, for the natural order
 _LEADING_NUMBER = re.compile(r"\d+")
+# The code of the 404 body for an id or an address that Yasno does not know
+_ENTRY_NOT_FOUND: Final = "EntryNotFound"
 # The kind of a place at the start of its name: a word with a dot, with or without
 # a space after it («вул. Хрещатик», «м.Дніпро»), or the kinds of a settlement and of
 # a town, which stand with a space
@@ -134,6 +136,20 @@ def _address_items(answer: object) -> list[YasnoAddressItem] | None:
             return None
         items.append(YasnoAddressItem(id=item["id"], value=item["value"]))
     return items
+
+
+def _is_entry_not_found(status: int | None, answer: object) -> bool:
+    """
+    Tell whether Yasno says that it does not know the id or the address.
+
+    Only a 404 with the code EntryNotFound says so. Another 404 says nothing sure,
+    for example after Yasno moved an endpoint.
+    """
+    return (
+        status == HTTPStatus.NOT_FOUND
+        and isinstance(answer, dict)
+        and answer.get("code") == _ENTRY_NOT_FOUND
+    )
 
 
 def _house_order(house: YasnoAddressItem) -> tuple[int, int, str]:
@@ -592,9 +608,9 @@ class YasnoApi:
         """
         Ask an address endpoint, and return the HTTP status with the JSON body.
 
-        Any status that has a JSON body counts, because a 404 means that Yasno
-        does not know the address. No answer is (None, None). The query holds
-        the address of a person, so the log names the path and the status only.
+        Any status that has a JSON body counts, because a 404 EntryNotFound means
+        that Yasno does not know the address. No answer is (None, None). The query
+        holds the address of a person, so the log names the path and the status only.
         """
         try:
             async with self.session.get(
@@ -641,14 +657,14 @@ class YasnoApi:
         """
         Return the matches of a search, or None when Yasno says nothing sure.
 
-        A 404 is no match: Yasno says EntryNotFound, for example for a street id
-        that it changed.
+        A 404 EntryNotFound is no match, for example for a street id that Yasno
+        changed.
         """
         request = self._address_params(city_id, **params)
         if request is None:
             return None
         status, answer = await self._get_address_answer(path, request)
-        if status == HTTPStatus.NOT_FOUND:
+        if _is_entry_not_found(status, answer):
             return []
         if status != HTTPStatus.OK:
             return None
@@ -721,7 +737,7 @@ class YasnoApi:
         if request is None:
             return AddressResult.UNKNOWN, None
         status, answer = await self._get_address_answer("group", request)
-        if status == HTTPStatus.NOT_FOUND:
+        if _is_entry_not_found(status, answer):
             return AddressResult.NOT_FOUND, None
         if (
             status == HTTPStatus.OK
