@@ -64,10 +64,11 @@ _PLACE_KIND = re.compile(
 )
 
 # Yasno does not find a house when a letter of its number is Latin. Each Latin
-# letter on the left looks like the Cyrillic letter at the same place on the right.
+# letter on the left looks like the Cyrillic letter at the same place on the right,
+# in the same case. A small b, h, k, m or t does not look like its Cyrillic pair.
 _LATIN_TO_CYRILLIC = str.maketrans(
-    "abcehikmoptxyABCEHIKMOPTXY",
-    "авсенікмортхуАВСЕНІКМОРТХУ",
+    "ABCEHIKMOPTXYaceiopxy",
+    "АВСЕНІКМОРТХУасеіорху",  # noqa: RUF001  # the Cyrillic look-alikes
 )
 
 
@@ -99,10 +100,12 @@ def normalize_name(name: str) -> str:
     """
     Return the name in the form that two writings of it share.
 
-    One space between words, no case, and Cyrillic letters in place of the
-    Latin ones that look the same, so a Latin and a Cyrillic A are one letter.
+    One space between words, Cyrillic letters in place of the Latin ones that
+    look the same, and no case. Thus a Latin and a Cyrillic A are one letter. The
+    letters change before the case goes, because only a capital Latin B looks
+    like the Cyrillic letter VE.
     """
-    return cyrillic_look_alikes(" ".join(name.split()).casefold())
+    return cyrillic_look_alikes(" ".join(name.split())).casefold()
 
 
 def name_without_kind(name: str) -> str:
