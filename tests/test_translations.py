@@ -42,6 +42,7 @@ HA_ABORT_REASONS = {"already_configured"}
 # read from a table (the not found errors come from NOT_FOUND_ERRORS)
 ADDRESS_STEPS = ("yasno_method", "address", "pick_city", "pick_street", "house")
 ADDRESS_ERRORS = {
+    "city_too_short",
     "street_too_short",
     "street_without_houses",
     "yasno_no_answer",

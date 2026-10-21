@@ -664,8 +664,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self._chosen = {}
         self._houses = None
         errors: dict[str, str] = {}
+        # A city of only spaces names no city, so the search gets no query
+        if self._has_cities and not self._typed[CONF_CITY].strip():
+            errors[CONF_CITY] = "city_too_short"
         if len(self._typed[CONF_STREET].strip()) < YASNO_STREET_QUERY_MIN:
             errors[CONF_STREET] = "street_too_short"
+        if errors:
             return self._show_address_form(errors)
         return await self._async_search_address()
 
