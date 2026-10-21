@@ -96,6 +96,7 @@
     },
     "error": {
       "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it.",
+      "city_too_short": "Enter the name of your city, or a part of it.",
       "street_too_short": "Enter at least 3 letters of the street name.",
       "city_not_found": "Yasno does not know this city.",
       "street_not_found": "Yasno does not know this street.",

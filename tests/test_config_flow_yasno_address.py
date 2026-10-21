@@ -1511,6 +1511,35 @@ class TestErrors:
         assert _suggested(result, CONF_CITY) == "м. Дніпро"
         assert _suggested(result, CONF_STREET) == street
 
+    @pytest.mark.parametrize(
+        ("street", "errors"),
+        [
+            pytest.param(
+                "Шевченка", {"city": "city_too_short"}, id="street_long_enough"
+            ),
+            pytest.param(
+                "св",
+                {"city": "city_too_short", "street": "street_too_short"},
+                id="street_too_short",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("city", ["   ", ""])
+    async def test_blank_city_asks_nothing(
+        self, hass, aioclient_mock, city, street, errors
+    ):
+        """A city of only spaces gives an error under the city, and no request."""
+        result = await _dnipro_form(hass, aioclient_mock)
+
+        result = await _submit_dnipro(hass, result, city=city, street=street)
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "address"
+        assert result["errors"] == errors
+        assert _address_requests(aioclient_mock) == []
+        assert _suggested(result, CONF_CITY) == city
+        assert _suggested(result, CONF_STREET) == street
+
     # The reply that Yasno gives, the field of the error, the error, and the requests
     # that the flow sends until then
     @pytest.mark.parametrize(
