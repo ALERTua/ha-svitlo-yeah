@@ -1,7 +1,7 @@
 """Sensor platform for Svitlo Yeah integration."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.components.sensor import (
@@ -9,11 +9,12 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 from homeassistant.components.sensor.const import SensorDeviceClass
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, Platform
+from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_PROVIDER_TYPE, PROVIDER_TYPE_YASNO
+from .const import CONF_PROVIDER_TYPE, DOMAIN, PROVIDER_TYPE_YASNO
 from .entity import IntegrationEntity
-from .models import ConnectivityState
+from .models import ConnectivityState, YasnoAddress
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -78,7 +79,8 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
 
 # The group of the entry. A Yasno entry can get a new group from the check of its
 # address, so only a Yasno entry has this sensor. The other providers keep the group
-# that the user selected, which the device name shows.
+# that the user selected, which the device name shows. The sensor is enabled by
+# default only on an entry with an address (see async_setup_entry).
 GROUP_SENSOR = IntegrationSensorDescription(
     key="group",
     translation_key="group",
@@ -87,9 +89,8 @@ GROUP_SENSOR = IntegrationSensorDescription(
 )
 
 
-# noinspection PyUnusedLocal
 async def async_setup_entry(
-    hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
+    hass: HomeAssistant,
     config_entry: SvitloYeahConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
@@ -98,10 +99,43 @@ async def async_setup_entry(
     coordinator = config_entry.runtime_data
     descriptions = SENSORS
     if config_entry.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_YASNO:
-        descriptions = (*SENSORS, GROUP_SENSOR)
+        # Only an address can give the entry a new group, so a group entry has
+        # nothing to watch. Home Assistant reads this flag only when the registry gets
+        # the entity for the first time. A sensor that an earlier version enabled on a
+        # group entry stays enabled, and a Reconfigure back to a group keeps it too.
+        has_address = YasnoAddress.from_entry_data(config_entry.data) is not None
+        if has_address:
+            _enable_group_sensor(hass, config_entry)
+        descriptions = (
+            *SENSORS,
+            replace(GROUP_SENSOR, entity_registry_enabled_default=has_address),
+        )
     async_add_entities(
         IntegrationSensor(coordinator, description) for description in descriptions
     )
+
+
+def _enable_group_sensor(
+    hass: HomeAssistant, config_entry: SvitloYeahConfigEntry
+) -> None:
+    """
+    Enable the group sensor that the integration disabled on a group entry.
+
+    A Reconfigure can give a group entry an address, and the registry already has the
+    sensor as disabled. Home Assistant reloads the entry 30 seconds after an entity
+    gets enabled, so the entry reloads once more: the integration accepts this cost.
+    A sensor that the user disabled stays disabled.
+    """
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        Platform.SENSOR, DOMAIN, f"{config_entry.entry_id}_{GROUP_SENSOR.key}"
+    )
+    entity = registry.async_get(entity_id) if entity_id else None
+    if entity is None or entity.disabled_by is not er.RegistryEntryDisabler.INTEGRATION:
+        return
+    # The entity id has the address, so the log names the entry only
+    LOGGER.debug("Enable the group sensor of entry %s", config_entry.entry_id)
+    registry.async_update_entity(entity.entity_id, disabled_by=None)
 
 
 class IntegrationSensor(IntegrationEntity, SensorEntity):
