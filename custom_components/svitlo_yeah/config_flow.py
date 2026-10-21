@@ -55,6 +55,7 @@ from .const import (
     PROVIDER_TYPE_YASNO,
     SOE_SITE_URL,
     TZ_UA,
+    YASNO_REGION_PAGES,
     YASNO_STREET_QUERY_MIN,
     common_translation_key,
 )
@@ -82,12 +83,6 @@ GROUP_PAGE_URLS: dict[str, str] = {
     PROVIDER_TYPE_YASNO: "https://static.yasno.ua/kyiv/outages",
     PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
     PROVIDER_TYPE_SOE: SOE_SITE_URL,
-}
-
-# The Yasno page of each region, by the region id, as the page script of Yasno has them
-YASNO_REGION_PAGES: dict[int, str] = {
-    25: "https://static.yasno.ua/kyiv/outages",
-    3: "https://static.yasno.ua/dnipro/outages",
 }
 
 # The keys of an entry that name the address of a person, so no log line shows them

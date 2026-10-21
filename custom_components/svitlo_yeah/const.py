@@ -51,6 +51,11 @@ YASNO_ADDRESSES_ENDPOINT: Final = (
 )
 YASNO_REGIONS_ENDPOINT: Final = YASNO_ADDRESSES_ENDPOINT + "regions"
 YASNO_PLANNED_OUTAGES_ENDPOINT: Final = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/{region_id}/dsos/{dso_id}/planned-outages"
+# The Yasno page of each region, by the region id, as the page script of Yasno has them
+YASNO_REGION_PAGES: Final[dict[int, str]] = {
+    25: "https://static.yasno.ua/kyiv/outages",
+    3: "https://static.yasno.ua/dnipro/outages",
+}
 
 # Yasno gives at most this many matches of one search of an address
 YASNO_ADDRESS_MATCHES_CAP: Final = 20
@@ -94,8 +99,9 @@ TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE: Final = common_translation_key(
 TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE: Final = common_translation_key(
     "event_name_emergency_outage"
 )
-# Repair issue: the translation key, and the prefix of the issue id
+# Repair issues: the translation key, and the prefix of the issue id
 ISSUE_GROUP_NOT_LISTED: Final = "group_not_listed"
+ISSUE_ADDRESS_NOT_FOUND: Final = "address_not_found"
 
 # E-Svitlo Constants
 # The site of the personal cabinet, which the login forms name

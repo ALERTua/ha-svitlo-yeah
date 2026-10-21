@@ -180,6 +180,15 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
             self.api.get_events(now, now + CHANGE_CHECK_WINDOW), now
         )
         await self._async_store_last_data()
+        await self._async_after_update()
+
+    async def _async_after_update(self) -> None:
+        """
+        Do more work at the end of a poll, after the last data is kept.
+
+        Nothing by default. A poll that ends after an unload or a removal of the
+        entry does not come here.
+        """
 
     async def _async_fetch(self) -> Any:
         """Ask the source, and return its answer for _async_use_answer."""
@@ -197,11 +206,11 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
         """Give the kept data of the source back to the API client."""
         raise NotImplementedError
 
-    async def _async_store_last_data(self) -> None:
-        """Keep the last data of the source, when it changed after the last save."""
-        if self._store is None or (source := self._source_data()) is None:
-            return
-        data = {
+    def _last_data(self) -> dict | None:
+        """Return the data to keep across a restart, or None without data to keep."""
+        if (source := self._source_data()) is None:
+            return None
+        return {
             "source": source,
             "group": self.group,
             "group_listed": self.group_listed,
@@ -211,7 +220,18 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
                 else None
             ),
         }
-        if data != self._stored:
+
+    async def _async_store_last_data(self, data: dict | None = None) -> None:
+        """
+        Keep the data, when it changed after the last save.
+
+        Without data, the coordinator keeps its last data, as _last_data gives it.
+        """
+        if self._store is None:
+            return
+        if data is None:
+            data = self._last_data()
+        if data is not None and data != self._stored:
             await self._store.async_save(data)
             self._stored = data
 

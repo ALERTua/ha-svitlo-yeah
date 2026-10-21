@@ -246,6 +246,10 @@
     "group_not_listed": {
       "title": "No outage schedule for group {group}",
       "description": "The source {provider} has no outage schedule for group {group}. Until the source has it, the Electricity sensor shows Unknown, and the calendars show no outages for this group.\n\nThe provider can renumber or remove groups. Find your group on the website of the provider. To change the group, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Reconfigure.\n\nThis message disappears when the source has group {group} again."
+    },
+    "address_not_found": {
+      "title": "Yasno does not find the address of {entry}",
+      "description": "Yasno does not know the address of the entry «{entry}» any more. The integration keeps the schedule of the group {group}. Look for the address on the Yasno site: {url}. If Yasno has a new name for the street, delete the entry and add the address again."
     }
   },
   "exceptions": {
