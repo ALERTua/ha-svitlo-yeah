@@ -89,7 +89,8 @@ class AddressCheck:
     """
 
     address: YasnoAddress
-    # When the next check is due, an aware datetime
+    # When the next check is due, an aware datetime in UTC. A local time plus a week
+    # keeps the local hour, so a DST change would move the check by one hour.
     next_check: dt.datetime
     pending_group: str | None = None
     # The Not found results in a row
@@ -270,7 +271,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         if address != self._address:
             return
         self._address_check = AddressCheck(
-            address, dt_utils.now() + ADDRESS_CHECK_INTERVAL
+            address, dt_utils.utcnow() + ADDRESS_CHECK_INTERVAL
         )
         ir.async_delete_issue(
             self.hass, DOMAIN, address_not_found_issue_id(self.config_entry.entry_id)
@@ -291,7 +292,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             or self.config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS
         ):
             return
-        now = dt_utils.now()
+        now = dt_utils.utcnow()
         check = self._address_check
         force = self._force_address_check
         if not force:
@@ -340,7 +341,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         ):
             return
         LOGGER.debug("The check of the address of entry %s gives %s", entry_id, result)
-        now = dt_utils.now()
+        now = dt_utils.utcnow()
         if result is AddressResult.FOUND and group == self.group:
             self._address_check = AddressCheck(address, now + ADDRESS_CHECK_INTERVAL)
             ir.async_delete_issue(
