@@ -290,6 +290,9 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         """
         if (
             self._address is None
+            # An unload or a removal can come while the base saves the last data,
+            # and then a save of the check would keep the store of a removed entry
+            or self._shutdown_requested
             or self.config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS
         ):
             return

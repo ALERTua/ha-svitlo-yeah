@@ -710,6 +710,38 @@ class TestRaceGuard:
             r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR
         ] == []
 
+    async def test_removal_while_the_poll_saves_leaves_no_store(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        The user removes the entry while the poll saves its data: no store stays.
+
+        The entry has no state of the check yet, so the end of the poll would
+        start the clock and save the store of the removed entry again.
+        """
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(hass, hass_storage)
+        save = coordinator._store.async_save
+        saves = []
+
+        async def save_and_remove(data):
+            saves.append(data)
+            await save(data)
+            if len(saves) == 1:
+                await hass.config_entries.async_remove(entry.entry_id)
+
+        # A new time of the last change makes the poll save its data
+        coordinator.outage_data_last_changed = dt_utils.utcnow()
+        with patch.object(
+            coordinator._store, "async_save", side_effect=save_and_remove
+        ):
+            await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        assert hass.config_entries.async_entries(DOMAIN) == []
+        assert store_key(entry.entry_id) not in hass_storage
+        assert len(saves) == 1
+
 
 class TestNotFound:
     """A check that does not find the address."""
