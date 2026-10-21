@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.util import dt as dt_utils
 
-from .const import CONF_CITY, CONF_HOUSE, CONF_STREET
+from .const import ADDRESS_KEYS
 from .coordinator.coordinator import TIMEFRAME_TO_CHECK
 from .coordinator.yasno import YasnoCoordinator
 
@@ -19,9 +19,7 @@ if TYPE_CHECKING:
 
 TO_REDACT = {
     # The address of a Yasno entry identifies a person
-    CONF_CITY,
-    CONF_STREET,
-    CONF_HOUSE,
+    *ADDRESS_KEYS,
     # The data of an entry of the removed E-Svitlo provider still holds a login
     "username",
     "password",

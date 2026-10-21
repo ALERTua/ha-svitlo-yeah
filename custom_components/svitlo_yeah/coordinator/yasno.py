@@ -22,12 +22,9 @@ from custom_components.svitlo_yeah.api.yasno import (
     is_planned_outages,
 )
 from custom_components.svitlo_yeah.const import (
-    CONF_CITY,
     CONF_GROUP,
-    CONF_HOUSE,
     CONF_PROVIDER,
     CONF_REGION,
-    CONF_STREET,
     DOMAIN,
     EVENT_GROUP_CHANGED,
     ISSUE_ADDRESS_NOT_FOUND,
@@ -96,11 +93,7 @@ class AddressCheck:
     def as_dict(self) -> dict[str, Any]:
         """Return the state in the form that the store keeps."""
         return {
-            "address": {
-                CONF_CITY: self.address.city,
-                CONF_STREET: self.address.street,
-                CONF_HOUSE: self.address.house,
-            },
+            "address": self.address.as_entry_data(),
             "next_check": self.next_check.isoformat(),
             "pending_group": self.pending_group,
             "not_found_count": self.not_found_count,
