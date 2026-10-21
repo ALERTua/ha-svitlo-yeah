@@ -1444,6 +1444,36 @@ class TestHouseStep:
         assert _asked(aioclient_mock) == asked
         assert _suggested(result, CONF_STREET) == "сверст"
 
+    async def test_search_again_then_another_street_lists_its_houses(
+        self, hass, aioclient_mock
+    ):
+        """After «not my street», another street gets its own list of houses."""
+        other_street = {"id": 2000, "value": "вул. Тестова"}
+        streets = {"сверст": [KYIV_STREET], "тестова": [other_street]}
+        houses = {"1647": KYIV_HOUSES, "2000": [{"id": 50036, "value": "36"}]}
+
+        async def street_answer(method, url, _data):
+            json = streets[url.query["query"].casefold()]
+            return AiohttpClientMockResponse(method, url, json=json)
+
+        async def house_answer(method, url, _data):
+            json = houses[url.query["streetId"]]
+            return AiohttpClientMockResponse(method, url, json=json)
+
+        result = await _kyiv_house_form(
+            hass,
+            aioclient_mock,
+            streets={"side_effect": street_answer},
+            houses={"side_effect": house_answer},
+        )
+        result = await _configure(hass, result, {CONF_HOUSE: "search_again"})
+
+        result = await _submit_kyiv(hass, result, street="Тестова")
+
+        assert result["step_id"] == "house"
+        assert result["description_placeholders"]["place"] == "Київ, вул. Тестова"
+        assert _select_options(result, CONF_HOUSE)[1:] == _options_of(houses["2000"])
+
     async def test_form_without_an_input_shows_the_list_again(
         self, hass, aioclient_mock
     ):
