@@ -37,8 +37,13 @@ LATIN = dict(
 HA_ABORT_REASONS = {"already_configured"}
 # The steps of the address flow, and the errors of its form that the code does not
 # read from a table (the not found errors come from NOT_FOUND_ERRORS)
-ADDRESS_STEPS = ("yasno_method", "address", "pick_city", "pick_street", "pick_house")
-ADDRESS_ERRORS = {"street_too_short", "yasno_no_answer", "address_group_not_listed"}
+ADDRESS_STEPS = ("yasno_method", "address", "pick_city", "pick_street", "house")
+ADDRESS_ERRORS = {
+    "street_too_short",
+    "street_without_houses",
+    "yasno_no_answer",
+    "address_group_not_listed",
+}
 
 
 def _load(language: str) -> dict:
@@ -89,6 +94,19 @@ def _form_errors() -> set[str]:
         )
         for node in ast.walk(assign.value)
         if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
+def _entry_descriptions() -> set[str]:
+    """Return each key that config_flow.py gives as the description of a new entry."""
+    tree = ast.parse(CONFIG_FLOW.read_text(encoding="utf-8"))
+    return {
+        keyword.value.value
+        for keyword in ast.walk(tree)
+        if isinstance(keyword, ast.keyword)
+        and keyword.arg == "description"
+        and isinstance(keyword.value, ast.Constant)
+        and isinstance(keyword.value.value, str)
     }
 
 
@@ -144,6 +162,16 @@ def test_each_form_error_has_a_text(language):
 
     texts = _load(language)["config"]["error"]
     assert {e for e in errors if not texts.get(e)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_entry_description_has_a_text(language):
+    """The dialog of a new entry shows a bare key when its description has no text."""
+    keys = _entry_descriptions()
+    assert keys  # the parser found the descriptions of config_flow.py
+
+    texts = _load(language)["config"]["create_entry"]
+    assert {k for k in keys if not texts.get(k)} == set()
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
@@ -272,9 +300,10 @@ def test_each_step_of_the_address_flow_has_its_texts(language):
     menu = steps["yasno_method"]
     assert set(menu["menu_options"]) == {"address", "group"}
     assert set(menu["menu_option_descriptions"]) == {"address", "group"}
-    assert set(steps["address"]["data"]) == {"city", "street", "house"}
-    for level in ("city", "street", "house"):
+    assert set(steps["address"]["data"]) == {"city", "street"}
+    for level in ("city", "street"):
         assert set(steps[f"pick_{level}"]["data"]) == {level}
+    assert set(steps["house"]["data"]) == {"house"}
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
@@ -295,10 +324,16 @@ def test_search_again_fallback_is_the_english_text():
 
 
 def test_address_texts_name_the_placeholders_that_the_flow_sends():
-    """The flow sends the page, the count and the query, and the group of an error."""
+    """
+    The flow sends the page, the address, the counts and the query, and the group.
+
+    The group goes to the text of an error and to the text of the created entry.
+    """
     config = _load("en")["config"]
     assert _placeholders(config["step"]["address"]["description"]) == {"url"}
-    for level in ("city", "street", "house"):
+    for level in ("city", "street"):
         text = config["step"][f"pick_{level}"]["description"]
-        assert _placeholders(text) == {"count", "query"}
+        assert _placeholders(text) == {"place", "count", "query"}
+    assert _placeholders(config["step"]["house"]["description"]) == {"place", "count"}
     assert _placeholders(config["error"]["address_group_not_listed"]) == {"group"}
+    assert _placeholders(config["create_entry"]["address"]) == {"address", "group"}

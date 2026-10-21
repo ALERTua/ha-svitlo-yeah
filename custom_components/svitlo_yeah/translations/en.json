@@ -38,21 +38,19 @@
       },
       "address": {
         "title": "Address",
-        "description": "Enter the street and the house number as on the Yasno site: {url}. Three letters of the street are enough.",
+        "description": "Enter the address as on the Yasno site: {url}. Three letters of the street name are enough.",
         "data": {
           "city": "City",
-          "street": "Street",
-          "house": "House"
+          "street": "Street"
         },
         "data_description": {
           "city": "The name of your city, or a part of it.",
-          "street": "The name of your street, or a part of it. Yasno needs three letters at least.",
-          "house": "The number of your house, with its letter if it has one."
+          "street": "The name of your street or a part of it, at least three letters."
         }
       },
       "pick_city": {
         "title": "Select your city",
-        "description": "Yasno found {count} matches for «{query}». Yasno shows at most 20.",
+        "description": "Region: {place}. Matches for «{query}»: {count}. Yasno shows at most 20.",
         "data": {
           "city": "City"
         },
@@ -62,7 +60,7 @@
       },
       "pick_street": {
         "title": "Select your street",
-        "description": "Yasno found {count} matches for «{query}». Yasno shows at most 20.",
+        "description": "Address: {place}. Matches for «{query}»: {count}. Yasno shows at most 20.",
         "data": {
           "street": "Street"
         },
@@ -70,14 +68,14 @@
           "street": "The street of your address."
         }
       },
-      "pick_house": {
+      "house": {
         "title": "Select your house",
-        "description": "Yasno found {count} matches for «{query}». Yasno shows at most 20.",
+        "description": "Address: {place}. Houses on this street: {count}. Select your house in the list, or start to type its number.",
         "data": {
           "house": "House"
         },
         "data_description": {
-          "house": "The house of your address."
+          "house": "The number of your house."
         }
       },
       "group": {
@@ -141,9 +139,13 @@
       "street_too_short": "Enter at least 3 letters of the street name.",
       "city_not_found": "Yasno does not know this city.",
       "street_not_found": "Yasno does not know this street.",
+      "street_without_houses": "Yasno knows no house on this street.",
       "house_not_found": "Yasno does not know this house on this street.",
       "yasno_no_answer": "Yasno does not answer. Try again in a few minutes.",
       "address_group_not_listed": "Yasno gives this address the group {group}, but the Yasno schedule does not have this group yet. Try again later, or select the group by hand."
+    },
+    "create_entry": {
+      "address": "Found the address: {address}. Yasno group: {group}."
     }
   },
   "device": {
@@ -278,6 +280,6 @@
     "rivne": "Rivne",
     "search_again_city": "My city is not in the list, search again",
     "search_again_street": "My street is not in the list, search again",
-    "search_again_house": "My house is not in the list, search again"
+    "search_again_house_street": "This is not my street, search again"
   }
 }
