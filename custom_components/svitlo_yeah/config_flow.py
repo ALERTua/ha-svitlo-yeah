@@ -154,7 +154,9 @@ def _esvitlo_login_schema() -> vol.Schema:
 class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
 
-    # Each change of the entry data shape needs a new VERSION and async_migrate_entry
+    # A new required key, or a new meaning of a key, needs a new VERSION and
+    # async_migrate_entry. A new optional key needs none, because an older release
+    # ignores the key. The address keys (city, street, house) are such keys.
     VERSION = 1
     MINOR_VERSION = 1
 
