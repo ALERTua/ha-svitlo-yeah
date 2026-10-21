@@ -22,6 +22,7 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.helpers.translation import async_get_translations
 
+from . import COORDINATORS
 from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
 from .api.yasno import (
@@ -824,7 +825,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         A Yasno entry gets the menu of a new entry, so a group entry can get an
         address, and an address entry can go back to a group. An entry of a
-        removed provider stops at once, because no group list exists for it.
+        removed provider or of an unknown provider type stops at once, because no
+        group list exists for it.
         """
         entry = self._get_reconfigure_entry()
         self.data = dict(entry.data)
@@ -837,7 +839,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     "integration": await async_integration_title(self.hass),
                 },
             )
-        if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_YASNO:
+        if (provider_type := self.data.get(CONF_PROVIDER_TYPE)) not in COORDINATORS:
+            # noinspection PyTypeChecker
+            return self.async_abort(
+                reason="unknown_provider_type",
+                description_placeholders={"provider_type": str(provider_type)},
+            )
+        if provider_type == PROVIDER_TYPE_YASNO:
             # The address form suggests the address of the entry
             if address := YasnoAddress.from_entry_data(entry.data):
                 self._typed = {CONF_STREET: address.street.strip()}
