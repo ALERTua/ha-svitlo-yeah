@@ -15,6 +15,8 @@ __all__ = [
     "PlannedOutageEvent",
     "PlannedOutageEventType",
     "SoeProvider",
+    "YasnoAddress",
+    "YasnoAddressItem",
     "YasnoPlannedOutageDayStatus",
     "YasnoProvider",
     "YasnoRegion",
@@ -65,11 +67,18 @@ class YasnoRegion:
     id: int  # 25
     name: str  # Київ
     dsos: list[YasnoProvider] = field(default_factory=list)
+    # Whether an address in the region has a city, for example in Дніпро. A stored
+    # region of an older version has no such key.
+    has_cities: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> YasnoRegion:
         """Create instance from dict data."""
-        output = cls(id=data["id"], name=data["value"])
+        output = cls(
+            id=data["id"],
+            name=data["value"],
+            has_cities=data.get("hasCities") is True,
+        )
         output.dsos = [
             YasnoProvider.from_dict(
                 data=_, region_id=output.id, region_name=output.name
@@ -77,3 +86,21 @@ class YasnoRegion:
             for _ in data["dsos"]
         ]
         return output
+
+
+@dataclass(frozen=True)
+class YasnoAddressItem:
+    """One match of a Yasno search of a city, a street or a house."""
+
+    id: int  # 1647
+    value: str  # вул. Сверстюка Євгена
+
+
+@dataclass(frozen=True)
+class YasnoAddress:
+    """The names of an address, as Yasno writes them."""
+
+    street: str  # вул. Сверстюка Євгена
+    house: str  # the number with its letter, as Yasno writes it
+    # Only a region with cities has it, for example «м. Дніпро»
+    city: str | None = None
