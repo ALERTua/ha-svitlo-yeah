@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, override
 import probatio as vol
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
 )
@@ -59,6 +60,7 @@ from .const import (
     YASNO_STREET_QUERY_MIN,
     common_translation_key,
 )
+from .coordinator.yasno import YasnoCoordinator
 from .models import YasnoAddress
 from .models.providers import (
     BaseProvider,
@@ -338,15 +340,19 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         Create the entry with the chosen group, or give the group to the entry.
 
         The input is the group, and for an address also the names of the address.
-        The description is the key of the text that the dialog shows after it created
-        the entry. Reconfigure ends with an abort, so it has no such text.
+        The input decides the kind of the entry: a Reconfigure to a group drops the
+        address. The description is the key of the text that the dialog shows after
+        it created the entry. Reconfigure ends with an abort, so it has no such text.
         """
         LOGGER.debug("async_step_group: User input: %s", _without_address(user_input))
-        self.data.update(user_input)  # add group to the config
+        self.data = {
+            key: value for key, value in self.data.items() if key not in ADDRESS_KEYS
+        } | user_input
 
         if self.source == SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
-            if self.data[CONF_GROUP] == entry.data.get(CONF_GROUP):
+            # A new address in the same group is a change too
+            if self.data == dict(entry.data):
                 # noinspection PyTypeChecker
                 return self.async_abort(reason="reconfigure_unchanged")
 
@@ -355,15 +361,17 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if self.source == SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
             # A title of the user stays, a title of the integration follows the group
+            # or the address
             title = entry.title
             if title in (NAME, await self._async_entry_title(entry.data)):
                 title = await self._async_entry_title(self.data)
-            # The update listener reloads it, and the reason keeps the integration text
+            # The update listener reloads it, and the reason keeps the integration
+            # text. The whole data goes, because data_updates cannot drop the address.
             # noinspection PyTypeChecker
             return self.async_update_and_abort(
                 entry,
                 title=title,
-                data_updates={CONF_GROUP: self.data[CONF_GROUP]},
+                data=self.data,
                 reason="reconfigure_successful",
             )
 
@@ -537,7 +545,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         The dropdown takes a typed text too, and its search box finds a house by
         the typed part of the number. The text names the street of the houses.
-        After an error, the field shows the house that the user gave.
+        After an error, the field shows the house that the user gave. A Reconfigure
+        on the street of its entry shows the house of the entry.
         """
         houses = self._houses or []
         translation_key, english = SEARCH_AGAIN_TEXTS[CONF_HOUSE]
@@ -562,6 +571,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             }
         )
+        if typed is None:
+            typed = self._house_of_the_entry()
         if typed is not None:
             schema = self.add_suggested_values_to_schema(schema, {CONF_HOUSE: typed})
         # noinspection PyTypeChecker
@@ -575,6 +586,21 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 **(placeholders or {}),
             },
         )
+
+    def _house_of_the_entry(self) -> str | None:
+        """
+        Return the house of the entry of a Reconfigure, on the street of the entry.
+
+        So a Reconfigure that checks the same address needs no search in the list.
+        """
+        if self.source != SOURCE_RECONFIGURE:
+            return None
+        current = YasnoAddress.from_entry_data(self._get_reconfigure_entry().data)
+        city = self._chosen.get(CONF_CITY)
+        chosen = (self._chosen[CONF_STREET].value, city.value if city else None)
+        if current is None or (current.street, current.city) != chosen:
+            return None
+        return current.house
 
     async def _async_find_house(
         self, api: YasnoApi, text: str
@@ -627,6 +653,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             address = {CONF_STREET: street.value, CONF_HOUSE: house.value}
             if city:
                 address[CONF_CITY] = city.value
+            if self.source == SOURCE_RECONFIGURE:
+                await self._async_keep_found_address(
+                    YasnoAddress(
+                        street=street.value,
+                        house=house.value,
+                        city=city.value if city else None,
+                    )
+                )
             return await self._async_save_group(
                 {CONF_GROUP: group, **address},
                 description="address",
@@ -636,6 +670,20 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 },
             )
         return await self._async_show_house_form(errors, typed=house.value)
+
+    async def _async_keep_found_address(self, address: YasnoAddress) -> None:
+        """
+        Tell the coordinator of the entry of a Reconfigure that Yasno found the address.
+
+        When it is the address of the entry, its Not found results and its repair
+        issue go away, also when the data stays the same and the entry does not
+        reload. An entry that is not loaded has no coordinator and no issue.
+        """
+        entry = self._get_reconfigure_entry()
+        if entry.state is ConfigEntryState.LOADED and isinstance(
+            coordinator := entry.runtime_data, YasnoCoordinator
+        ):
+            await coordinator.async_address_found(address)
 
     async def async_step_address(
         self, user_input: dict | None = None
@@ -829,13 +877,26 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict | None = None,  # noqa: ARG002  # the flow manager passes it
     ) -> ConfigFlowResult:
-        """Let the user pick another group for an existing entry."""
+        """
+        Let the user pick another group, or another address, for an existing entry.
+
+        A Yasno entry gets the menu of a new entry, so a group entry can get an
+        address, and an address entry can go back to a group.
+        """
         entry = self._get_reconfigure_entry()
         self.data = dict(entry.data)
         if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_E_SVITLO:
             # E-Svitlo takes the group from the account, so it has no group list
             # noinspection PyTypeChecker
             return self.async_abort(reason="reconfigure_e_svitlo")
+        if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_YASNO:
+            # The address form suggests the address of the entry
+            if address := YasnoAddress.from_entry_data(entry.data):
+                self._typed = {CONF_STREET: address.street.strip()}
+                if address.city:
+                    self._typed[CONF_CITY] = address.city.strip()
+            # noinspection PyTypeChecker
+            return await self.async_step_yasno_method()
         # noinspection PyTypeChecker
         return await self.async_step_group()
 

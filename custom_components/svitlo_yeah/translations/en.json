@@ -3,8 +3,8 @@
   "config": {
     "abort": {
       "already_configured": "The integration already has an entry for this group of this provider, for this address, or for this E-Svitlo account.",
-      "reconfigure_successful": "The entry now uses the new group. To update the entity IDs, open the device and select Recreate entity IDs.",
-      "reconfigure_unchanged": "The entry already uses this group. Nothing changed.",
+      "reconfigure_successful": "The entry now uses the new group or the new address. To update the entity IDs, open the device and select Recreate entity IDs.",
+      "reconfigure_unchanged": "The entry already uses this group and this address. Nothing changed.",
       "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
       "no_accounts_found": "No accounts found",
       "e_svitlo_connection_error": "Failed to get the accounts from E-Svitlo.\nThe E-Svitlo server is unreachable, or it answered with an error.\nMake sure that Home Assistant can connect to the Internet, and try again later.",
@@ -255,7 +255,7 @@
     },
     "address_not_found": {
       "title": "Yasno does not find the address of {entry}",
-      "description": "Yasno does not know the address of the entry «{entry}» any more. The integration keeps the schedule of the group {group}. Look for the address on the Yasno site: {url}. If Yasno has a new name for the street, delete the entry and add the address again."
+      "description": "Yasno does not know the address of the entry «{entry}» any more. The integration keeps the schedule of the group {group}. Look for the address on the Yasno site: {url}. To give the entry the address as Yasno writes it now, go to Settings > Devices & services > {integration}, open the menu of this entry, select Reconfigure, and then select By address.\n\nThis message disappears when Yasno finds the address again."
     }
   },
   "exceptions": {

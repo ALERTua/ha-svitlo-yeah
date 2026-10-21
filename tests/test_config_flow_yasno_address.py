@@ -2,12 +2,12 @@
 
 import logging
 from datetime import UTC, datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import probatio as vol
 import pytest
 from aiohttp import ClientError
-from homeassistant.config_entries import SOURCE_USER
+from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
@@ -29,6 +29,8 @@ from custom_components.svitlo_yeah.const import (
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
+from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
+from custom_components.svitlo_yeah.models import YasnoAddress
 from tests.helpers import (
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
@@ -1658,4 +1660,536 @@ class TestLog:
         # The log has the lines of the flow, with the group of the entry
         assert f"'{CONF_GROUP}': '{group}'" in log
         for secret in secrets:
+            assert secret not in log
+
+
+# The entries that a Reconfigure starts from. A group entry of Київ has no address.
+# An address entry has the address of the measured chain, in the group that Yasno
+# gives for it. The entries of Дніпро have the city and the street of its chain.
+KYIV_GROUP_DATA = YASNO_KYIV_1_1
+KYIV_ADDRESS_DATA = {
+    **YASNO_KYIV_1_1,
+    CONF_GROUP: "53.1",
+    CONF_STREET: KYIV_STREET["value"],
+    CONF_HOUSE: HOUSE_6A,
+}
+DNIPRO_GROUP_DATA = {
+    **YASNO_KYIV_1_1,
+    CONF_REGION: 3,
+    CONF_PROVIDER: 301,
+    CONF_GROUP: "3.1",
+}
+DNIPRO_ADDRESS_DATA = {
+    **DNIPRO_GROUP_DATA,
+    CONF_CITY: DNIPRO_CITY["value"],
+    CONF_STREET: DNIPRO_STREET["value"],
+    CONF_HOUSE: DNIPRO_HOUSE["value"],
+}
+# The title that the integration gives to an address entry
+KYIV_ADDRESS_TEXT = f"{KYIV_STREET['value']}, {HOUSE_6A}"
+DNIPRO_ADDRESS_TEXT = "м. Дніпро, вул. Шевченка, 1"
+
+
+def _kyiv_group_title(group: str) -> str:
+    """Return the title that the integration gives to a group entry of Київ."""
+    return f"Київ ДТЕК {group}"
+
+
+async def _start_reconfigure(
+    hass, aioclient_mock, entry: MockConfigEntry, *, serve=_serve_kyiv, **changes: dict
+) -> dict:
+    """Serve the regions and an address chain, and start a Reconfigure: its menu."""
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=REGIONS)
+    serve(aioclient_mock, **changes)
+    return await entry.start_reconfigure_flow(hass)
+
+
+async def _reconfigure_address_form(
+    hass, aioclient_mock, entry: MockConfigEntry, **changes
+) -> dict:
+    """Start a Reconfigure, and choose «By address» in its menu."""
+    result = await _start_reconfigure(hass, aioclient_mock, entry, **changes)
+    assert result["type"] is FlowResultType.MENU
+    return await _configure(hass, result, {"next_step_id": "address"})
+
+
+async def _reconfigure_house_form(
+    hass, aioclient_mock, entry: MockConfigEntry, **changes: dict
+) -> dict:
+    """Walk a Reconfigure of Київ to the dropdown of the houses."""
+    result = await _reconfigure_address_form(hass, aioclient_mock, entry, **changes)
+    result = await _submit_kyiv(hass, result)
+    assert result["step_id"] == "house"
+    return result
+
+
+async def _reconfigure_to_house(
+    hass, aioclient_mock, entry: MockConfigEntry, house: str, **changes: dict
+) -> dict:
+    """Walk a Reconfigure of Київ through the address steps, and choose the house."""
+    result = await _reconfigure_house_form(hass, aioclient_mock, entry, **changes)
+    return await _configure(hass, result, {CONF_HOUSE: house})
+
+
+class TestReconfigure:
+    """A Reconfigure of a Yasno entry gives the menu of a new entry."""
+
+    @staticmethod
+    def _add_entry(hass, data: dict, title: str) -> MockConfigEntry:
+        """Add an entry with this data and this title."""
+        entry = MockConfigEntry(domain=DOMAIN, data=data, title=title)
+        entry.add_to_hass(hass)
+        return entry
+
+    @staticmethod
+    def _coordinator(*, yasno: bool = True) -> MagicMock:
+        """Build a coordinator of an entry: one of Yasno, or another kind."""
+        coordinator = MagicMock(spec=YasnoCoordinator) if yasno else MagicMock()
+        coordinator.async_address_found = AsyncMock()
+        return coordinator
+
+    def _add_loaded_entry(
+        self,
+        hass,
+        runtime_data,
+        *,
+        house: str = HOUSE_6A,
+        state=ConfigEntryState.LOADED,
+    ) -> MockConfigEntry:
+        """Add an address entry with a state and a coordinator, with no real setup."""
+        data = {**KYIV_ADDRESS_DATA, CONF_HOUSE: house}
+        entry = self._add_entry(hass, data, f"{KYIV_STREET['value']}, {house}")
+        entry.runtime_data = runtime_data
+        entry.mock_state(hass, state)
+        return entry
+
+    @pytest.mark.parametrize(
+        ("data", "title"),
+        [
+            pytest.param(KYIV_GROUP_DATA, _kyiv_group_title("1.1"), id="group_entry"),
+            pytest.param(KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT, id="address_entry"),
+        ],
+    )
+    async def test_menu_offers_the_address_and_the_group(
+        self, hass, aioclient_mock, data, title
+    ):
+        """A Yasno entry gets the menu of a new entry, before it asks Yasno anything."""
+        entry = self._add_entry(hass, data, title)
+
+        result = await _start_reconfigure(hass, aioclient_mock, entry)
+
+        assert result["type"] is FlowResultType.MENU
+        assert result["step_id"] == "yasno_method"
+        assert result["menu_options"] == ["address", "group"]
+        assert _asked(aioclient_mock) == []
+        assert entry.data == data
+
+    # The title of the group entry: the integration gave it, or the user did
+    @pytest.mark.parametrize(
+        ("title", "new_title"),
+        [
+            pytest.param(
+                _kyiv_group_title("1.1"),
+                KYIV_ADDRESS_TEXT,
+                id="title_of_the_integration",
+            ),
+            pytest.param("Дача", "Дача", id="own_title"),
+        ],
+    )
+    async def test_group_entry_gets_an_address(
+        self, hass, aioclient_mock, title, new_title
+    ):
+        """The address gives the names and the group. A title of the user stays."""
+        entry = self._add_entry(hass, KYIV_GROUP_DATA, title)
+        result = await _reconfigure_house_form(hass, aioclient_mock, entry)
+        # A group entry has no house to suggest
+        assert _suggested(result, CONF_HOUSE) is None
+
+        result = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data == KYIV_ADDRESS_DATA
+        assert entry.title == new_title
+        assert hass.config_entries.async_entries(DOMAIN) == [entry]
+        assert _asked(aioclient_mock) == ["streets", "houses", "group"]
+
+    async def test_address_in_the_group_of_the_entry_is_a_change(
+        self, hass, aioclient_mock
+    ):
+        """A group entry in the group of the address still gets the address."""
+        entry = self._add_entry(
+            hass, {**YASNO_KYIV_1_1, CONF_GROUP: "53.1"}, _kyiv_group_title("53.1")
+        )
+
+        result = await _reconfigure_to_house(hass, aioclient_mock, entry, HOUSE_6A)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data == KYIV_ADDRESS_DATA
+        assert entry.title == KYIV_ADDRESS_TEXT
+
+    # The group of the walk, and the title: the integration gave it, or the user did
+    @pytest.mark.parametrize(
+        "group", ["53.1", "1.1"], ids=["same_group", "other_group"]
+    )
+    @pytest.mark.parametrize(
+        "title",
+        [None, "Дача"],
+        ids=["title_of_the_integration", "own_title"],
+    )
+    async def test_address_entry_goes_back_to_a_group(
+        self, hass, aioclient_mock, group, title
+    ):
+        """«By group» keeps no address, also in the same group. An own title stays."""
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, title or KYIV_ADDRESS_TEXT)
+        result = await _start_reconfigure(hass, aioclient_mock, entry)
+
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "group"
+        assert _default(result, CONF_GROUP) == "53.1"
+
+        result = await _configure(hass, result, {CONF_GROUP: group})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data == {**YASNO_KYIV_1_1, CONF_GROUP: group}
+        assert entry.title == (title or _kyiv_group_title(group))
+        assert _asked(aioclient_mock) == []
+
+    async def test_group_entry_with_its_own_group_changes_nothing(
+        self, hass, aioclient_mock
+    ):
+        """«By group» with the group of a group entry is no change."""
+        entry = self._add_entry(hass, KYIV_GROUP_DATA, _kyiv_group_title("1.1"))
+        result = await _start_reconfigure(hass, aioclient_mock, entry)
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        result = await _configure(hass, result, {CONF_GROUP: "1.1"})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_unchanged"
+        assert entry.data == KYIV_GROUP_DATA
+
+    async def test_same_address_in_the_same_group_changes_nothing(
+        self, hass, aioclient_mock
+    ):
+        """The same street and house in the same group give no change."""
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+        result = await _reconfigure_house_form(hass, aioclient_mock, entry)
+        # The form suggests the house of the entry, so the user needs no search
+        assert _suggested(result, CONF_HOUSE) == HOUSE_6A
+
+        result = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_unchanged"
+        assert entry.data == KYIV_ADDRESS_DATA
+        assert entry.title == KYIV_ADDRESS_TEXT
+        # Yasno is asked, so a coordinator can learn that it found the address
+        assert _asked(aioclient_mock) == ["streets", "houses", "group"]
+
+    async def test_other_house_of_the_street_is_a_change(self, hass, aioclient_mock):
+        """Another house in the same group is a new address: the title follows it."""
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+
+        result = await _reconfigure_to_house(hass, aioclient_mock, entry, "2")
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data == {**KYIV_ADDRESS_DATA, CONF_HOUSE: "2"}
+        assert entry.title == f"{KYIV_STREET['value']}, 2"
+
+    async def test_address_form_suggests_the_street_of_the_entry(
+        self, hass, aioclient_mock
+    ):
+        """A region without cities suggests the street only."""
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+
+        result = await _reconfigure_address_form(hass, aioclient_mock, entry)
+
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "address"
+        assert _fields(result) == [CONF_STREET]
+        assert _suggested(result, CONF_STREET) == KYIV_STREET["value"]
+        assert result["last_step"] is False
+        assert _asked(aioclient_mock) == []
+
+    # The city as the entry keeps it: Yasno can write a name with a space at the end
+    @pytest.mark.parametrize(
+        "city",
+        [DNIPRO_CITY["value"], f"{DNIPRO_CITY['value']} "],
+        ids=["city_without_a_space", "city_with_a_space"],
+    )
+    async def test_address_form_suggests_the_texts_without_the_space_at_the_end(
+        self, hass, aioclient_mock, city
+    ):
+        """A region with cities suggests the city too, with no space at the end."""
+        data = {**DNIPRO_ADDRESS_DATA, CONF_CITY: city}
+        entry = self._add_entry(hass, data, DNIPRO_ADDRESS_TEXT)
+        # The entry keeps the street as Yasno wrote it, with a space at the end
+        assert entry.data[CONF_STREET].endswith(" ")
+
+        result = await _reconfigure_address_form(
+            hass, aioclient_mock, entry, serve=_serve_dnipro
+        )
+
+        assert _fields(result) == [CONF_CITY, CONF_STREET]
+        assert _suggested(result, CONF_CITY) == "м. Дніпро"
+        assert _suggested(result, CONF_STREET) == "вул. Шевченка"
+
+    # The entry with a group only, and the region of its chain
+    @pytest.mark.parametrize(
+        ("data", "serve", "fields"),
+        [
+            pytest.param(
+                KYIV_GROUP_DATA, _serve_kyiv, [CONF_STREET], id="region_without_cities"
+            ),
+            pytest.param(
+                DNIPRO_GROUP_DATA,
+                _serve_dnipro,
+                [CONF_CITY, CONF_STREET],
+                id="region_with_cities",
+            ),
+        ],
+    )
+    async def test_address_form_of_a_group_entry_suggests_nothing(
+        self, hass, aioclient_mock, data, serve, fields
+    ):
+        """A group entry has no address, so the form of the address is empty."""
+        entry = self._add_entry(hass, data, _kyiv_group_title(data[CONF_GROUP]))
+
+        result = await _reconfigure_address_form(
+            hass, aioclient_mock, entry, serve=serve
+        )
+
+        assert _fields(result) == fields
+        assert [_suggested(result, _) for _ in fields] == [None] * len(fields)
+
+    # The id of the street that the user chooses, and the house that the form suggests
+    @pytest.mark.parametrize(
+        ("street_id", "suggested"),
+        [
+            pytest.param(str(KYIV_STREET["id"]), HOUSE_6A, id="street_of_the_entry"),
+            pytest.param("9002", None, id="other_street"),
+        ],
+    )
+    async def test_house_form_suggests_the_house_on_the_street_of_the_entry(
+        self, hass, aioclient_mock, street_id, suggested
+    ):
+        """The house of the entry is suggested on its street, and not on another one."""
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+        result = await _reconfigure_address_form(
+            hass, aioclient_mock, entry, streets={"json": STREET_MATCHES}
+        )
+        result = await _submit_kyiv(hass, result)
+        assert result["step_id"] == "pick_street"
+
+        result = await _configure(hass, result, {CONF_STREET: street_id})
+
+        assert result["step_id"] == "house"
+        assert _suggested(result, CONF_HOUSE) == suggested
+        # A suggested value is no default: the form still asks for the house
+        assert _default(result, CONF_HOUSE) is None
+
+    # The city of the entry, and the house that the form suggests for the street
+    # «вул. Шевченка» in «м. Дніпро»
+    @pytest.mark.parametrize(
+        ("city", "suggested"),
+        [
+            pytest.param(
+                DNIPRO_CITY["value"], DNIPRO_HOUSE["value"], id="city_of_the_entry"
+            ),
+            pytest.param("м. Інше Тестове", None, id="other_city"),
+        ],
+    )
+    async def test_house_form_in_a_city_needs_the_city_of_the_entry(
+        self, hass, aioclient_mock, city, suggested
+    ):
+        """The same name of a street in another city is another street."""
+        entry = self._add_entry(
+            hass, {**DNIPRO_ADDRESS_DATA, CONF_CITY: city}, DNIPRO_ADDRESS_TEXT
+        )
+        result = await _reconfigure_address_form(
+            hass, aioclient_mock, entry, serve=_serve_dnipro
+        )
+
+        result = await _submit_dnipro(hass, result)
+
+        assert result["step_id"] == "house"
+        assert _suggested(result, CONF_HOUSE) == suggested
+
+    async def test_typed_house_wins_over_the_house_of_the_entry(
+        self, hass, aioclient_mock
+    ):
+        """After an error, the field shows the house that the user chose."""
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+        result = await _reconfigure_house_form(
+            hass, aioclient_mock, entry, group={"status": 404, "json": ENTRY_NOT_FOUND}
+        )
+        assert _suggested(result, CONF_HOUSE) == HOUSE_6A
+
+        again = await _configure(hass, result, {CONF_HOUSE: "2"})
+
+        assert again["errors"] == {"house": "house_not_found"}
+        assert _suggested(again, CONF_HOUSE) == "2"
+        assert entry.data == KYIV_ADDRESS_DATA
+
+    async def test_address_of_another_address_entry_aborts(self, hass, aioclient_mock):
+        """An entry does not move onto the address of another entry."""
+        other = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+        data = {**KYIV_ADDRESS_DATA, CONF_HOUSE: "2"}
+        entry = self._add_entry(hass, data, f"{KYIV_STREET['value']}, 2")
+
+        result = await _reconfigure_to_house(hass, aioclient_mock, entry, HOUSE_6A)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "already_configured"
+        assert entry.data == data
+        assert other.data == KYIV_ADDRESS_DATA
+        assert hass.config_entries.async_entries(DOMAIN) == [other, entry]
+
+    async def test_group_of_a_group_entry_aborts(self, hass, aioclient_mock):
+        """An address entry does not go back to the group of a group entry."""
+        group_entry = self._add_entry(
+            hass, {**YASNO_KYIV_1_1, CONF_GROUP: "53.1"}, _kyiv_group_title("53.1")
+        )
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+        result = await _start_reconfigure(hass, aioclient_mock, entry)
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        result = await _configure(hass, result, {CONF_GROUP: "53.1"})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "already_configured"
+        assert entry.data == KYIV_ADDRESS_DATA
+        assert group_entry.data == {**YASNO_KYIV_1_1, CONF_GROUP: "53.1"}
+
+    # The house of the entry, and how a Reconfigure to the house of the chain ends
+    @pytest.mark.parametrize(
+        ("house", "reason"),
+        [
+            pytest.param(HOUSE_6A, "reconfigure_unchanged", id="same_address"),
+            pytest.param("2", "reconfigure_successful", id="other_address"),
+        ],
+    )
+    async def test_loaded_entry_hears_that_yasno_found_the_address(
+        self, hass, aioclient_mock, house, reason
+    ):
+        """The coordinator gets the chosen address, also when the data stays."""
+        coordinator = self._coordinator()
+        entry = self._add_loaded_entry(hass, coordinator, house=house)
+
+        result = await _reconfigure_to_house(hass, aioclient_mock, entry, HOUSE_6A)
+
+        assert result["reason"] == reason
+        coordinator.async_address_found.assert_awaited_once_with(
+            YasnoAddress(street=KYIV_STREET["value"], house=HOUSE_6A)
+        )
+
+    async def test_address_of_a_city_goes_to_the_coordinator_with_the_city(
+        self, hass, aioclient_mock
+    ):
+        """The address in a region with cities has the city, as Yasno writes it."""
+        coordinator = self._coordinator()
+        entry = self._add_entry(hass, DNIPRO_ADDRESS_DATA, DNIPRO_ADDRESS_TEXT)
+        entry.runtime_data = coordinator
+        entry.mock_state(hass, ConfigEntryState.LOADED)
+        result = await _reconfigure_address_form(
+            hass, aioclient_mock, entry, serve=_serve_dnipro
+        )
+        result = await _submit_dnipro(hass, result)
+
+        result = await _configure(hass, result, {CONF_HOUSE: DNIPRO_HOUSE["value"]})
+
+        assert result["reason"] == "reconfigure_unchanged"
+        coordinator.async_address_found.assert_awaited_once_with(
+            YasnoAddress(
+                city=DNIPRO_CITY["value"],
+                street=DNIPRO_STREET["value"],
+                house=DNIPRO_HOUSE["value"],
+            )
+        )
+
+    # The state of the entry, and whether its coordinator is one of Yasno
+    @pytest.mark.parametrize(
+        ("state", "yasno"),
+        [
+            pytest.param(ConfigEntryState.NOT_LOADED, True, id="not_loaded"),
+            pytest.param(ConfigEntryState.SETUP_RETRY, True, id="setup_retry"),
+            pytest.param(ConfigEntryState.LOADED, False, id="not_a_yasno_coordinator"),
+        ],
+    )
+    async def test_entry_without_a_yasno_coordinator_is_not_told(
+        self, hass, aioclient_mock, state, yasno
+    ):
+        """Only a loaded entry with the coordinator of Yasno hears about the address."""
+        coordinator = self._coordinator(yasno=yasno)
+        entry = self._add_loaded_entry(hass, coordinator, house="2", state=state)
+
+        result = await _reconfigure_to_house(hass, aioclient_mock, entry, HOUSE_6A)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data[CONF_HOUSE] == HOUSE_6A
+        coordinator.async_address_found.assert_not_awaited()
+
+    @pytest.mark.parametrize(("changes", "errors"), GROUP_ERROR_REPLIES)
+    async def test_address_that_yasno_does_not_give_a_group_is_not_told(
+        self, hass, aioclient_mock, changes, errors
+    ):
+        """The coordinator hears only about an address that Yasno found with a group."""
+        coordinator = self._coordinator()
+        entry = self._add_loaded_entry(hass, coordinator)
+        result = await _reconfigure_house_form(hass, aioclient_mock, entry, **changes)
+
+        again = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
+
+        assert again["errors"] == errors
+        coordinator.async_address_found.assert_not_awaited()
+        assert entry.data == KYIV_ADDRESS_DATA
+
+    async def test_new_flow_does_not_tell_a_coordinator(self, hass, aioclient_mock):
+        """A new flow tells no coordinator, also not the one of another entry."""
+        coordinator = self._coordinator()
+        self._add_loaded_entry(hass, coordinator, house="2")
+        result = await _kyiv_house_form(hass, aioclient_mock)
+
+        result = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        coordinator.async_address_found.assert_not_awaited()
+
+    # The house that the walk chooses, or no house for a walk by group, and the group
+    # that the entry gets
+    @pytest.mark.parametrize(
+        ("house", "group"),
+        [
+            pytest.param(HOUSE_6A, "53.1", id="same_address"),
+            pytest.param("2", "53.1", id="other_house"),
+            pytest.param(None, "1.1", id="group"),
+        ],
+    )
+    async def test_no_log_line_has_the_address(
+        self, hass, aioclient_mock, caplog, house, group
+    ):
+        """A Reconfigure logs the group of the entry, and never the address."""
+        caplog.set_level(logging.DEBUG, logger=LOGGER_NAME)
+        entry = self._add_entry(hass, KYIV_ADDRESS_DATA, KYIV_ADDRESS_TEXT)
+        if house is None:
+            result = await _start_reconfigure(hass, aioclient_mock, entry)
+            result = await _configure(hass, result, {"next_step_id": "group"})
+            result = await _configure(hass, result, {CONF_GROUP: group})
+        else:
+            result = await _reconfigure_to_house(hass, aioclient_mock, entry, house)
+        assert result["type"] is FlowResultType.ABORT
+
+        log = "\n".join(
+            _.getMessage() for _ in caplog.records if _.name.startswith(LOGGER_NAME)
+        )
+        # The log has the lines of the flow, with the group of the entry
+        assert f"'{CONF_GROUP}': '{group}'" in log
+        for secret in ["Сверстюка", "сверст", HOUSE_6A, HOUSE_6A_LATIN]:
             assert secret not in log

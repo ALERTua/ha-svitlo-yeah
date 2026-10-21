@@ -18,6 +18,7 @@ from unittest.mock import patch
 import pytest
 from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_utils
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -78,6 +79,9 @@ TRANSLATIONS = Path(__file__).parent.parent / (
 ADDRESS_TEXT = f"{YASNO_KYIV_STREET}, {YASNO_KYIV_HOUSE}"
 ADDRESS = YasnoAddress(street=YASNO_KYIV_STREET, house=YASNO_KYIV_HOUSE)
 KYIV_PAGE = "https://static.yasno.ua/kyiv/outages"
+# The name of the integration in the list of integrations, as the group_not_listed
+# issue names it (its tests expect the same text)
+INTEGRATION = "Svitlo Yeah!"
 WEEK = timedelta(days=7)
 HOUR = timedelta(hours=1)
 
@@ -188,7 +192,7 @@ async def _start(
     entry = MockConfigEntry(domain=DOMAIN, data=data, title=ADDRESS_TEXT)
     entry.add_to_hass(hass)
     if check is not None:
-        hass_storage[store_key(entry.entry_id)] = _kept(check)
+        hass_storage[store_key(entry.entry_id)] = _kept(check, data[CONF_GROUP])
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
@@ -205,6 +209,16 @@ def _issue(hass, entry: MockConfigEntry) -> ir.IssueEntry | None:
     """Return the repair issue about the address of the entry, if it exists."""
     issue_id = address_not_found_issue_id(entry.entry_id)
     return ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
+
+
+def _counting(hass, entry: MockConfigEntry, count: int | None) -> YasnoCoordinator:
+    """Build a coordinator whose state counts Not found results, or has no state."""
+    coordinator = YasnoCoordinator(hass, entry)
+    if count is not None:
+        coordinator._address_check = AddressCheck(
+            ADDRESS, dt_utils.now(), not_found_count=count
+        )
+    return coordinator
 
 
 def _records(caplog, level: int) -> list[str]:
@@ -646,6 +660,7 @@ class TestNotFound:
             "entry": ADDRESS_TEXT,
             "group": "1.1",
             "url": KYIV_PAGE,
+            "integration": INTEGRATION,
         }
         warning = (
             f"Yasno does not find the address of entry {entry.entry_id} any more, "
@@ -712,11 +727,38 @@ class TestNotFound:
         )
         entry.add_to_hass(hass)
 
-        YasnoCoordinator(hass, entry)._create_address_issue()
+        await _counting(hass, entry, 2)._async_create_address_issue()
 
         issue = _issue(hass, entry)
         assert issue is not None
         assert issue.translation_placeholders["url"] == url
+
+    async def test_issue_names_the_integration_for_the_reconfigure(self, hass):
+        """The text shows the way to Reconfigure, so it names the integration."""
+        entry = MockConfigEntry(
+            domain=DOMAIN, data=YASNO_KYIV_ADDRESS_1_1, title=ADDRESS_TEXT
+        )
+        entry.add_to_hass(hass)
+
+        await _counting(hass, entry, 2)._async_create_address_issue()
+
+        issue = _issue(hass, entry)
+        assert issue is not None
+        assert issue.translation_placeholders["integration"] == INTEGRATION
+
+    @pytest.mark.parametrize(
+        "count", [None, 0, 1], ids=["no_state", "no_results", "one_result"]
+    )
+    async def test_issue_needs_two_not_found_results(self, hass, count):
+        """The issue shows only while the state counts two Not found results."""
+        entry = MockConfigEntry(
+            domain=DOMAIN, data=YASNO_KYIV_ADDRESS_1_1, title=ADDRESS_TEXT
+        )
+        entry.add_to_hass(hass)
+
+        await _counting(hass, entry, count)._async_create_address_issue()
+
+        assert _issue(hass, entry) is None
 
     @pytest.mark.parametrize("language", ["en", "uk"])
     def test_translation_uses_the_sent_placeholders(self, language):
@@ -727,12 +769,224 @@ class TestNotFound:
         issue = translations["issues"]["address_not_found"]
 
         assert _placeholders(issue["title"]) == {"entry"}
-        assert _placeholders(issue["description"]) == {"entry", "group", "url"}
+        assert _placeholders(issue["description"]) == {
+            "entry",
+            "group",
+            "url",
+            "integration",
+        }
 
 
 def _placeholders(text: str) -> set[str]:
     """Return the names of the placeholders in a translation text."""
     return {name for _, name, _, _ in string.Formatter().parse(text) if name}
+
+
+async def _reconfigure_to_the_address(hass, entry: MockConfigEntry) -> dict:
+    """Walk a Reconfigure of the entry through the address steps, to its own address."""
+    flow = hass.config_entries.flow
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.MENU
+    result = await flow.async_configure(result["flow_id"], {"next_step_id": "address"})
+    assert result["step_id"] == "address"
+    # The form suggests the street of the entry, and the house form suggests its house
+    street = {CONF_STREET: YASNO_KYIV_STREET}
+    result = await flow.async_configure(result["flow_id"], street)
+    assert result["step_id"] == "house"
+    house = {CONF_HOUSE: YASNO_KYIV_HOUSE}
+    return await flow.async_configure(result["flow_id"], house)
+
+
+class TestAddressFound:
+    """A Reconfigure that finds the address of a loaded entry starts its clock again."""
+
+    async def test_address_of_the_entry_clears_the_not_found_results(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        The issue goes, the clock starts again, and the store keeps the new state.
+
+        The pending group goes too: the Reconfigure brings the group of the address.
+        """
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=2)
+        )
+        assert _issue(hass, entry) is not None
+
+        await coordinator.async_address_found(ADDRESS)
+
+        assert _issue(hass, entry) is None
+        assert coordinator._address_check == AddressCheck(
+            ADDRESS, dt_utils.now() + WEEK
+        )
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        await _unload(hass, entry)
+
+    # An address that differs from the address of the entry in one name
+    @pytest.mark.parametrize(
+        "address",
+        [
+            YasnoAddress(street=YASNO_KYIV_STREET, house="2"),
+            YasnoAddress(street="вул. Інша Тестова", house=YASNO_KYIV_HOUSE),
+            YasnoAddress(
+                street=YASNO_KYIV_STREET, house=YASNO_KYIV_HOUSE, city="м. Тестове"
+            ),
+        ],
+        ids=["other_house", "other_street", "other_city"],
+    )
+    async def test_other_address_changes_nothing(
+        self, hass, aioclient_mock, hass_storage, address
+    ):
+        """The kept state of the entry is not about another address: nothing changes."""
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass,
+            hass_storage,
+            check=_check(dt_utils.now() + timedelta(days=3), pending="53.1", count=2),
+        )
+        before = coordinator._address_check
+        kept = _kept_check(hass_storage, entry)
+
+        with patch.object(coordinator._store, "async_save") as save:
+            await coordinator.async_address_found(address)
+
+        assert coordinator._address_check == before
+        assert _issue(hass, entry) is not None
+        assert _kept_check(hass_storage, entry) == kept
+        save.assert_not_called()
+        await _unload(hass, entry)
+
+    async def test_reconfigure_to_the_same_address_clears_the_issue_for_good(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        A Reconfigure to the address of the entry takes the repair issue away.
+
+        The data stays the same, so the entry does not reload. The store keeps the
+        new state, so a later reload does not bring the issue back.
+        """
+        data = {**YASNO_KYIV_ADDRESS_1_1, CONF_GROUP: "53.1"}
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now(), count=2), data=data
+        )
+        assert _issue(hass, entry) is not None
+
+        result = await _reconfigure_to_the_address(hass, entry)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_unchanged"
+        assert entry.data == data
+        assert entry.runtime_data is coordinator
+        assert _issue(hass, entry) is None
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert entry.state is ConfigEntryState.LOADED
+        assert entry.runtime_data is not coordinator
+        assert _issue(hass, entry) is None
+        diagnostics = entry.runtime_data.address_check_diagnostics()
+        assert diagnostics["not_found_count"] == 0
+        await _unload(hass, entry)
+
+
+async def _run_check(coordinator: YasnoCoordinator, *, force: bool) -> None:
+    """Run the check of the address: a due poll, or the forced check of the button."""
+    if force:
+        await coordinator.async_check_address_now()
+    else:
+        await coordinator.async_refresh()
+
+
+class TestFoundMeanwhile:
+    """A Reconfigure that finds the address while a check runs wins over the check."""
+
+    # The answer of Yasno to the check, and the result that the check keeps. The
+    # group 53.1 is a new group that the planned outages list.
+    @pytest.mark.parametrize(
+        "answer",
+        [
+            (AddressResult.NOT_FOUND, None),
+            (AddressResult.FOUND, "53.1"),
+            (AddressResult.UNKNOWN, None),
+        ],
+        ids=["not_found", "other_group", "no_answer"],
+    )
+    @pytest.mark.parametrize("force", [False, True], ids=["poll", "force"])
+    async def test_old_answer_writes_nothing(
+        self, hass, aioclient_mock, hass_storage, caplog, answer, force
+    ):
+        """
+        The answer that comes after the Reconfigure changes no state, group or issue.
+
+        The second Not found result would create the issue, and a new group that
+        is pending would switch the entry. The state of the Reconfigure stays.
+        """
+        caplog.set_level(logging.INFO, logger=LOGGER_NAME)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+        )
+
+        async def found_while_yasno_answers(_address):
+            await coordinator.async_address_found(ADDRESS)
+            return answer
+
+        with patch.object(
+            coordinator.api, "resolve_address", side_effect=found_while_yasno_answers
+        ):
+            await _run_check(coordinator, force=force)
+        await hass.async_block_till_done()
+
+        # The result of the check stays for the button and the diagnostics
+        assert coordinator.address_check_result is answer[0]
+        assert _issue(hass, entry) is None
+        assert coordinator._address_check == AddressCheck(
+            ADDRESS, dt_utils.now() + WEEK
+        )
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert entry.data[CONF_GROUP] == "1.1"
+        assert entry.runtime_data is coordinator
+        # No warning about the address and no line about a new group
+        assert _records(caplog, logging.WARNING) == []
+        assert _records(caplog, logging.INFO) == []
+        await _unload(hass, entry)
+
+    @pytest.mark.parametrize("force", [False, True], ids=["poll", "force"])
+    async def test_found_while_the_texts_of_the_issue_load(
+        self, hass, aioclient_mock, hass_storage, force
+    ):
+        """
+        The second Not found result creates no issue after the Reconfigure cleared it.
+
+        The issue waits for the name of the integration, and the Reconfigure comes
+        in that time. The state that the Reconfigure kept stays, also in the store.
+        """
+        _serve(aioclient_mock, streets=NO_STREET)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+        )
+
+        async def title_after_found():
+            await coordinator.async_address_found(ADDRESS)
+            return INTEGRATION
+
+        with patch.object(
+            coordinator, "_async_integration_title", side_effect=title_after_found
+        ) as title:
+            await _run_check(coordinator, force=force)
+
+        title.assert_awaited_once()
+        assert coordinator.address_check_result is AddressResult.NOT_FOUND
+        assert _issue(hass, entry) is None
+        assert coordinator._address_check == AddressCheck(
+            ADDRESS, dt_utils.now() + WEEK
+        )
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        await _unload(hass, entry)
 
 
 class TestUnknown:
