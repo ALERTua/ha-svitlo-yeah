@@ -44,6 +44,7 @@ ADDRESS_STEPS = ("yasno_method", "address", "pick_city", "pick_street", "house")
 ADDRESS_ERRORS = {
     "city_too_short",
     "street_too_short",
+    "name_not_unique",
     "street_without_houses",
     "yasno_no_answer",
     "address_group_not_listed",
