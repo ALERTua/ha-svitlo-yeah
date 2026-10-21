@@ -52,7 +52,7 @@ def _planned_outages(*groups: str) -> dict:
 
 async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock, caplog):
     """
-    The user picks a Yasno provider and a group, and the entry sets up.
+    The user picks a Yasno provider, the group method and a group: the entry sets up.
 
     The flow, the setup and the unload are not news for the user, so the
     integration writes no info line on the way.
@@ -72,6 +72,12 @@ async def test_yasno_flow_creates_a_loaded_entry(hass, aioclient_mock, caplog):
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_PROVIDER: "yasnoprovider_25_902"}
+    )
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "yasno_method"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group"}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "group"

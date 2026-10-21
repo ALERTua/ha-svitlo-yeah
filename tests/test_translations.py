@@ -9,6 +9,10 @@ from pathlib import Path
 import pytest
 
 from custom_components.svitlo_yeah import const
+from custom_components.svitlo_yeah.config_flow import (
+    NOT_FOUND_ERRORS,
+    SEARCH_AGAIN_TEXTS,
+)
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
 
 TRANSLATIONS = Path(__file__).parent.parent / (
@@ -31,6 +35,10 @@ LATIN = dict(
 # Home Assistant aborts with this reason: _async_abort_entries_match with
 # already_configured
 HA_ABORT_REASONS = {"already_configured"}
+# The steps of the address flow, and the errors of its form that the code does not
+# read from a table (the not found errors come from NOT_FOUND_ERRORS)
+ADDRESS_STEPS = ("yasno_method", "address", "pick_city", "pick_street", "pick_house")
+ADDRESS_ERRORS = {"street_too_short", "yasno_no_answer", "address_group_not_listed"}
 
 
 def _load(language: str) -> dict:
@@ -240,3 +248,57 @@ def test_each_ukrainian_abbreviation_spells_the_english_one():
         key: "".join(LATIN[letter] for letter in abbreviation)
         for key, abbreviation in ukrainian.items()
     } == {key: english[key][-1] for key in ukrainian}
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_error_of_the_address_form_has_a_text(language):
+    """
+    Each error of the address form has a text, because the form shows a bare key.
+
+    The not found errors come from a table, so the parser of the form errors above
+    does not read them.
+    """
+    errors = ADDRESS_ERRORS | set(NOT_FOUND_ERRORS.values())
+    texts = _load(language)["config"]["error"]
+    assert {e for e in errors if not texts.get(e)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_step_of_the_address_flow_has_its_texts(language):
+    """The menu, the address form and the selects have a title and their fields."""
+    steps = _load(language)["config"]["step"]
+    assert {s for s in ADDRESS_STEPS if not steps.get(s, {}).get("title")} == set()
+
+    menu = steps["yasno_method"]
+    assert set(menu["menu_options"]) == {"address", "group"}
+    assert set(menu["menu_option_descriptions"]) == {"address", "group"}
+    assert set(steps["address"]["data"]) == {"city", "street", "house"}
+    for level in ("city", "street", "house"):
+        assert set(steps[f"pick_{level}"]["data"]) == {level}
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_search_again_option_has_a_text(language):
+    """The common section has the text of the option that searches again."""
+    common = _load(language)["common"]
+    assert {
+        key for key, _ in SEARCH_AGAIN_TEXTS.values() if not common.get(key)
+    } == set()
+
+
+def test_search_again_fallback_is_the_english_text():
+    """A language file without the text gives the English one, as en.json has it."""
+    common = _load("en")["common"]
+    assert dict(SEARCH_AGAIN_TEXTS.values()) == {
+        key: common[key] for key, _ in SEARCH_AGAIN_TEXTS.values()
+    }
+
+
+def test_address_texts_name_the_placeholders_that_the_flow_sends():
+    """The flow sends the page, the count and the query, and the group of an error."""
+    config = _load("en")["config"]
+    assert _placeholders(config["step"]["address"]["description"]) == {"url"}
+    for level in ("city", "street", "house"):
+        text = config["step"][f"pick_{level}"]["description"]
+        assert _placeholders(text) == {"count", "query"}
+    assert _placeholders(config["error"]["address_group_not_listed"]) == {"group"}

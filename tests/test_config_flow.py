@@ -157,6 +157,13 @@ async def _configure(hass, result: dict, user_input: dict) -> dict:
     return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
 
 
+async def _choose_group_method(hass, result: dict) -> dict:
+    """Choose «By group» in the menu that a Yasno provider shows."""
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "yasno_method"
+    return await _configure(hass, result, {"next_step_id": "group"})
+
+
 async def _start_e_svitlo_flow(hass, aioclient_mock) -> dict:
     """Start a new flow at the E-Svitlo login form."""
     result = await _start_flow(hass, aioclient_mock)
@@ -363,6 +370,7 @@ class TestSetupWithRealProviderApis:
         assert YASNO_KEY in providers
 
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+        result = await _choose_group_method(hass, result)
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == ["1.1", "1.2"]
         assert result["description_placeholders"] == {
@@ -382,6 +390,7 @@ class TestSetupWithRealProviderApis:
 
         result = await _start_flow(hass, aioclient_mock)
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+        result = await _choose_group_method(hass, result)
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "yasno_connection_error"
@@ -412,6 +421,7 @@ class TestSetupWithRealProviderApis:
 
         result = await _start_flow(hass, aioclient_mock)
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+        result = await _choose_group_method(hass, result)
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "yasno_connection_error"
@@ -590,6 +600,7 @@ class TestDuplicateGroup:
             result,
             {CONF_PROVIDER: f"yasnoprovider_{YASNO_OTHER_REGION_ID}_{YASNO_DSO_ID}"},
         )
+        result = await _choose_group_method(hass, result)
         result = await _configure(hass, result, {CONF_GROUP: "1.1"})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
