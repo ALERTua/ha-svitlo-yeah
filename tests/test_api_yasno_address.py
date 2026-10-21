@@ -220,10 +220,12 @@ def _dnipro(hass, aioclient_mock) -> YasnoApi:  # noqa: ARG001
             id="latin_letter_in_a_word",
         ),
         pytest.param(
-            "abcehikmoptxy ABCEHIKMOPTXY",
-            "авсенікмортху авсенікмортху",
+            "ABCEHIKMOPTXY aceiopxy",
+            "авсенікмортху асеіорху",  # noqa: RUF001  # the Cyrillic look-alikes
             id="each_look_alike_letter",
         ),
+        # A small b, h, k, m or t does not look like its Cyrillic pair
+        pytest.param("bhkmt", "bhkmt", id="small_letters_without_a_look_alike"),
         pytest.param("DFGJLNQRSUVWZ", "dfgjlnqrsuvwz", id="other_latin_letters_stay"),
         pytest.param("", "", id="empty"),
     ],
@@ -282,6 +284,24 @@ def test_exact_matches_are_the_items_with_the_name():
     assert exact_matches(items, "ВУЛ. шевченка") == [spaced]
     assert exact_matches(items, "вул.") == []
     assert exact_matches([], "6") == []
+
+
+def test_a_small_latin_letter_matches_only_a_look_alike():
+    """
+    A small Latin b does not look like the Cyrillic VE, so «12b» is not that house.
+
+    The letters change before the case goes. Thus a capital B is the VE, and a
+    small or a capital Latin A is the Cyrillic A.
+    """
+    house_12ve = YasnoAddressItem(id=1, value="12\N{CYRILLIC CAPITAL LETTER VE}")
+    house_12be = YasnoAddressItem(id=2, value="12\N{CYRILLIC CAPITAL LETTER BE}")
+    house_6a = YasnoAddressItem(id=3, value="6\N{CYRILLIC SMALL LETTER A}")
+    items = [house_12ve, house_12be, house_6a]
+
+    assert exact_matches(items, "12b") == []
+    assert exact_matches(items, "12B") == [house_12ve]
+    assert exact_matches(items, "6a") == [house_6a]
+    assert exact_matches(items, HOUSE_6A_LATIN) == [house_6a]
 
 
 @pytest.mark.parametrize(("path", "search"), SEARCHES)
@@ -380,6 +400,11 @@ async def test_search_sends_the_region_the_provider_and_the_query(
         pytest.param("6a", "6\N{CYRILLIC SMALL LETTER A}", id="latin_small_a"),
         pytest.param(HOUSE_6A, HOUSE_6A, id="cyrillic_a"),
         pytest.param("12K", "12\N{CYRILLIC CAPITAL LETTER KA}", id="latin_capital_k"),
+        pytest.param("12B", "12\N{CYRILLIC CAPITAL LETTER VE}", id="latin_capital_b"),
+        # A small b, h or k does not look like its Cyrillic pair, so it stays
+        pytest.param("12b", "12b", id="latin_small_b"),
+        pytest.param("12h", "12h", id="latin_small_h"),
+        pytest.param("12k", "12k", id="latin_small_k"),
         # Only the look-alike letters change, and the case stays as it was typed
         pytest.param(
             "12\N{CYRILLIC CAPITAL LETTER BE}",
