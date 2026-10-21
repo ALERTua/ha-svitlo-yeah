@@ -126,8 +126,9 @@ class IntegrationCheckGroupButton(IntegrationEntity, ButtonEntity):
         """
         Check the group of the address at once, and switch to a new group at once.
 
-        Fail when Yasno gives no sure answer, or does not find the address. The
-        entry keeps its group then, and the entities keep their states.
+        Fail when Yasno gives no sure answer, does not find the address, or gives a
+        new group that the planned outages lack. The entry keeps its group then, and
+        the entities keep their states.
         """
         # The id, not the address: the log never has the address
         LOGGER.debug(
@@ -145,4 +146,11 @@ class IntegrationCheckGroupButton(IntegrationEntity, ButtonEntity):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="check_group_failed",
+            )
+        # The schedule of a group that the planned outages lack would be empty
+        if (group := self.coordinator.address_check_group_not_listed) is not None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="check_group_not_listed",
+                translation_placeholders={"group": group},
             )

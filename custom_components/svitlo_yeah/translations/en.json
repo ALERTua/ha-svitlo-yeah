@@ -226,6 +226,9 @@
     "check_group_failed": {
       "message": "Yasno does not answer, so the group stays. Try again in a few minutes."
     },
+    "check_group_not_listed": {
+      "message": "Yasno gives the group {group} for the address, but its schedule does not list that group yet. The entry keeps its group."
+    },
     "address_not_found": {
       "message": "Yasno does not find the address of this entry. The entry keeps its group."
     },
