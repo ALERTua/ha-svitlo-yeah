@@ -2,7 +2,9 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from enum import StrEnum
+from http import HTTPStatus
+from typing import TYPE_CHECKING, Any, Final
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -18,12 +20,16 @@ from custom_components.svitlo_yeah.const import (
     HOURS_IN_DAY,
     MINUTES_IN_DAY,
     TZ_UA,
+    YASNO_ADDRESS_MATCHES_CAP,
+    YASNO_ADDRESSES_ENDPOINT,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
 from custom_components.svitlo_yeah.models import (
     PlannedOutageEvent,
     PlannedOutageEventType,
+    YasnoAddress,
+    YasnoAddressItem,
     YasnoPlannedOutageDayStatus,
     YasnoRegion,
 )
@@ -36,6 +42,91 @@ from .common_tools import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+_TIMEOUT_SECS: Final = 60
+
+# Yasno does not find a house when a letter of its number is Latin. Each Latin
+# letter on the left looks like the Cyrillic letter at the same place on the right.
+_LATIN_TO_CYRILLIC = str.maketrans(
+    "abcehikmoptxyABCEHIKMOPTXY",
+    "авсенікмортхуАВСЕНІКМОРТХУ",
+)
+
+
+class AddressResult(StrEnum):
+    """
+    The result of a check of an address.
+
+    Found gives a group. Not found means that Yasno does not know the address.
+    Unknown means that the answer says nothing: no answer, an odd answer, or
+    a match that is not sure.
+    """
+
+    FOUND = "found"
+    NOT_FOUND = "not_found"
+    UNKNOWN = "unknown"
+
+
+def cyrillic_look_alikes(text: str) -> str:
+    """
+    Return the text with Cyrillic letters in place of the Latin look-alikes.
+
+    The config flow gives a typed house through it. The check of a stored
+    address does not, because Yasno wrote the stored name itself.
+    """
+    return text.translate(_LATIN_TO_CYRILLIC)
+
+
+def normalize_name(name: str) -> str:
+    """
+    Return the name in the form that two writings of it share.
+
+    One space between words, no case, and Cyrillic letters in place of the
+    Latin ones that look the same, so a Latin and a Cyrillic A are one letter.
+    """
+    return cyrillic_look_alikes(" ".join(name.split()).casefold())
+
+
+def exact_matches(items: list[YasnoAddressItem], name: str) -> list[YasnoAddressItem]:
+    """Return the items whose value is the name, as normalize_name reads both."""
+    wanted = normalize_name(name)
+    return [_ for _ in items if normalize_name(_.value) == wanted]
+
+
+def _address_items(answer: object) -> list[YasnoAddressItem] | None:
+    """Return the matches of a search answer, or None for another shape."""
+    if not isinstance(answer, list):
+        return None
+    items = []
+    for item in answer:
+        if not (
+            isinstance(item, dict)
+            # The id is a whole number; a bool would pass isinstance(_, int)
+            and type(item.get("id")) is int
+            and isinstance(item.get("value"), str)
+        ):
+            return None
+        items.append(YasnoAddressItem(id=item["id"], value=item["value"]))
+    return items
+
+
+def _one_match(
+    items: list[YasnoAddressItem] | None, name: str
+) -> YasnoAddressItem | AddressResult:
+    """
+    Return the one item that is the name, or the result that ends the check.
+
+    A list as long as the cap is cut, so the name can be missing from it.
+    """
+    if items is None:
+        return AddressResult.UNKNOWN
+    matches = exact_matches(items, name)
+    if len(matches) == 1:
+        return matches[0]
+    # Two exact matches: the name does not tell which one is the address
+    if matches or len(items) >= YASNO_ADDRESS_MATCHES_CAP:
+        return AddressResult.UNKNOWN
+    return AddressResult.NOT_FOUND
 
 
 def _minutes_to_time(minutes: int, dt: datetime) -> datetime:
@@ -198,7 +289,7 @@ class YasnoApi:
     async def _get_route_data(
         self,
         url: str,
-        timeout_secs: int = 60,
+        timeout_secs: int = _TIMEOUT_SECS,
     ) -> Any:
         """Fetch the JSON of the URL: a list or a dict, or None after a failure."""
         try:
@@ -456,3 +547,140 @@ class YasnoApi:
         """
         await self.fetch_yasno_regions()
         return await self.fetch_planned_outage_data()
+
+    async def _get_address_answer(
+        self, path: str, params: dict[str, int | str]
+    ) -> tuple[int | None, Any]:
+        """
+        Ask an address endpoint, and return the HTTP status with the JSON body.
+
+        Any status that has a JSON body counts, because a 404 means that Yasno
+        does not know the address. No answer is (None, None). The query holds
+        the address of a person, so the log names the path and the status only.
+        """
+        try:
+            async with self.session.get(
+                YASNO_ADDRESSES_ENDPOINT + path,
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=_TIMEOUT_SECS),
+            ) as response:
+                status = response.status
+                body = await response.json()
+        except REQUEST_ERRORS as err:
+            # The message of an error can hold the URL with the query
+            LOGGER.debug(
+                "No answer from the Yasno address endpoint %s: %s",
+                path,
+                type(err).__name__,
+            )
+            return None, None
+        LOGGER.debug("The Yasno address endpoint %s answered %s", path, status)
+        return status, body
+
+    def _address_params(
+        self, city_id: int | None, **params: int | str
+    ) -> dict[str, int | str] | None:
+        """Return the parameters of an address request, or None without a region."""
+        if self.region_id is None or self.provider_id is None:
+            LOGGER.error(
+                "Region ID %s and Provider ID %s must be set before an address request",
+                self.region_id,
+                self.provider_id,
+            )
+            return None
+        output: dict[str, int | str] = {
+            "regionId": self.region_id,
+            "dsoId": self.provider_id,
+            **params,
+        }
+        if city_id is not None:
+            output["cityId"] = city_id
+        return output
+
+    async def _search_address(
+        self, path: str, city_id: int | None, **params: int | str
+    ) -> list[YasnoAddressItem] | None:
+        """
+        Return the matches of a search, or None when Yasno says nothing sure.
+
+        A 404 is no match: Yasno says EntryNotFound, for example for a street id
+        that it changed.
+        """
+        request = self._address_params(city_id, **params)
+        if request is None:
+            return None
+        status, answer = await self._get_address_answer(path, request)
+        if status == HTTPStatus.NOT_FOUND:
+            return []
+        if status != HTTPStatus.OK:
+            return None
+        return _address_items(answer)
+
+    async def search_cities(self, query: str) -> list[YasnoAddressItem] | None:
+        """Search the cities of the region, at most YASNO_ADDRESS_MATCHES_CAP."""
+        return await self._search_address("cities", None, query=query.strip())
+
+    async def search_streets(
+        self, query: str, city_id: int | None = None
+    ) -> list[YasnoAddressItem] | None:
+        """Search the streets of the region, or of the city in it."""
+        return await self._search_address("streets", city_id, query=query.strip())
+
+    async def search_houses(
+        self, street_id: int, query: str, city_id: int | None = None
+    ) -> list[YasnoAddressItem] | None:
+        """Search the houses of a street; a typed query needs cyrillic_look_alikes."""
+        return await self._search_address(
+            "houses", city_id, streetId=street_id, query=query.strip()
+        )
+
+    async def get_address_group(
+        self, street_id: int, house_id: int, city_id: int | None = None
+    ) -> tuple[AddressResult, str | None]:
+        """Ask for the group of a house, as "<group>.<subgroup>" when Yasno gives it."""
+        request = self._address_params(city_id, streetId=street_id, houseId=house_id)
+        if request is None:
+            return AddressResult.UNKNOWN, None
+        status, answer = await self._get_address_answer("group", request)
+        if status == HTTPStatus.NOT_FOUND:
+            return AddressResult.NOT_FOUND, None
+        if (
+            status == HTTPStatus.OK
+            and isinstance(answer, dict)
+            # Whole numbers; a bool would pass isinstance(_, int)
+            and type(answer.get("group")) is int
+            and type(answer.get("subgroup")) is int
+        ):
+            return AddressResult.FOUND, f"{answer['group']}.{answer['subgroup']}"
+        return AddressResult.UNKNOWN, None
+
+    async def resolve_address(
+        self, address: YasnoAddress
+    ) -> tuple[AddressResult, str | None]:
+        """
+        Find the group of a stored address, level by level.
+
+        Each level searches for its stored name, and goes on with the one item
+        that has this name. Yasno changes its ids, so the names are stored and
+        the ids are searched again.
+        """
+        city_id = None
+        if address.city is not None:
+            city = _one_match(await self.search_cities(address.city), address.city)
+            if isinstance(city, AddressResult):
+                return city, None
+            city_id = city.id
+
+        street = _one_match(
+            await self.search_streets(address.street, city_id), address.street
+        )
+        if isinstance(street, AddressResult):
+            return street, None
+
+        house = _one_match(
+            await self.search_houses(street.id, address.house, city_id), address.house
+        )
+        if isinstance(house, AddressResult):
+            return house, None
+
+        return await self.get_address_group(street.id, house.id, city_id)

@@ -37,10 +37,17 @@ LAST_HOUR: Final = 23
 LAST_MINUTE: Final = 59
 
 # API Endpoints
-YASNO_REGIONS_ENDPOINT: Final = (
-    "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/regions"
+# The base of the address endpoints of Yasno: regions, cities, streets, houses, group
+YASNO_ADDRESSES_ENDPOINT: Final = (
+    "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/"
 )
+YASNO_REGIONS_ENDPOINT: Final = YASNO_ADDRESSES_ENDPOINT + "regions"
 YASNO_PLANNED_OUTAGES_ENDPOINT: Final = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/{region_id}/dsos/{dso_id}/planned-outages"
+
+# Yasno gives at most this many matches of one search of an address
+YASNO_ADDRESS_MATCHES_CAP: Final = 20
+# Yasno finds a street only from this many letters
+YASNO_STREET_QUERY_MIN: Final = 3
 
 # API Block names
 BLOCK_KEY_STATUS: Final = "status"
