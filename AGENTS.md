@@ -144,8 +144,8 @@ A Yasno entry has an address when its data has `street` and `house`, and `city` 
 The entry keeps the names of the address as Yasno writes them, and the group. It never keeps the ids of Yasno, because Yasno changes its ids every few days. `YasnoApi.resolve_address` searches the city, the street and the house by their names, level by level, and then asks for the group of the house. `_one_match` takes the one item that has the name. The search has three results (`AddressResult`):
 
 - `FOUND`: Yasno gives a group.
-- `NOT_FOUND`: a 404 (`EntryNotFound`), or a list of fewer than 20 items (`YASNO_ADDRESS_MATCHES_CAP`) without an exact match.
-- `UNKNOWN`: no connection, a 5xx, an answer of another shape, or two exact matches. A list of 20 items without an exact match is `UNKNOWN` too, because the cap cut the list and the name can be missing.
+- `NOT_FOUND`: a 404 whose body is a JSON object with `"code": "EntryNotFound"`, or a list of fewer than 20 items (`YASNO_ADDRESS_MATCHES_CAP`) without an exact match.
+- `UNKNOWN`: no connection, a 5xx, another 404, an answer of another shape, or two exact matches. Another 404 can come from an endpoint that Yasno moved, so it says nothing about the address. A list of 20 items without an exact match is `UNKNOWN` too, because the cap cut the list and the name can be missing.
 
 `YasnoCoordinator._async_after_update` runs the check once a week (`ADDRESS_CHECK_INTERVAL`), after the fetch of the schedule. It never runs in the first refresh, where the entry state is `SETUP_IN_PROGRESS`. The update listener that reloads the entry with a new group comes only after the first refresh. Also the first refresh holds up the start of Home Assistant. An entry without a state starts the clock and runs no check, so a restart and a new address start no check at once. `AddressCheck` is the state: the address, `next_check`, `pending_group` and `not_found_count`. It lives under the key `address_check` in the `source` data of the store of the entry. A kept state of another address counts as no state, because a Reconfigure can change the address.
 

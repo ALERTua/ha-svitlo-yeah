@@ -69,6 +69,12 @@ ENTRY_NOT_FOUND = {
     "code": "EntryNotFound",
     "detail": "Street 644 not found in Region 3 and Dso 301",
 }
+# The 404 of a route that the server does not know, for example a moved endpoint
+ROUTE_NOT_FOUND = {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Not Found",
+    "status": 404,
+}
 
 # The searches: the endpoint, and the call that asks it
 SEARCHES = [
@@ -92,6 +98,12 @@ NO_SURE_ANSWER = [
     pytest.param({"status": 503, "text": "<html>maintenance</html>"}, id="maintenance"),
     pytest.param({"status": 403, "json": []}, id="forbidden"),
     pytest.param({"status": 404, "text": "<html>Not Found</html>"}, id="404_not_json"),
+    # Only a 404 with the code EntryNotFound says that Yasno does not know the address
+    pytest.param({"status": 404, "json": ROUTE_NOT_FOUND}, id="404_without_a_code"),
+    pytest.param(
+        {"status": 404, "json": {"code": "RouteNotFound"}}, id="404_other_code"
+    ),
+    pytest.param({"status": 404, "text": "null"}, id="404_null"),
     pytest.param({"text": "<html>maintenance</html>"}, id="not_json"),
     pytest.param({"text": "null"}, id="null"),
 ]
@@ -657,6 +669,7 @@ async def test_resolve_address_with_two_exact_matches_is_unknown(
     [
         pytest.param({"exc": ClientError()}, id="no_connection"),
         pytest.param({"status": 500, "json": ENTRY_NOT_FOUND}, id="server_error"),
+        pytest.param({"status": 404, "json": ROUTE_NOT_FOUND}, id="404_of_a_route"),
         pytest.param({"json": 53}, id="a_bare_number"),
     ],
 )
