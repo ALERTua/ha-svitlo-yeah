@@ -56,9 +56,8 @@ _DIGITS: Final = "0123456789"
 _LEADING_NUMBER = re.compile(r"\d+")
 # The code of the 404 body for an id or an address that Yasno does not know
 _ENTRY_NOT_FOUND: Final = "EntryNotFound"
-# The kind of a place at the start of its name: a word with a dot, with or without
-# a space after it («вул. Хрещатик», «м.Дніпро»), or the kinds of a settlement and of
-# a town, which stand with a space
+# The kind of a place at the start of a name: a word with a dot («вул. », «м.»), or
+# the kind of a town or of a settlement, which stands with a space
 _PLACE_KIND = re.compile(
     r"^(?:\w+(?:-\w+)?\.\s*|(?:смт|с-ще)\s+)"  # noqa: RUF001  # the Cyrillic kinds
 )
@@ -73,13 +72,7 @@ _LATIN_TO_CYRILLIC = str.maketrans(
 
 
 class AddressResult(StrEnum):
-    """
-    The result of a check of an address.
-
-    Found gives a group. Not found means that Yasno does not know the address.
-    Unknown means that the answer says nothing: no answer, an odd answer, or
-    a match that is not sure.
-    """
+    """The result of an address check: a group, no such address, or no sure answer."""
 
     FOUND = "found"
     NOT_FOUND = "not_found"
@@ -609,11 +602,10 @@ class YasnoApi:
         self, path: str, params: dict[str, int | str]
     ) -> tuple[int | None, Any]:
         """
-        Ask an address endpoint, and return the HTTP status with the JSON body.
+        Return the HTTP status and the JSON body, or (None, None) without an answer.
 
-        Any status that has a JSON body counts, because a 404 EntryNotFound means
-        that Yasno does not know the address. No answer is (None, None). The query
-        holds the address of a person, so the log names the path and the status only.
+        A 404 counts, because EntryNotFound says that Yasno does not know the address.
+        The query holds an address, so the log names the path and the status only.
         """
         try:
             async with self.session.get(
@@ -755,13 +747,11 @@ class YasnoApi:
         self, address: YasnoAddress
     ) -> tuple[AddressResult, str | None]:
         """
-        Find the group of a stored address, level by level.
+        Find the group of a stored address by its names, level by level.
 
-        Each level searches for its stored name, and goes on with the one item
-        that has this name. Yasno changes its ids, so the names are stored and
-        the ids are searched again. When the query of the stored house is cut at
-        the cap without the house, the result is Unknown, because each other query
-        that can find the house gives a longer list.
+        Yasno changes its ids, so each level searches its stored name and takes the
+        one item with that name. A house that is missing from its cut query stays
+        Unknown, because each other query that can find it gives a longer list.
         """
         city_id = None
         if address.city is not None:

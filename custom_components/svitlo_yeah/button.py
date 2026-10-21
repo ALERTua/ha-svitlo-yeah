@@ -125,8 +125,7 @@ class IntegrationCheckGroupButton(IntegrationEntity, ButtonEntity):
         Check the group of the address at once, and switch to a new group at once.
 
         Fail when Yasno gives no sure answer, does not find the address, or gives a
-        new group that the planned outages lack. The entry keeps its group then, and
-        the entities keep their states.
+        group without a schedule. The entry and its entities stay as they are then.
         """
         # The id, not the address: the log never has the address
         LOGGER.debug(

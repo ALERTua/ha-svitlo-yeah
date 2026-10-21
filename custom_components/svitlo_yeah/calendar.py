@@ -29,12 +29,10 @@ PARALLEL_UPDATES = 0
 
 def _calendar_entity_id(coordinator: IntegrationCoordinator, kind: str) -> str:
     """
-    Return the entity id that a new calendar of the entry gets.
+    Return the entity id of a new calendar: the address, or region, provider and group.
 
-    A calendar of an address has the address in its id, as the other entities of
-    the address do, because the group of an address can change. Another calendar
-    has the region, the provider and the group. An entity that the registry has
-    keeps its id.
+    The group of an address can change, so its calendar has the address in its id,
+    as its other entities do. A calendar in the registry keeps its id.
     """
     if address := YasnoAddress.from_entry_data(coordinator.config_entry.data):
         base = address.text

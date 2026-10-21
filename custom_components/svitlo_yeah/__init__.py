@@ -128,11 +128,10 @@ async def async_unload_entry(
 
 async def async_remove_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> None:
     """
-    Delete the last data that the entry kept for a restart.
+    Delete the kept data, the group notification and the removed provider issue.
 
-    The notification about a new group of the entry goes too. An unload keeps it,
-    because the new group itself reloads the entry. The repair issue about a
-    removed provider goes too, because it asks the user to delete the entry.
+    An unload keeps the notification, because the new group itself reloads the
+    entry. The issue asks the user to delete the entry, so it goes now.
     """
     await Store(hass, STORE_VERSION, store_key(entry.entry_id)).async_remove()
     persistent_notification.async_dismiss(

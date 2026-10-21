@@ -198,10 +198,10 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
 
     async def _async_after_update(self) -> None:
         """
-        Do more work at the end of a poll, after the last data is kept.
+        Do more work at the end of a poll. Nothing by default.
 
-        Nothing by default. An unload or a removal of the entry can come while the
-        last data saves, so a hook that writes checks _shutdown_requested first.
+        An unload or a removal can come while the last data saves, so a hook that
+        writes checks _shutdown_requested first.
         """
 
     async def _async_fetch(self) -> Any:

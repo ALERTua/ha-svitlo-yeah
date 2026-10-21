@@ -77,10 +77,8 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
     ),
 )
 
-# The group of the entry. A Yasno entry can get a new group from the check of its
-# address, so only a Yasno entry has this sensor. The other providers keep the group
-# that the user selected, which the device name shows. The sensor is enabled by
-# default only on an entry with an address (see async_setup_entry).
+# Only a Yasno entry has it, because the check of an address can change the group. The
+# device name of another provider shows its fixed group.
 GROUP_SENSOR = IntegrationSensorDescription(
     key="group",
     translation_key="group",
@@ -99,10 +97,8 @@ async def async_setup_entry(
     coordinator = config_entry.runtime_data
     descriptions = SENSORS
     if config_entry.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_YASNO:
-        # Only an address can give the entry a new group, so a group entry has
-        # nothing to watch. Home Assistant reads this flag only when the registry gets
-        # the entity for the first time. A sensor that an earlier version enabled on a
-        # group entry stays enabled, and a Reconfigure back to a group keeps it too.
+        # Enabled by default only with an address, which can give a new group. The
+        # registry keeps the flag of an existing sensor, also after a Reconfigure.
         has_address = YasnoAddress.from_entry_data(config_entry.data) is not None
         if has_address:
             _enable_group_sensor(hass, config_entry)
@@ -119,14 +115,12 @@ def _enable_group_sensor(
     hass: HomeAssistant, config_entry: SvitloYeahConfigEntry
 ) -> None:
     """
-    Enable the group sensor that the integration disabled on a group entry.
+    Enable the group sensor that the integration disabled on a former group entry.
 
-    A Reconfigure can give a group entry an address, and the registry already has the
-    sensor as disabled. Home Assistant reloads the entry 30 seconds after an entity
-    gets enabled, so the entry reloads once more: the integration accepts this cost.
-    A sensor that the user disabled stays disabled. When the system option «Enable
-    newly added entities» of the entry is off, Home Assistant disables each new
-    entity, and the sensor stays disabled too.
+    The registry keeps the flag of the sensor of a group entry. Home Assistant reloads
+    the entry 30 seconds after an enable, and the integration accepts this cost. A
+    sensor that the user disabled stays disabled, and so does the sensor when the
+    option «Enable newly added entities» of the entry is off.
     """
     if config_entry.pref_disable_new_entities:
         return

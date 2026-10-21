@@ -75,11 +75,10 @@ def group_changed_notification_id(entry_id: str) -> str:
 @dataclass(frozen=True)
 class AddressCheck:
     """
-    The state of the check of the group of an address, kept across a restart.
+    The kept state of the check of the group of one address.
 
-    The state is about its address: a Reconfigure that changes the address makes
-    the state count as no state. A pending group waits for a second check, which
-    must find it again before the entry gets it.
+    A Reconfigure can change the address, and a state of another address counts as
+    no state. A pending group waits for a second check, which must find it again.
     """
 
     address: YasnoAddress
@@ -237,13 +236,11 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
 
     async def async_check_address_now(self) -> None:
         """
-        Check the group of the address at once, and switch to a new group at once.
+        Check the address at once inside a poll, and switch to a new group at once.
 
-        The check runs inside a poll, so it waits for the lock of the poll. A poll
-        that runs already can take the force, and then its check is the check of
-        this call. After it, address_check_result is the result of this check, or
-        None when the poll stopped before the check. A found group that the planned
-        outages lack is in address_check_group_not_listed, and no switch comes.
+        A running poll can take the force, and then its check counts. After the call,
+        address_check_result is the result, or None when the poll stopped before the
+        check. address_check_group_not_listed names a found group without a schedule.
         """
         # The result of an earlier check must not count as the result of this one
         self.address_check_result = None
@@ -252,17 +249,15 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         try:
             await self.async_refresh()
         finally:
-            # The force goes back after the check, and also after a poll that
-            # stopped before the check, so that no later poll gets it
+            # No later poll gets the force, also after a poll that stopped early
             self._force_address_check = False
 
     async def async_address_found(self, address: YasnoAddress) -> None:
         """
-        Keep that a Reconfigure found the address of the entry: the clock starts again.
+        Start the clock again, when a Reconfigure found the address of the entry.
 
-        The Not found results of the address and its repair issue go away. A new
-        group of the address comes with the Reconfigure, so no group is pending.
-        Another address needs nothing: the kept state of another address is no state.
+        The Not found results and the repair issue go, and no group is pending,
+        because the Reconfigure brings the group. Another address needs nothing.
         """
         if address != self._address:
             return
@@ -277,12 +272,11 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
     @override
     async def _async_after_update(self) -> None:
         """
-        Check the group of the address of the entry, when the check is due.
+        Check the address when the check is due, or at once when it is forced.
 
-        The check never runs in the first refresh: the update listener that
-        reloads the entry with a new group comes only after it, and the first
-        refresh holds up the start of Home Assistant. A due check also waits while
-        Yasno does not answer the schedule, but a forced check runs.
+        Never in the first refresh, which holds up the start of Home Assistant and
+        comes before the update listener that reloads a new group. A due check also
+        waits while Yasno does not answer the schedule.
         """
         if (
             self._address is None
@@ -444,12 +438,11 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
 
     def _notify_group_changed(self, old_group: str, new_group: str) -> None:
         """
-        Tell the user about the new group: a notification, and an event for automations.
+        Fire the event, and replace the notification about a new group of the entry.
 
-        The event has no address, because the recorder keeps each event: the entry
-        id gives its title. The texts come from the translations of this poll, in
-        the language of the server, so no await comes after the check of the entry.
-        A later change replaces the notification of the entry.
+        The recorder keeps each event, so the event has the entry id, not the address.
+        The texts are the translations of this poll, so no await follows the check of
+        the entry.
         """
         entry_id = self.config_entry.entry_id
         self.hass.bus.async_fire(
