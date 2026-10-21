@@ -704,8 +704,12 @@ class TestFoundAddress:
             with_city | {"streetId": "644", "houseId": "190821"},
         )
 
-    async def test_address_text_without_the_region_name(self, hass, aioclient_mock):
-        """Without the region in the cache, the address starts with the street."""
+    async def test_address_step_without_the_region_aborts(self, hass, aioclient_mock):
+        """
+        Without the region, the address step aborts instead of a guess.
+
+        The form cannot know whether the region needs a city.
+        """
         result = await _kyiv_form(hass, aioclient_mock)
 
         with patch(
@@ -714,8 +718,10 @@ class TestFoundAddress:
         ):
             result = await _submit_kyiv(hass, result)
 
-        assert result["step_id"] == "house"
-        assert result["description_placeholders"]["place"] == "вул. Сверстюка Євгена"
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "yasno_connection_error"
+        assert result["description_placeholders"] == {"url": YASNO_REGIONS_ENDPOINT}
+        assert _asked(aioclient_mock) == []
 
     async def test_typed_city_without_its_kind_is_taken(self, hass, aioclient_mock):
         """«Дніпро» names «м. Дніпро» and not the village «Дніпрове»: no list."""
@@ -1783,6 +1789,25 @@ class TestReconfigure:
         assert result["menu_options"] == ["address", "group"]
         assert _asked(aioclient_mock) == []
         assert entry.data == data
+
+    async def test_address_without_the_regions_aborts(self, hass, aioclient_mock):
+        """
+        Yasno does not give the regions, and the cache has none: the step aborts.
+
+        A Reconfigure skips the provider step, so no earlier step got the regions.
+        Without them the form of a Дніпро entry would lack the city.
+        """
+        entry = self._add_entry(hass, DNIPRO_ADDRESS_DATA, DNIPRO_ADDRESS_TEXT)
+        aioclient_mock.get(YASNO_REGIONS_ENDPOINT, status=500)
+        _serve_dnipro(aioclient_mock)
+
+        result = await entry.start_reconfigure_flow(hass)
+        result = await _configure(hass, result, {"next_step_id": "address"})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "yasno_connection_error"
+        assert _asked(aioclient_mock) == []
+        assert entry.data == DNIPRO_ADDRESS_DATA
 
     # The title of the group entry: the integration gave it, or the user did
     @pytest.mark.parametrize(
