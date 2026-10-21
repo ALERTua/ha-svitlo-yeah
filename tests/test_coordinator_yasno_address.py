@@ -719,6 +719,33 @@ class TestRaceGuard:
         entry.update_listeners.extend(listeners)
         await _unload(hass, entry)
 
+    async def test_unload_while_the_switch_saves(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """The entry unloads while the switch saves: no group goes in, and no notice."""
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1")
+        )
+        save = coordinator._store.async_save
+
+        async def save_and_unload(data):
+            await save(data)
+            # Only the save of the switch keeps the new group
+            if data.get("group") == "53.1":
+                await hass.config_entries.async_unload(entry.entry_id)
+
+        with patch.object(
+            coordinator._store, "async_save", side_effect=save_and_unload
+        ):
+            await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        assert entry.state is ConfigEntryState.NOT_LOADED
+        assert entry.data[CONF_GROUP] == "1.1"
+        notifications = async_get_persistent_notifications(hass)
+        assert group_changed_notification_id(entry.entry_id) not in notifications
+
     @pytest.mark.parametrize("action", ["unload", "remove"])
     async def test_entry_gone_while_yasno_answers(
         self, hass, aioclient_mock, hass_storage, caplog, action
