@@ -9,10 +9,13 @@ import re
 import struct
 from pathlib import Path
 
-from custom_components.svitlo_yeah.button import REFRESH_BUTTON
+from custom_components.svitlo_yeah.button import CHECK_GROUP_BUTTON, REFRESH_BUTTON
 from custom_components.svitlo_yeah.models import ConnectivityState
-from custom_components.svitlo_yeah.sensor import SENSORS
+from custom_components.svitlo_yeah.sensor import GROUP_SENSOR, SENSORS
 
+# Each description of an entity of the integration, also one that only some entries have
+SENSOR_DESCRIPTIONS = (*SENSORS, GROUP_SENSOR)
+BUTTON_DESCRIPTIONS = (REFRESH_BUTTON, CHECK_GROUP_BUTTON)
 ROOT = Path(__file__).parent.parent
 ICONS = json.loads(
     (ROOT / "custom_components/svitlo_yeah/icons.json").read_text(encoding="utf-8")
@@ -28,13 +31,13 @@ def _png_size(path: Path) -> tuple[int, int]:
 
 def test_no_description_sets_an_icon():
     """An icon of the description would hide the icons of icons.json."""
-    assert [d.key for d in (*SENSORS, REFRESH_BUTTON) if d.icon] == []
+    assert [d.key for d in (*SENSOR_DESCRIPTIONS, *BUTTON_DESCRIPTIONS) if d.icon] == []
 
 
 def test_each_entity_has_an_icon_and_each_icon_an_entity():
     """icons.json has an entry for each translation key, and no other entry."""
-    assert set(ICONS["sensor"]) == {d.translation_key for d in SENSORS}
-    assert set(ICONS["button"]) == {REFRESH_BUTTON.translation_key}
+    assert set(ICONS["sensor"]) == {d.translation_key for d in SENSOR_DESCRIPTIONS}
+    assert set(ICONS["button"]) == {d.translation_key for d in BUTTON_DESCRIPTIONS}
     icons = [
         icon
         for platform in ICONS.values()

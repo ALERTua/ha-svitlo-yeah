@@ -9,7 +9,9 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.const import EntityCategory
 
+from .const import CONF_PROVIDER_TYPE, PROVIDER_TYPE_YASNO
 from .entity import IntegrationEntity
 from .models import ConnectivityState
 
@@ -74,6 +76,16 @@ SENSORS: tuple[IntegrationSensorDescription, ...] = (
     ),
 )
 
+# The group of the entry. A Yasno entry can get a new group from the check of its
+# address, so only a Yasno entry has this sensor. The other providers keep the group
+# that the user selected, which the device name shows.
+GROUP_SENSOR = IntegrationSensorDescription(
+    key="group",
+    translation_key="group",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    val_func=lambda coordinator: coordinator.group,
+)
+
 
 # noinspection PyUnusedLocal
 async def async_setup_entry(
@@ -84,8 +96,11 @@ async def async_setup_entry(
     """Set up the sensor platform."""
     LOGGER.debug("Setup new sensor: %s", config_entry.entry_id)
     coordinator = config_entry.runtime_data
+    descriptions = SENSORS
+    if config_entry.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_YASNO:
+        descriptions = (*SENSORS, GROUP_SENSOR)
     async_add_entities(
-        IntegrationSensor(coordinator, description) for description in SENSORS
+        IntegrationSensor(coordinator, description) for description in descriptions
     )
 
 

@@ -9,12 +9,14 @@ from pathlib import Path
 import pytest
 
 from custom_components.svitlo_yeah import const
+from custom_components.svitlo_yeah.button import CHECK_GROUP_BUTTON, REFRESH_BUTTON
 from custom_components.svitlo_yeah.config_flow import (
     NOT_FOUND_ERRORS,
     SEARCH_AGAIN,
     SEARCH_AGAIN_TEXTS,
 )
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.sensor import GROUP_SENSOR, SENSORS
 
 TRANSLATIONS = Path(__file__).parent.parent / (
     "custom_components/svitlo_yeah/translations"
@@ -183,6 +185,23 @@ def test_each_exception_has_a_text(language):
 
     texts = _load(language).get("exceptions", {})
     assert {k for k in keys if not texts.get(k, {}).get("message")} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_sensor_and_button_has_a_name(language):
+    """Each sensor and button has a name: without it, the entity has no name."""
+    entities = _load(language)["entity"]
+    descriptions = {
+        "sensor": (*SENSORS, GROUP_SENSOR),
+        "button": (REFRESH_BUTTON, CHECK_GROUP_BUTTON),
+    }
+
+    assert {
+        f"{platform}.{d.translation_key}"
+        for platform, group in descriptions.items()
+        for d in group
+        if not entities[platform].get(d.translation_key, {}).get("name")
+    } == set()
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
