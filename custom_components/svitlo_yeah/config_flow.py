@@ -111,6 +111,16 @@ def _without_address(data: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in data.items() if key not in ADDRESS_KEYS}
 
 
+def _name_not_unique(items: list[YasnoAddressItem], item: YasnoAddressItem) -> bool:
+    """
+    Tell whether another item of the list has the name of this item.
+
+    The check of the address finds each level by its stored name, so it cannot tell
+    two such items apart (_one_match of api/yasno.py), and its result stays Unknown.
+    """
+    return len(exact_matches(items, item.value)) > 1
+
+
 def _typed_matches(items: list[YasnoAddressItem], typed: str) -> list[YasnoAddressItem]:
     """
     Return the items that the typed text names, with the kind of the place or without.
@@ -451,6 +461,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         The flow takes the one item that the typed text names, or else the only
         item. None means that it took the match and goes on to the next level.
+        A typed text that names only items with one name is an error.
         """
         errors: dict[str, str] = {}
         if items is None:
@@ -463,10 +474,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._chosen[field] = named[0]
             elif len(items) == 1:
                 self._chosen[field] = items[0]
+            elif len(named) > 1 and len({normalize_name(_.value) for _ in named}) == 1:
+                errors[field] = "name_not_unique"
             else:
                 self._matches = items
                 return await self._async_show_pick_form(field)
-            return None
+            if not errors:
+                return None
         return self._show_address_form(errors)
 
     async def _async_search_address(self) -> ConfigFlowResult:
@@ -563,9 +577,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         A listed house comes first, by its number. A number that the list lacks
         goes to Yasno, which can know more houses than the list shows.
         """
-        # The value of an offered option is the number of its house
+        # The value of an offered option is the number of its house. Two houses with
+        # one number are one option, and the check could not tell them apart.
         if listed := exact_matches(self._houses or [], text):
-            return listed[0]
+            return listed[0] if len(listed) == 1 else {CONF_HOUSE: "name_not_unique"}
         street = self._chosen[CONF_STREET]
         city = self._chosen.get(CONF_CITY)
         # Yasno does not find a house that has a Latin letter in its number
@@ -577,6 +592,8 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         named = exact_matches(found, text)
         if len(named) == 1:
             return named[0]
+        if named:
+            return {CONF_HOUSE: "name_not_unique"}
         return {CONF_HOUSE: NOT_FOUND_ERRORS[CONF_HOUSE]}
 
     async def _async_finish_address(
@@ -682,9 +699,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input[field] == SEARCH_AGAIN:
             return self._show_address_form()
         # The schema of the form that was shown accepts only the offered values
-        self._chosen[field] = next(
-            item for item in self._matches if str(item.id) == user_input[field]
-        )
+        item = next(_ for _ in self._matches if str(_.id) == user_input[field])
+        if _name_not_unique(self._matches, item):
+            return self._show_address_form({field: "name_not_unique"})
+        self._chosen[field] = item
         return await self._async_search_address()
 
     async def async_step_pick_city(

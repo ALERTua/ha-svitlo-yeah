@@ -98,6 +98,7 @@
       "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it.",
       "city_too_short": "Enter the name of your city, or a part of it.",
       "street_too_short": "Enter at least 3 letters of the street name.",
+      "name_not_unique": "Yasno has several places with this name, so the integration cannot check the address later. Select «By group» in the menu.",
       "city_not_found": "Yasno does not know this city.",
       "street_not_found": "Yasno does not know this street.",
       "street_without_houses": "Yasno knows no house on this street.",
@@ -224,7 +225,7 @@
       "message": "Failed to get a new outage schedule, because the source did not answer. The entities keep the last schedule. Make sure that Home Assistant can connect to the Internet, and try again later."
     },
     "check_group_failed": {
-      "message": "Yasno does not answer, so the group stays. Try again in a few minutes."
+      "message": "Yasno gave no sure answer about the address, so the group stays. Try again in a few minutes."
     },
     "check_group_not_listed": {
       "message": "Yasno gives the group {group} for the address, but its schedule does not list that group yet. The entry keeps its group."

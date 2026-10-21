@@ -105,6 +105,7 @@ A form shows an error, and keeps your text, in these cases:
 - The street has fewer than three letters.
 - Yasno does not know the city, the street or the house.
 - Yasno knows no house on the street.
+- Yasno lists the city, the street or the house twice with one name. The integration cannot check such an address later, so select **By group** in the menu.
 - Yasno does not answer.
 - The schedule of Yasno does not list the group of the address yet.
 

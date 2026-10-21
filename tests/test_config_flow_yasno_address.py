@@ -163,6 +163,9 @@ CITY_MATCHES = [
     {"id": 8, "value": "м. Інше Тестове"},
 ]
 MATCHES = {CONF_CITY: CITY_MATCHES, CONF_STREET: STREET_MATCHES}
+# A second item with the name of the measured city, and of the measured street
+CITY_TWIN = {"id": 9, "value": DNIPRO_CITY["value"]}
+STREET_TWIN = {"id": 9004, "value": KYIV_STREET["value"]}
 LEVELS = [CONF_CITY, CONF_STREET]
 
 # The reply that Yasno gives for the group, the errors of the house form, and the
@@ -1111,6 +1114,75 @@ class TestSeveralMatches:
         )
 
 
+class TestNameNotUnique:
+    """
+    A name that Yasno lists twice at its level is an error under its field.
+
+    The check of the address finds each level by its stored name, so it could not
+    tell the two places apart later.
+    """
+
+    async def _open_pick_with_twins(self, hass, aioclient_mock, level: str) -> dict:
+        """Walk the address form to the select of a level that has a twin."""
+        if level == CONF_CITY:
+            cities = {"json": [*CITY_MATCHES, CITY_TWIN]}
+            result = await _dnipro_form(hass, aioclient_mock, cities=cities)
+            return await _submit_dnipro(hass, result, city="дніпр")
+        streets = {"json": [*STREET_MATCHES, STREET_TWIN]}
+        result = await _kyiv_form(hass, aioclient_mock, streets=streets)
+        return await _submit_kyiv(hass, result, street="сверст")
+
+    # The level, the id of the chosen match, and the error, or None for the house step
+    @pytest.mark.parametrize(
+        ("level", "chosen", "error"),
+        [
+            pytest.param(CONF_CITY, 6, "name_not_unique", id="city"),
+            pytest.param(CONF_CITY, 9, "name_not_unique", id="city_twin"),
+            pytest.param(CONF_CITY, 7, None, id="city_with_its_own_name"),
+            pytest.param(CONF_STREET, 1647, "name_not_unique", id="street"),
+            pytest.param(CONF_STREET, 9004, "name_not_unique", id="street_twin"),
+            pytest.param(CONF_STREET, 9002, None, id="street_with_its_own_name"),
+        ],
+    )
+    async def test_chosen_match(self, hass, aioclient_mock, level, chosen, error):
+        """A chosen twin is an error on the address form; another match goes on."""
+        result = await self._open_pick_with_twins(hass, aioclient_mock, level)
+        assert result["step_id"] == f"pick_{level}"
+        asked = _asked(aioclient_mock)
+
+        result = await _configure(hass, result, {level: str(chosen)})
+
+        if error is None:
+            assert result["step_id"] == "house"
+            return
+        assert result["step_id"] == "address"
+        assert result["errors"] == {level: error}
+        assert _asked(aioclient_mock) == asked
+
+    # The level, and the typed name that names only the two twins
+    @pytest.mark.parametrize(
+        ("level", "text"),
+        [
+            pytest.param(CONF_CITY, "Дніпро", id="city"),
+            pytest.param(CONF_STREET, "Сверстюка Євгена", id="street"),
+        ],
+    )
+    async def test_typed_name_of_two_twins(self, hass, aioclient_mock, level, text):
+        """A typed name that names only the twins is an error at once: no select."""
+        if level == CONF_CITY:
+            cities = {"json": [DNIPRO_CITY, CITY_TWIN, CITY_MATCHES[1]]}
+            result = await _dnipro_form(hass, aioclient_mock, cities=cities)
+            result = await _submit_dnipro(hass, result, city=text)
+        else:
+            streets = {"json": [KYIV_STREET, STREET_TWIN, STREET_MATCHES[0]]}
+            result = await _kyiv_form(hass, aioclient_mock, streets=streets)
+            result = await _submit_kyiv(hass, result, street=text)
+
+        assert result["step_id"] == "address"
+        assert result["errors"] == {level: "name_not_unique"}
+        assert _asked(aioclient_mock) == ["cities" if level == CONF_CITY else "streets"]
+
+
 class TestHouseStep:
     """The house step lists all houses of the street, and takes a typed number too."""
 
@@ -1260,21 +1332,27 @@ class TestHouseStep:
         # The text counts the houses of the street, so it counts both twins
         assert result["description_placeholders"]["count"] == "6"
 
-    async def test_number_of_two_listed_houses_takes_the_first_listed_one(
-        self, hass, aioclient_mock
-    ):
-        """Two listed houses have the number: the first one is the house, no search."""
+    async def test_number_of_two_listed_houses_is_refused(self, hass, aioclient_mock):
+        """
+        Two listed houses have the number: an error under the house, and no entry.
+
+        The check of the address could not tell the two houses apart later.
+        """
         result = await _kyiv_twin_house_form(hass, aioclient_mock)
 
-        result = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
+        again = await _configure(hass, result, {CONF_HOUSE: HOUSE_6A})
+
+        assert again["type"] is FlowResultType.FORM
+        assert again["step_id"] == "house"
+        assert again["errors"] == {"house": "name_not_unique"}
+        # Yasno is not asked about the number or its group: the list has the twins
+        assert _asked(aioclient_mock) == ["streets", "houses"]
+
+        # Another house of the same street goes on
+        result = await _configure(hass, again, {CONF_HOUSE: "2"})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert result["data"][CONF_HOUSE] == HOUSE_6A
-        # Yasno is not asked about the number: the list has it
-        assert _house_searches(aioclient_mock) == []
-        assert _asked(aioclient_mock) == ["streets", "houses", "group"]
-        # The group is the one of the first listed house, not of its twin
-        assert _address_requests(aioclient_mock)[-1][1]["houseId"] == "41362"
+        assert result["data"][CONF_HOUSE] == "2"
 
     async def test_typed_number_that_yasno_does_not_know(self, hass, aioclient_mock):
         """No match is an error under the field, and the same dropdown comes back."""
@@ -1293,28 +1371,31 @@ class TestHouseStep:
         assert _asked(aioclient_mock) == ["streets", "houses", "houses"]
         assert [_["query"] for _ in _house_searches(aioclient_mock)] == ["99"]
 
-    # The typed number, the query that Yasno gets for it, and the houses that it gives
+    # The typed number, the query that Yasno gets for it, the houses that it gives,
+    # and the error under the house
     @pytest.mark.parametrize(
-        ("typed", "query", "found"),
+        ("typed", "query", "found", "error"),
         [
             # Several houses hold the text, and none of them has this number
             pytest.param(
                 "12",
                 "12",
                 [{"id": 41380, "value": "12-1"}, {"id": 41381, "value": "12Б"}],
+                "house_not_found",
                 id="no_exact_match",
             ),
-            # Two houses have the number: the number does not tell which one
+            # Two houses have the number: the check could not tell them apart later
             pytest.param(
                 HOUSE_6A_LATIN,
                 HOUSE_6A,
                 [KYIV_HOUSE, {"id": 41999, "value": HOUSE_6A}],
+                "name_not_unique",
                 id="two_exact_matches",
             ),
         ],
     )
-    async def test_typed_number_without_one_exact_match_is_not_found(
-        self, hass, aioclient_mock, typed, query, found
+    async def test_typed_number_without_one_exact_match_is_an_error(
+        self, hass, aioclient_mock, typed, query, found, error
     ):
         """Only one house with the typed number is a sure answer."""
         # The list has no house that holds the typed number
@@ -1325,7 +1406,7 @@ class TestHouseStep:
         again = await _configure(hass, result, {CONF_HOUSE: typed})
 
         assert again["step_id"] == "house"
-        assert again["errors"] == {"house": "house_not_found"}
+        assert again["errors"] == {"house": error}
         assert [_["query"] for _ in _house_searches(aioclient_mock)] == [query]
 
     @pytest.mark.parametrize(
