@@ -2,12 +2,15 @@
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from custom_components.svitlo_yeah.const import CONF_CITY, CONF_HOUSE, CONF_STREET
 
 from .providers import ESvitloProvider, SoeProvider, YasnoProvider
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Mapping
 
 __all__ = [
     "ConnectivityState",
@@ -104,3 +107,22 @@ class YasnoAddress:
     house: str  # the number with its letter, as Yasno writes it
     # Only a region with cities has it, for example «м. Дніпро»
     city: str | None = None
+
+    @classmethod
+    def from_entry_data(cls, data: Mapping[str, Any]) -> YasnoAddress | None:
+        """Return the address of an entry, or None for an entry with a group only."""
+        street, house = data.get(CONF_STREET), data.get(CONF_HOUSE)
+        if not street or not house:
+            return None
+        return cls(street=street, house=house, city=data.get(CONF_CITY))
+
+    @property
+    def text(self) -> str:
+        """
+        Return the address as one name, for the entry and the device.
+
+        «вул. Сверстюка Євгена, 1», or «м. Дніпро, вул. Грушевського Михайла, 1».
+        """
+        parts = (self.city, self.street, self.house)
+        # Yasno writes some names with a space at the end
+        return ", ".join(part.strip() for part in parts if part)

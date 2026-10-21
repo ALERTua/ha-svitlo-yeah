@@ -38,7 +38,8 @@ PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> bool:
     """Set up a new entry."""
-    LOGGER.debug("Setup entry: %s", entry)
+    # The id, not the entry: the title of an entry can be the address of a person
+    LOGGER.debug("Setup entry: %s", entry.entry_id)
     provider_type = entry.data.get(CONF_PROVIDER_TYPE)
 
     if provider_type == PROVIDER_TYPE_DTEK_JSON:
@@ -76,7 +77,7 @@ async def async_unload_entry(
     entry: SvitloYeahConfigEntry,
 ) -> bool:
     """Unload a config entry."""
-    LOGGER.debug("Unload entry: %s", entry)
+    LOGGER.debug("Unload entry: %s", entry.entry_id)
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         # The next setup asks the source again and creates the issue if needed.

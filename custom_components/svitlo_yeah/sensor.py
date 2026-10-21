@@ -82,7 +82,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    LOGGER.debug("Setup new sensor: %s", config_entry)
+    LOGGER.debug("Setup new sensor: %s", config_entry.entry_id)
     coordinator = config_entry.runtime_data
     async_add_entities(
         IntegrationSensor(coordinator, description) for description in SENSORS

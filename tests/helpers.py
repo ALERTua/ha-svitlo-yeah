@@ -11,9 +11,11 @@ from custom_components.svitlo_yeah.const import (
     CONF_ACCOUNT_ID,
     CONF_ADDRESS_STR,
     CONF_GROUP,
+    CONF_HOUSE,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
+    CONF_STREET,
     DTEK_PROVIDER_URLS,
     E_SVITLO_SUMY_BASE_URL,
     PROVIDER_TYPE_DTEK_JSON,
@@ -46,6 +48,15 @@ YASNO_KYIV_1_1 = {
     CONF_GROUP: "1.1",
 }
 YASNO_PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=25, dso_id=902)
+# A Yasno entry that has an address too, in group 1.1 as YASNO_KYIV_1_1. Yasno writes
+# the letter of a house in Cyrillic, and ruff reads a Cyrillic letter as a Latin one.
+YASNO_KYIV_STREET = "вул. Сверстюка Євгена"
+YASNO_KYIV_HOUSE = "6\N{CYRILLIC CAPITAL LETTER A}"
+YASNO_KYIV_ADDRESS_1_1 = {
+    **YASNO_KYIV_1_1,
+    CONF_STREET: YASNO_KYIV_STREET,
+    CONF_HOUSE: YASNO_KYIV_HOUSE,
+}
 YASNO_KYIV = {
     "id": 25,
     "value": "Київ",

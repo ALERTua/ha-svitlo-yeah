@@ -10,6 +10,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
 )
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
@@ -57,6 +58,7 @@ from .const import (
     YASNO_STREET_QUERY_MIN,
     common_translation_key,
 )
+from .models import YasnoAddress
 from .models.providers import (
     BaseProvider,
     DTEKJsonProvider,
@@ -275,9 +277,13 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         Return the device name in the language of the server, as the entry title.
 
-        Thus the entries differ on the page of the integration. An E-Svitlo title
-        has no address, because the debug log shows the title.
+        Thus the entries differ on the page of the integration. A Yasno entry with
+        an address has the address, because the user knows the address, and its
+        group can change: the user chose this over an address-free log. An E-Svitlo
+        title has no address, because the debug log shows the title.
         """
+        if address := YasnoAddress.from_entry_data(data):
+            return address.text
         names = await async_get_translations(
             self.hass, self.hass.config.language, "common", [DOMAIN]
         )
@@ -304,6 +310,28 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             provider_name = f"{region.name} {provider.short_name}"
         return f"{provider_name} {data.get(CONF_GROUP)}"
 
+    def _async_abort_if_repeated(self) -> None:
+        """
+        Abort when another entry already has this group or this address.
+
+        One entry for each group of a provider, or for each address: a second one
+        only repeats it. Two addresses in one group are two places, and an address
+        entry with the group of a group entry is another kind of entry, so they
+        pass in either order. The entry of a Reconfigure is not another entry.
+        """
+        is_address = CONF_STREET in self.data
+        keys = (CONF_PROVIDER_TYPE, CONF_REGION, CONF_PROVIDER)
+        keys += ADDRESS_KEYS if is_address else (CONF_GROUP,)
+        wanted = {key: self.data.get(key) for key in keys}
+        for entry in self._async_current_entries(include_ignore=False):
+            if entry.entry_id == self.context.get("entry_id"):
+                continue
+            if (CONF_STREET in entry.data) == is_address and all(
+                entry.data.get(key) == value for key, value in wanted.items()
+            ):
+                reason = "already_configured"
+                raise AbortFlow(reason)
+
     async def _async_save_group(
         self,
         user_input: dict,
@@ -327,19 +355,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 # noinspection PyTypeChecker
                 return self.async_abort(reason="reconfigure_unchanged")
 
-        # One entry for each provider and group: a second one only repeats it
-        self._async_abort_entries_match(
-            {
-                key: self.data[key]
-                for key in (
-                    CONF_PROVIDER_TYPE,
-                    CONF_REGION,
-                    CONF_PROVIDER,
-                    CONF_GROUP,
-                )
-                if key in self.data
-            }
-        )
+        self._async_abort_if_repeated()
 
         if self.source == SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
