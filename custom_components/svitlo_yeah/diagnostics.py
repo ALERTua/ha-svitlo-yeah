@@ -6,8 +6,15 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.util import dt as dt_utils
 
-from .const import CONF_ACCOUNT_ID, CONF_ADDRESS_STR
+from .const import (
+    CONF_ACCOUNT_ID,
+    CONF_ADDRESS_STR,
+    CONF_CITY,
+    CONF_HOUSE,
+    CONF_STREET,
+)
 from .coordinator.coordinator import TIMEFRAME_TO_CHECK
+from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -17,8 +24,17 @@ if TYPE_CHECKING:
 
     from .coordinator.coordinator import SvitloYeahConfigEntry
 
-# The E-Svitlo login, the personal account and its address identify a person
-TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCOUNT_ID, CONF_ADDRESS_STR}
+# The E-Svitlo login, the personal account and its address identify a person, and so
+# does the address of a Yasno entry
+TO_REDACT = {
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    CONF_ACCOUNT_ID,
+    CONF_ADDRESS_STR,
+    CONF_CITY,
+    CONF_STREET,
+    CONF_HOUSE,
+}
 
 
 def _iso(value: dt.datetime | dt.date | None) -> str | None:
@@ -46,24 +62,30 @@ async def async_get_config_entry_diagnostics(
     """
     coordinator = entry.runtime_data
     now = dt_utils.now()
+    state: dict[str, Any] = {
+        "group": coordinator.group,
+        "group_listed": coordinator.group_listed,
+        "current_state": coordinator.current_state,
+        "last_update_success": coordinator.last_update_success,
+        "last_exception": (
+            repr(coordinator.last_exception) if coordinator.last_exception else None
+        ),
+        "last_fetch_failed": coordinator.last_fetch_failed,
+        "login_rejected": coordinator.login_rejected,
+        "schedule_updated_on": _iso(coordinator.schedule_updated_on),
+        "outage_data_last_changed": _iso(coordinator.outage_data_last_changed),
+    }
+    # Only a Yasno entry with an address checks its group. The state has no address.
+    if isinstance(coordinator, YasnoCoordinator) and (
+        check := coordinator.address_check_diagnostics()
+    ):
+        state["address_check"] = check
     return {
         "entry": {
             "data": async_redact_data(dict(entry.data), TO_REDACT),
             "options": async_redact_data(dict(entry.options), TO_REDACT),
         },
-        "coordinator": {
-            "group": coordinator.group,
-            "group_listed": coordinator.group_listed,
-            "current_state": coordinator.current_state,
-            "last_update_success": coordinator.last_update_success,
-            "last_exception": (
-                repr(coordinator.last_exception) if coordinator.last_exception else None
-            ),
-            "last_fetch_failed": coordinator.last_fetch_failed,
-            "login_rejected": coordinator.login_rejected,
-            "schedule_updated_on": _iso(coordinator.schedule_updated_on),
-            "outage_data_last_changed": _iso(coordinator.outage_data_last_changed),
-        },
+        "coordinator": state,
         "events": [
             _event(e)
             for e in coordinator.get_events_between(now, now + TIMEFRAME_TO_CHECK)

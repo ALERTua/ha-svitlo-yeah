@@ -24,7 +24,7 @@ from .coordinator.coordinator import (
 from .coordinator.dtek.json import DtekCoordinatorJson
 from .coordinator.e_svitlo import ESvitloCoordinator
 from .coordinator.soe import SoeCoordinator
-from .coordinator.yasno import YasnoCoordinator
+from .coordinator.yasno import YasnoCoordinator, address_not_found_issue_id
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -80,8 +80,10 @@ async def async_unload_entry(
     LOGGER.debug("Unload entry: %s", entry.entry_id)
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        # The next setup asks the source again and creates the issue if needed.
+        # The next setup asks the source again or reads the kept state of the
+        # check of the address, and creates the issue if needed.
         ir.async_delete_issue(hass, DOMAIN, group_not_listed_issue_id(entry.entry_id))
+        ir.async_delete_issue(hass, DOMAIN, address_not_found_issue_id(entry.entry_id))
     return unload_ok
 
 

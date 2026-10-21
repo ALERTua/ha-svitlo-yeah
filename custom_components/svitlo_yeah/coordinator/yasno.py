@@ -1,29 +1,42 @@
 """Coordinator for Svitlo Yeah integration."""
 
+import datetime as dt
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any, override
+
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.translation import async_get_translations
+from homeassistant.util import dt as dt_utils
 
 if TYPE_CHECKING:
-    import datetime as dt
-
     from homeassistant.components.calendar import CalendarEvent
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-from homeassistant.helpers.translation import async_get_translations
-
-from custom_components.svitlo_yeah.api.yasno import YasnoApi, is_planned_outages
+from custom_components.svitlo_yeah.api.yasno import (
+    AddressResult,
+    YasnoApi,
+    is_planned_outages,
+)
 from custom_components.svitlo_yeah.const import (
+    CONF_CITY,
     CONF_GROUP,
+    CONF_HOUSE,
     CONF_PROVIDER,
     CONF_REGION,
+    CONF_STREET,
     DOMAIN,
+    ISSUE_ADDRESS_NOT_FOUND,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    YASNO_REGION_PAGES,
 )
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
     PlannedOutageEventType,
+    YasnoAddress,
     YasnoProvider,
     YasnoRegion,
 )
@@ -31,6 +44,76 @@ from custom_components.svitlo_yeah.models import (
 from .coordinator import IntegrationCoordinator
 
 LOGGER = logging.getLogger(__name__)
+
+# Yasno moves a house to another group only rarely, so the check runs once a week
+ADDRESS_CHECK_INTERVAL = dt.timedelta(days=7)
+# The next try after a result that needs another check soon, for example no answer
+ADDRESS_RETRY_INTERVAL = dt.timedelta(hours=1)
+# After this many Not found results in a row, a repair issue asks for the address
+NOT_FOUND_IN_A_ROW = 2
+# The key of the state of the check in the kept data of the source
+_ADDRESS_CHECK_KEY = "address_check"
+# The region of Київ: its page is the page of a region that YASNO_REGION_PAGES lacks,
+# as in the config flow
+_KYIV_REGION_ID = 25
+
+
+def address_not_found_issue_id(entry_id: str) -> str:
+    """Return the id of the repair issue about an address that Yasno does not find."""
+    return f"{ISSUE_ADDRESS_NOT_FOUND}_{entry_id}"
+
+
+@dataclass(frozen=True)
+class AddressCheck:
+    """
+    The state of the check of the group of an address, kept across a restart.
+
+    The state is about its address: a Reconfigure that changes the address makes
+    the state count as no state. A pending group waits for a second check, which
+    must find it again before the entry gets it.
+    """
+
+    address: YasnoAddress
+    # When the next check is due, an aware datetime
+    next_check: dt.datetime
+    pending_group: str | None = None
+    # The Not found results in a row
+    not_found_count: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return the state in the form that the store keeps."""
+        return {
+            "address": {
+                CONF_CITY: self.address.city,
+                CONF_STREET: self.address.street,
+                CONF_HOUSE: self.address.house,
+            },
+            "next_check": self.next_check.isoformat(),
+            "pending_group": self.pending_group,
+            "not_found_count": self.not_found_count,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> AddressCheck | None:
+        """Return the kept state, or None for a kept state of another shape."""
+        if not isinstance(data, dict):
+            return None
+        address, next_check = data.get("address"), data.get("next_check")
+        pending, count = data.get("pending_group"), data.get("not_found_count")
+        if not (
+            isinstance(address, dict)
+            and isinstance(next_check, str)
+            and isinstance(pending, str | None)
+            # A whole number; a bool would pass isinstance(_, int)
+            and type(count) is int
+            and count >= 0
+        ):
+            return None
+        kept_address = YasnoAddress.from_entry_data(address)
+        moment = dt_utils.parse_datetime(next_check)
+        if kept_address is None or moment is None or moment.tzinfo is None:
+            return None
+        return cls(kept_address, moment, pending, count)
 
 
 class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
@@ -62,6 +145,15 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             group=self.group,
         )
 
+        # The address of the entry, or None for an entry with a group only
+        self._address = YasnoAddress.from_entry_data(config_entry.data)
+        # The state of the check of the group of the address, or None until a poll
+        self._address_check: AddressCheck | None = None
+        # The result of the last check of the address, for the button and diagnostics
+        self.address_check_result: AddressResult | None = None
+        # Whether the next check runs at once and switches to a new group at once
+        self._force_address_check = False
+
     @property
     def event_name_map(self) -> dict:
         """Return a mapping of event names to translations."""
@@ -86,11 +178,15 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         await self._async_update_group_listed(listed=self.api.is_group_listed())
 
     def _source_data(self) -> dict | None:
-        """Keep the planned outages, and the region that names the device."""
+        """
+        Keep the planned outages, and the region that names the device.
+
+        An entry with an address keeps the state of the check of its group too.
+        """
         if self.api.planned_outage_data is None:
             return None
         region = self.region
-        return {
+        output: dict[str, Any] = {
             "planned_outage_data": self.api.planned_outage_data,
             "region": None
             if region is None
@@ -100,6 +196,9 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 "dsos": [{"id": dso.id, "name": dso.name} for dso in region.dsos],
             },
         }
+        if self._address_check is not None:
+            output[_ADDRESS_CHECK_KEY] = self._address_check.as_dict()
+        return output
 
     def _restore_source_data(self, source: dict) -> None:
         """
@@ -114,6 +213,208 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             self.api.planned_outage_data = planned
         if region := source.get("region"):
             self._region = YasnoRegion.from_dict(region)
+        check = AddressCheck.from_dict(source.get(_ADDRESS_CHECK_KEY))
+        # After a Reconfigure, the kept state is about another address
+        if check is not None and check.address == self._address:
+            self._address_check = check
+
+    @override
+    async def _async_restore(self, stored: dict) -> None:
+        """Give the kept data back, and the repair issue of an address not found."""
+        await super()._async_restore(stored)
+        check = self._address_check
+        if check is not None and check.not_found_count >= NOT_FOUND_IN_A_ROW:
+            self._create_address_issue()
+
+    async def async_check_address_now(self) -> None:
+        """
+        Check the group of the address at once, and switch to a new group at once.
+
+        The check runs inside a poll, so it waits for the lock of the poll.
+        """
+        self._force_address_check = True
+        try:
+            await self.async_refresh()
+        finally:
+            # The force goes back after the check, and also after a poll that
+            # stopped before the check, so that no later poll gets it
+            self._force_address_check = False
+
+    @override
+    async def _async_after_update(self) -> None:
+        """
+        Check the group of the address of the entry, when the check is due.
+
+        The check never runs in the first refresh: the update listener that
+        reloads the entry with a new group comes only after it, and the first
+        refresh holds up the start of Home Assistant.
+        """
+        if (
+            self._address is None
+            or self.config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS
+        ):
+            return
+        now = dt_utils.now()
+        check = self._address_check
+        force = self._force_address_check
+        if not force:
+            if check is None:
+                # A missing time starts the clock, so the check does not repeat the
+                # search of the config flow, and a restart starts no check
+                self._address_check = AddressCheck(
+                    self._address, now + ADDRESS_CHECK_INTERVAL
+                )
+                await self._async_store_last_data()
+                return
+            if now < check.next_check:
+                return
+        await self._async_check_address(
+            check or AddressCheck(self._address, now), force=force
+        )
+
+    async def _async_check_address(self, check: AddressCheck, *, force: bool) -> None:
+        """
+        Ask Yasno for the group of the address, and keep what the answer says.
+
+        A check never fails the poll: the schedule and its flags stay as the
+        fetch of the schedule set them.
+        """
+        entry_id = self.config_entry.entry_id
+        address = check.address
+        try:
+            result, group = await self.api.resolve_address(address)
+        except Exception as err:  # noqa: BLE001  # a failed check must not fail the poll
+            # The text of an error can hold the address, so the log names its type
+            LOGGER.warning(
+                "The check of the address of entry %s failed with %s",
+                entry_id,
+                type(err).__name__,
+            )
+            result, group = AddressResult.UNKNOWN, None
+        self.address_check_result = result
+        # The entry can be unloaded, removed or get another address meanwhile
+        if self._shutdown_requested or self._entry_address() != address:
+            return
+        LOGGER.debug("The check of the address of entry %s gives %s", entry_id, result)
+        now = dt_utils.now()
+        if result is AddressResult.FOUND and group == self.group:
+            self._address_check = AddressCheck(address, now + ADDRESS_CHECK_INTERVAL)
+            ir.async_delete_issue(
+                self.hass, DOMAIN, address_not_found_issue_id(entry_id)
+            )
+        elif (
+            result is AddressResult.FOUND
+            and group is not None
+            # The schedule of a group that the planned outages lack would be empty
+            and group in self.api.get_yasno_groups()
+        ):
+            if force or check.pending_group == group:
+                await self._async_switch_group(address, group, now)
+                return
+            # A second check one hour later must find the new group again
+            self._address_check = replace(
+                check, pending_group=group, next_check=now + ADDRESS_RETRY_INTERVAL
+            )
+        elif result is AddressResult.NOT_FOUND:
+            self._address_not_found(check, now)
+        else:
+            # No sure answer, or a new group that the planned outages do not list
+            self._address_check = replace(
+                check, next_check=now + ADDRESS_RETRY_INTERVAL
+            )
+        await self._async_store_last_data()
+
+    def _address_not_found(self, check: AddressCheck, now: dt.datetime) -> None:
+        """
+        Count a Not found result; the group of the entry stays.
+
+        One result can be a passing fault of Yasno, so the next try is soon. After
+        NOT_FOUND_IN_A_ROW results, a warning and a repair issue ask for the address.
+        """
+        count = check.not_found_count + 1
+        if count < NOT_FOUND_IN_A_ROW:
+            self._address_check = replace(
+                check, not_found_count=count, next_check=now + ADDRESS_RETRY_INTERVAL
+            )
+            return
+        if count == NOT_FOUND_IN_A_ROW:
+            # The id, not the title: the title of an address entry is the address
+            LOGGER.warning(
+                "Yasno does not find the address of entry %s any more, so the entry "
+                "keeps group %s",
+                self.config_entry.entry_id,
+                self.group,
+            )
+        self._create_address_issue()
+        self._address_check = replace(
+            check, not_found_count=count, next_check=now + ADDRESS_CHECK_INTERVAL
+        )
+
+    async def _async_switch_group(
+        self, address: YasnoAddress, group: str, now: dt.datetime
+    ) -> None:
+        """
+        Give the entry the new group of its address; the update listener reloads it.
+
+        The store gets the state of the check first, because the coordinator of
+        the reloaded entry reads it.
+        """
+        self._address_check = AddressCheck(address, now + ADDRESS_CHECK_INTERVAL)
+        data = self._last_data()
+        if data is not None:
+            # The kept answer is about the new group, which the planned outages list
+            data |= {"group": group, "group_listed": True}
+        await self._async_store_last_data(data)
+        # The entry can change while the store saves. No await comes after this check.
+        if self._shutdown_requested or self._entry_address() != address:
+            return
+        # A second check before the reload finds the entry with the new group already
+        if self.hass.config_entries.async_update_entry(
+            self.config_entry, data={**self.config_entry.data, CONF_GROUP: group}
+        ):
+            # The id, not the title: the title of an address entry is the address
+            LOGGER.info(
+                "The Yasno group of entry %s changed from %s to %s",
+                self.config_entry.entry_id,
+                self.group,
+                group,
+            )
+
+    def _entry_address(self) -> YasnoAddress | None:
+        """Return the address that the entry has now: a Reconfigure can change it."""
+        return YasnoAddress.from_entry_data(self.config_entry.data)
+
+    def _create_address_issue(self) -> None:
+        """Show a repair issue that asks for the address, which Yasno does not find."""
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            address_not_found_issue_id(self.config_entry.entry_id),
+            is_fixable=False,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_ADDRESS_NOT_FOUND,
+            translation_placeholders={
+                # The title of an address entry is the address
+                "entry": self.config_entry.title,
+                "group": str(self.group),
+                "url": YASNO_REGION_PAGES.get(
+                    self.region_id, YASNO_REGION_PAGES[_KYIV_REGION_ID]
+                ),
+            },
+        )
+
+    def address_check_diagnostics(self) -> dict[str, Any] | None:
+        """Return the state of the check without the address, or None without one."""
+        if self._address is None:
+            return None
+        check = self._address_check
+        return {
+            "next_check": check.next_check.isoformat() if check else None,
+            "pending_group": check.pending_group if check else None,
+            "not_found_count": check.not_found_count if check else 0,
+            "last_result": self.address_check_result,
+        }
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
