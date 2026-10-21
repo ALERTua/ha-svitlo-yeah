@@ -356,9 +356,13 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             if force or check.pending_group == group:
                 await self._async_switch_group(address, group, now)
                 return
-            # A second check one hour later must find the new group again
+            # A second check one hour later must find the new group again. Yasno
+            # found the address, so the Not found results in a row end.
             self._address_check = replace(
-                check, pending_group=group, next_check=now + ADDRESS_RETRY_INTERVAL
+                check,
+                pending_group=group,
+                not_found_count=0,
+                next_check=now + ADDRESS_RETRY_INTERVAL,
             )
         elif result is AddressResult.NOT_FOUND:
             await self._async_address_not_found(check, now)
