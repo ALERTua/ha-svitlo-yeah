@@ -13,7 +13,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.svitlo_yeah import (
     button,
     calendar,
-    provider_removed_issue_id,
     sensor,
 )
 from custom_components.svitlo_yeah.const import (
@@ -29,6 +28,7 @@ from custom_components.svitlo_yeah.const import (
 )
 from custom_components.svitlo_yeah.coordinator.coordinator import (
     STORE_VERSION,
+    provider_removed_issue_id,
     store_key,
 )
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson

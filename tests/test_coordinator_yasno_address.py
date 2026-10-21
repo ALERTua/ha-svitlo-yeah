@@ -1230,12 +1230,13 @@ class TestFoundMeanwhile:
             hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=1)
         )
 
-        async def title_after_found():
+        async def title_after_found(_hass):
             await coordinator.async_address_found(ADDRESS)
             return INTEGRATION
 
-        with patch.object(
-            coordinator, "_async_integration_title", side_effect=title_after_found
+        with patch(
+            "custom_components.svitlo_yeah.coordinator.yasno.async_integration_title",
+            side_effect=title_after_found,
         ) as title:
             await _run_check(coordinator, force=force)
 
