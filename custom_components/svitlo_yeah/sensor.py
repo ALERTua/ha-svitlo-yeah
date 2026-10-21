@@ -124,8 +124,12 @@ def _enable_group_sensor(
     A Reconfigure can give a group entry an address, and the registry already has the
     sensor as disabled. Home Assistant reloads the entry 30 seconds after an entity
     gets enabled, so the entry reloads once more: the integration accepts this cost.
-    A sensor that the user disabled stays disabled.
+    A sensor that the user disabled stays disabled. When the system option «Enable
+    newly added entities» of the entry is off, Home Assistant disables each new
+    entity, and the sensor stays disabled too.
     """
+    if config_entry.pref_disable_new_entities:
+        return
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(
         Platform.SENSOR, DOMAIN, f"{config_entry.entry_id}_{GROUP_SENSOR.key}"

@@ -330,3 +330,35 @@ async def test_enabling_the_sensor_logs_the_entry_id_and_never_the_address(
     assert f"Enable the group sensor of entry {entry.entry_id}" in lines
     assert [_ for _ in lines if "Сверстюка" in _ or "sverstiuka" in _] == []
     await _unload(hass, entry)
+
+
+async def test_option_to_disable_new_entities_keeps_the_group_sensor_disabled(
+    hass, aioclient_mock
+):
+    """
+    The system option «Enable newly added entities» is off: the sensor stays disabled.
+
+    Home Assistant then disables each new entity of the entry, also the group sensor
+    of an address entry. A later setup must not enable it against that choice.
+    """
+    yasno_address_answers(aioclient_mock)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=YASNO_KYIV_ADDRESS_1_1,
+        title=ADDRESS_TEXT,
+        pref_disable_new_entities=True,
+    )
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+    assert (
+        _group_sensor(hass, entry).disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    )
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert (
+        _group_sensor(hass, entry).disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    )
+    assert hass.states.get(ADDRESS_ENTRY_SENSOR_ID) is None
+    await _unload(hass, entry)
