@@ -11,6 +11,7 @@ from homeassistant.components.calendar import (
 from homeassistant.util import slugify
 
 from .entity import IntegrationEntity
+from .models import YasnoAddress
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -26,6 +27,28 @@ LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 0
 
 
+def _calendar_entity_id(coordinator: IntegrationCoordinator, kind: str) -> str:
+    """
+    Return the entity id that a new calendar of the entry gets.
+
+    A calendar of an address has the address in its id, as the other entities of
+    the address do, because the group of an address can change. Another calendar
+    has the region, the provider and the group. An entity that the registry has
+    keeps its id.
+    """
+    if address := YasnoAddress.from_entry_data(coordinator.config_entry.data):
+        base = address.text
+    else:
+        base = "".join(
+            (
+                f"{coordinator.region_name}" if coordinator.region_name else "",
+                f"_{coordinator.provider_name}" if coordinator.provider_name else "",
+                f"_{coordinator.group}",
+            )
+        ).strip("_")
+    return f"calendar.{slugify(f'{base}_{kind}')}"
+
+
 # noinspection PyUnusedLocal
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001  # Home Assistant calls each platform with it
@@ -33,7 +56,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Svitlo Yeah calendar platform."""
-    LOGGER.debug("Setup new calendar entry: %s", config_entry)
+    LOGGER.debug("Setup new calendar entry: %s", config_entry.entry_id)
     coordinator = config_entry.runtime_data
     entities = [
         PlannedOutagesCalendar(coordinator),
@@ -52,15 +75,7 @@ class PlannedOutagesCalendar(IntegrationEntity, CalendarEntity):
         """Initialize the calendar entity."""
         super().__init__(coordinator)
 
-        entity_id_parts = [
-            f"{coordinator.region_name}" if coordinator.region_name else "",
-            f"_{coordinator.provider_name}" if coordinator.provider_name else "",
-            f"_{coordinator.group}",
-            "_planned_outages",
-        ]
-        entity_id_base = "".join(entity_id_parts)
-        entity_id_base = slugify(entity_id_base.strip("_"))
-        self.entity_id = f"calendar.{entity_id_base}"
+        self.entity_id = _calendar_entity_id(coordinator, "planned_outages")
         self.entity_description = CalendarEntityDescription(
             key="calendar",
             name="Calendar",
@@ -97,15 +112,7 @@ class ScheduledOutagesCalendar(IntegrationEntity, CalendarEntity):
         """Initialize the calendar entity."""
         super().__init__(coordinator)
 
-        entity_id_parts = [
-            f"{coordinator.region_name}" if coordinator.region_name else "",
-            f"_{coordinator.provider_name}" if coordinator.provider_name else "",
-            f"_{coordinator.group}",
-            "_scheduled_outages",
-        ]
-        entity_id_base = "".join(entity_id_parts)
-        entity_id_base = slugify(entity_id_base.strip("_"))
-        self.entity_id = f"calendar.{entity_id_base}"
+        self.entity_id = _calendar_entity_id(coordinator, "scheduled_outages")
         self.entity_description = CalendarEntityDescription(
             key="scheduled_calendar",
             name="Scheduled Calendar",

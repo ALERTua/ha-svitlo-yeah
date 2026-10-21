@@ -12,6 +12,12 @@ from custom_components.svitlo_yeah.calendar import (
     ScheduledOutagesCalendar,
     async_setup_entry,
 )
+from custom_components.svitlo_yeah.const import (
+    CONF_CITY,
+    CONF_GROUP,
+    CONF_HOUSE,
+    CONF_STREET,
+)
 
 
 @pytest.fixture(name="coordinator")
@@ -22,6 +28,8 @@ def _coordinator():
     coordinator.provider_name = "dtek"
     coordinator.group = "1_1"
     coordinator.config_entry.entry_id = "test_entry"
+    # An entry with a group and no address, as the entries of the tests here
+    coordinator.config_entry.data = {"group": "1_1"}
     coordinator.get_events_between = MagicMock(return_value=[])
     coordinator.get_scheduled_events_between = MagicMock(return_value=[])
     coordinator.get_current_event = MagicMock(return_value=None)
@@ -121,6 +129,55 @@ class TestScheduledOutagesCalendar:
         coordinator.get_scheduled_events_between.assert_called_once_with(
             start_date, end_date
         )
+
+
+class TestCalendarEntityIdOfAnAddress:
+    """The entity ids of both calendars of an address entry come from the address."""
+
+    # The data of the entry, and the base of the ids that its address gives. The names
+    # have no group: the group of an address can change, and its ids stay.
+    @pytest.mark.parametrize(
+        ("address", "base"),
+        [
+            pytest.param(
+                {CONF_STREET: "вул. Сверстюка Євгена", CONF_HOUSE: "1"},
+                "vul_sverstiuka_evgena_1",
+                id="without_a_city",
+            ),
+            pytest.param(
+                {
+                    CONF_CITY: "м. Дніпро",
+                    CONF_STREET: "вул. Грушевського Михайла",
+                    CONF_HOUSE: "1",
+                },
+                "m_dnipro_vul_grushevskogo_mikhaila_1",
+                id="with_a_city",
+            ),
+        ],
+    )
+    def test_ids_come_from_the_address(self, coordinator, address, base):
+        """The region, the provider and the group of the entry are not in the ids."""
+        coordinator.config_entry.data = {CONF_GROUP: "53_1", **address}
+
+        planned = PlannedOutagesCalendar(coordinator)
+        scheduled = ScheduledOutagesCalendar(coordinator)
+
+        assert planned.entity_id == f"calendar.{base}_planned_outages"
+        assert scheduled.entity_id == f"calendar.{base}_scheduled_outages"
+        # The unique ids still come from the entry, so the registry keeps the entities
+        assert planned._attr_unique_id == "test_entry-calendar"
+        assert scheduled._attr_unique_id == "test_entry-scheduled_calendar"
+
+    def test_street_without_a_house_is_not_an_address(self, coordinator):
+        """An entry needs the street and the house: else the ids come from the group."""
+        coordinator.config_entry.data = {
+            CONF_GROUP: "1_1",
+            CONF_STREET: "вул. Сверстюка Євгена",
+        }
+
+        planned = PlannedOutagesCalendar(coordinator)
+
+        assert planned.entity_id == "calendar.kyiv_dtek_1_1_planned_outages"
 
 
 class TestCalendarSetup:

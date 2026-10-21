@@ -18,6 +18,7 @@ from .const import (
     UPDATE_INTERVAL,
 )
 from .coordinator.coordinator import IntegrationCoordinator
+from .models import YasnoAddress
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
@@ -39,7 +40,19 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
     @property
     @override
     def device_info(self) -> DeviceInfo:
-        """Return device information about this entity."""
+        """
+        Return device information about this entity.
+
+        A device of an address has the address as its name, so its entity ids come
+        from the address: the group of an address can change, and the address stays.
+        """
+        if address := YasnoAddress.from_entry_data(self.coordinator.config_entry.data):
+            return DeviceInfo(
+                name=address.text,
+                identifiers={(DOMAIN, self.coordinator.config_entry.entry_id)},
+                manufacturer=DEVICE_MANUFACTURER,
+                entry_type=DeviceEntryType.SERVICE,
+            )
         provider_type = self.coordinator.config_entry.data[CONF_PROVIDER_TYPE]
         translation_key = PROVIDER_TO_DEVICE_NAME_MAP[provider_type]
 

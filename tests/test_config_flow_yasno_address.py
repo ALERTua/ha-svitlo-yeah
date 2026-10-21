@@ -468,6 +468,21 @@ class TestMenu:
         assert result["description"] is None
         assert result["description_placeholders"] is None
 
+    async def test_entry_of_a_group_keeps_the_title_of_the_group(
+        self, hass, aioclient_mock
+    ):
+        """Only an address gives the title of an address: a group has the old title."""
+        _serve_kyiv(aioclient_mock)
+        result = await _open_menu(hass, aioclient_mock, KYIV_KEY)
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        result = await _configure(hass, result, {CONF_GROUP: "53.1"})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["title"] == "Київ ДТЕК 53.1"
+        (entry,) = hass.config_entries.async_entries(DOMAIN)
+        assert entry.title == "Київ ДТЕК 53.1"
+
     async def test_address_form_of_a_region_without_cities(self, hass, aioclient_mock):
         """Київ has no cities: the form has the street only, and no house."""
         result = await _kyiv_form(hass, aioclient_mock)
@@ -588,7 +603,7 @@ class TestFoundAddress:
         ]
 
     async def test_kyiv_house_creates_the_entry(self, hass, aioclient_mock):
-        """The chosen house gives the group, and the entry shows the address."""
+        """The chosen house gives the group, and the address is the title."""
         result = await _kyiv_house_form(hass, aioclient_mock)
 
         result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
@@ -604,8 +619,9 @@ class TestFoundAddress:
         }
         (entry,) = hass.config_entries.async_entries(DOMAIN)
         assert entry.data == result["data"]
-        # The title is the one of a group entry, without the address
-        assert result["title"] == "Київ ДТЕК 53.1"
+        # The title is the address, without the region, the provider and the group
+        assert result["title"] == f"{KYIV_STREET['value']}, {HOUSE_6A}"
+        assert entry.title == result["title"]
         # The dialog of the new entry shows the address and the group
         assert result["description"] == "address"
         assert result["description_placeholders"] == {
@@ -663,7 +679,9 @@ class TestFoundAddress:
             CONF_STREET: "вул. Шевченка ",
             CONF_HOUSE: "1",
         }
-        assert result["title"] == "Дніпро ДнЕМ 3.1"
+        # The title is the city, the street and the house. The street of Yasno has a
+        # space at the end, and the title has none.
+        assert result["title"] == "м. Дніпро, вул. Шевченка, 1"
         assert result["description"] == "address"
         assert result["description_placeholders"] == {
             "address": "Дніпро, м. Дніпро, вул. Шевченка, 1",
@@ -711,11 +729,33 @@ class TestFoundAddress:
         )
         assert _asked(aioclient_mock) == ["cities", "streets", "houses"]
 
-    async def test_group_of_an_existing_entry_aborts(self, hass, aioclient_mock):
-        """An address with the group of an entry gives no second entry."""
-        data = {**YASNO_KYIV_1_1, CONF_GROUP: "53.1"}
-        existing = MockConfigEntry(domain=DOMAIN, data=data)
-        existing.add_to_hass(hass)
+
+class TestDuplicate:
+    """One entry for each address, and one for each group of a group entry."""
+
+    # The group that Yasno gives for the address of the measured chain of Київ
+    FOUND_GROUP = "53.1"
+
+    @staticmethod
+    def _add_entry(hass, data: dict) -> MockConfigEntry:
+        """Add an entry of Київ: the data of a group entry, and the given keys."""
+        entry = MockConfigEntry(domain=DOMAIN, data={**YASNO_KYIV_1_1, **data})
+        entry.add_to_hass(hass)
+        return entry
+
+    # The group of the entry that has the address: Yasno can change the group of an
+    # address, so the group of the entry is an old one, or the group that Yasno gives
+    @pytest.mark.parametrize(
+        "group", ["1.1", FOUND_GROUP], ids=["old_group", "same_group"]
+    )
+    async def test_same_address_aborts(self, hass, aioclient_mock, group):
+        """An address that an entry has gives no second entry, in each group."""
+        data = {
+            CONF_GROUP: group,
+            CONF_STREET: KYIV_STREET["value"],
+            CONF_HOUSE: HOUSE_6A,
+        }
+        existing = self._add_entry(hass, data)
         result = await _kyiv_house_form(hass, aioclient_mock)
 
         result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
@@ -723,7 +763,122 @@ class TestFoundAddress:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "already_configured"
         assert hass.config_entries.async_entries(DOMAIN) == [existing]
-        assert existing.data == data
+        assert existing.data == {**YASNO_KYIV_1_1, **data}
+
+    # The street and the house of the entry that has the group of the new address:
+    # another street with the same house, and the same street with another house
+    @pytest.mark.parametrize(
+        ("street", "house"),
+        [
+            pytest.param("вул. Інша Тестова", HOUSE_6A, id="other_street"),
+            pytest.param(KYIV_STREET["value"], "2", id="other_house"),
+        ],
+    )
+    async def test_other_address_in_the_same_group_creates_the_entry(
+        self, hass, aioclient_mock, street, house
+    ):
+        """Two addresses in one group are two places: each has its entry."""
+        existing = self._add_entry(
+            hass,
+            {CONF_GROUP: self.FOUND_GROUP, CONF_STREET: street, CONF_HOUSE: house},
+        )
+        result = await _kyiv_house_form(hass, aioclient_mock)
+
+        result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_GROUP] == self.FOUND_GROUP
+        assert result["title"] == f"{KYIV_STREET['value']}, {HOUSE_6A}"
+        entries = hass.config_entries.async_entries(DOMAIN)
+        assert len(entries) == 2
+        assert existing in entries
+        assert existing.data[CONF_GROUP] == self.FOUND_GROUP
+
+    async def test_same_street_and_house_in_another_city_creates_the_entry(
+        self, hass, aioclient_mock
+    ):
+        """The city is a part of the address: the same names in another city are new."""
+        existing = self._add_entry(
+            hass,
+            {
+                CONF_REGION: 3,
+                CONF_PROVIDER: 301,
+                CONF_GROUP: "3.1",
+                CONF_CITY: "м. Інше Тестове",
+                CONF_STREET: DNIPRO_STREET["value"],
+                CONF_HOUSE: DNIPRO_HOUSE["value"],
+            },
+        )
+        result = await _dnipro_house_form(hass, aioclient_mock)
+
+        result = await _configure(hass, result, {CONF_HOUSE: DNIPRO_HOUSE["value"]})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_CITY] == "м. Дніпро"
+        entries = hass.config_entries.async_entries(DOMAIN)
+        assert len(entries) == 2
+        assert existing in entries
+
+    async def test_address_in_the_group_of_a_group_entry_creates_the_entry(
+        self, hass, aioclient_mock
+    ):
+        """An entry with a group only does not stand for each address of its group."""
+        existing = self._add_entry(hass, {CONF_GROUP: self.FOUND_GROUP})
+        result = await _kyiv_house_form(hass, aioclient_mock)
+
+        result = await _configure(hass, result, {CONF_HOUSE: KYIV_HOUSE["value"]})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_GROUP] == self.FOUND_GROUP
+        assert result["data"][CONF_STREET] == KYIV_STREET["value"]
+        entries = hass.config_entries.async_entries(DOMAIN)
+        assert len(entries) == 2
+        assert existing in entries
+        # The entry with a group only has no address, and it stays as it was
+        assert existing.data == {**YASNO_KYIV_1_1, CONF_GROUP: self.FOUND_GROUP}
+
+    async def test_group_of_a_group_entry_aborts(self, hass, aioclient_mock):
+        """A group that an entry with a group only has gives no second entry."""
+        existing = self._add_entry(hass, {CONF_GROUP: self.FOUND_GROUP})
+        _serve_kyiv(aioclient_mock)
+        result = await _open_menu(hass, aioclient_mock, KYIV_KEY)
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        result = await _configure(hass, result, {CONF_GROUP: self.FOUND_GROUP})
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "already_configured"
+        assert hass.config_entries.async_entries(DOMAIN) == [existing]
+
+    async def test_group_of_an_address_entry_creates_the_entry(
+        self, hass, aioclient_mock
+    ):
+        """
+        A group entry with the group of an address entry is another kind of entry.
+
+        The reverse of test_address_in_the_group_of_a_group_entry_creates_the_entry:
+        the address entry has the group too, and it still does not repeat it.
+        """
+        existing = self._add_entry(
+            hass,
+            {
+                CONF_GROUP: self.FOUND_GROUP,
+                CONF_STREET: KYIV_STREET["value"],
+                CONF_HOUSE: HOUSE_6A,
+            },
+        )
+        _serve_kyiv(aioclient_mock)
+        result = await _open_menu(hass, aioclient_mock, KYIV_KEY)
+        result = await _configure(hass, result, {"next_step_id": "group"})
+
+        result = await _configure(hass, result, {CONF_GROUP: self.FOUND_GROUP})
+
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert result["data"][CONF_GROUP] == self.FOUND_GROUP
+        assert CONF_STREET not in result["data"]
+        entries = hass.config_entries.async_entries(DOMAIN)
+        assert len(entries) == 2
+        assert existing in entries
 
 
 class TestSeveralMatches:

@@ -38,7 +38,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the button platform."""
-    LOGGER.debug("Setup new button: %s", config_entry)
+    LOGGER.debug("Setup new button: %s", config_entry.entry_id)
     coordinator = config_entry.runtime_data
     async_add_entities([IntegrationRefreshButton(coordinator, REFRESH_BUTTON)])
 
