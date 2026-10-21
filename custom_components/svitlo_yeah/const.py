@@ -13,6 +13,14 @@ CONF_GROUP: Final = "group"
 CONF_ACCOUNT_ID: Final = "account_id"
 CONF_ADDRESS_STR: Final = "address_str"
 CONF_PROVIDER_TYPE: Final = "provider_type"
+# The optional keys of a Yasno entry with an address. Each holds the text that Yasno
+# writes, never an id, because Yasno changes its ids. A group entry has none of them.
+# The city of the address, only in a region with cities, for example «м. Дніпро»
+CONF_CITY: Final = "city"
+# The street of the address, for example «вул. Сверстюка Євгена»
+CONF_STREET: Final = "street"
+# The house of the address, with its letter if it has one, for example «12Б»
+CONF_HOUSE: Final = "house"
 
 # Provider types
 PROVIDER_TYPE_YASNO: Final = "yasno"

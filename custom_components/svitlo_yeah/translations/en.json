@@ -25,6 +25,61 @@
           "provider": "The region or the distribution system operator that supplies electricity to your address."
         }
       },
+      "yasno_method": {
+        "title": "How to find your schedule",
+        "menu_options": {
+          "address": "By address",
+          "group": "By group"
+        },
+        "menu_option_descriptions": {
+          "address": "The integration finds the group and keeps track of it",
+          "group": "You know the number of your group"
+        }
+      },
+      "address": {
+        "title": "Address",
+        "description": "Enter the street and the house number as on the Yasno site: {url}. Three letters of the street are enough.",
+        "data": {
+          "city": "City",
+          "street": "Street",
+          "house": "House"
+        },
+        "data_description": {
+          "city": "The name of your city, or a part of it.",
+          "street": "The name of your street, or a part of it. Yasno needs three letters at least.",
+          "house": "The number of your house, with its letter if it has one."
+        }
+      },
+      "pick_city": {
+        "title": "Select your city",
+        "description": "Yasno found {count} matches for «{query}». Yasno shows at most 20.",
+        "data": {
+          "city": "City"
+        },
+        "data_description": {
+          "city": "The city of your address."
+        }
+      },
+      "pick_street": {
+        "title": "Select your street",
+        "description": "Yasno found {count} matches for «{query}». Yasno shows at most 20.",
+        "data": {
+          "street": "Street"
+        },
+        "data_description": {
+          "street": "The street of your address."
+        }
+      },
+      "pick_house": {
+        "title": "Select your house",
+        "description": "Yasno found {count} matches for «{query}». Yasno shows at most 20.",
+        "data": {
+          "house": "House"
+        },
+        "data_description": {
+          "house": "The house of your address."
+        }
+      },
       "group": {
         "title": "Settings",
         "data": {
@@ -82,7 +137,13 @@
     "error": {
       "invalid_auth": "Invalid username or password",
       "cannot_connect": "Failed to connect to E-Svitlo. Make sure that Home Assistant can connect to the Internet, and try again.",
-      "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it."
+      "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it.",
+      "street_too_short": "Enter at least 3 letters of the street name.",
+      "city_not_found": "Yasno does not know this city.",
+      "street_not_found": "Yasno does not know this street.",
+      "house_not_found": "Yasno does not know this house on this street.",
+      "yasno_no_answer": "Yasno does not answer. Try again in a few minutes.",
+      "address_group_not_listed": "Yasno gives this address the group {group}, but the Yasno schedule does not have this group yet. Try again later, or select the group by hand."
     }
   },
   "device": {
@@ -214,6 +275,9 @@
     "zhytomyr": "Zhytomyr",
     "sumy": "Sumy",
     "poltava": "Poltava",
-    "rivne": "Rivne"
+    "rivne": "Rivne",
+    "search_again_city": "My city is not in the list, search again",
+    "search_again_street": "My street is not in the list, search again",
+    "search_again_house": "My house is not in the list, search again"
   }
 }

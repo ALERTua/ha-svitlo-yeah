@@ -25,14 +25,23 @@ from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
 from .api.e_svitlo import ESvitloClient, LoginResult
 from .api.soe import SoeClient
-from .api.yasno import YASNO_REGIONS_ENDPOINT, YasnoApi
+from .api.yasno import (
+    YASNO_REGIONS_ENDPOINT,
+    AddressResult,
+    YasnoApi,
+    cyrillic_look_alikes,
+    exact_matches,
+)
 from .const import (
     CONF_ACCOUNT_ID,
     CONF_ADDRESS_STR,
+    CONF_CITY,
     CONF_GROUP,
+    CONF_HOUSE,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
+    CONF_STREET,
     DOMAIN,
     DTEK_PROVIDER_URLS,
     E_SVITLO_URL,
@@ -43,6 +52,7 @@ from .const import (
     PROVIDER_TYPE_YASNO,
     SOE_SITE_URL,
     TZ_UA,
+    YASNO_STREET_QUERY_MIN,
     common_translation_key,
 )
 from .models.providers import (
@@ -56,6 +66,8 @@ from .models.providers import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from .models import YasnoAddressItem
+
 LOGGER = logging.getLogger(__name__)
 
 # The checkbox of the form that accepts outdated DTEK data
@@ -67,6 +79,32 @@ GROUP_PAGE_URLS: dict[str, str] = {
     PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
     PROVIDER_TYPE_SOE: SOE_SITE_URL,
 }
+
+# The keys of an entry that name the address of a person, so no log line shows them
+ADDRESS_KEYS = (CONF_CITY, CONF_STREET, CONF_HOUSE)
+
+# The option that ends a select of matches and shows the address form again
+SEARCH_AGAIN = "search_again"
+
+# For each level of an address: the key of its "search again" text in the common
+# section of the translations, and the English text for a language file without it
+SEARCH_AGAIN_TEXTS: dict[str, tuple[str, str]] = {
+    CONF_CITY: ("search_again_city", "My city is not in the list, search again"),
+    CONF_STREET: ("search_again_street", "My street is not in the list, search again"),
+    CONF_HOUSE: ("search_again_house", "My house is not in the list, search again"),
+}
+
+# The error under the field of a level, when Yasno knows no such text
+NOT_FOUND_ERRORS: dict[str, str] = {
+    CONF_CITY: "city_not_found",
+    CONF_STREET: "street_not_found",
+    CONF_HOUSE: "house_not_found",
+}
+
+
+def _without_address(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the data without the address, for a log line."""
+    return {key: value for key, value in data.items() if key not in ADDRESS_KEYS}
 
 
 def _esvitlo_login_schema() -> vol.Schema:
@@ -109,6 +147,14 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self._client: ESvitloClient | None = None
         # The E-Svitlo accounts that the account form offers
         self._accounts: list[dict] = []
+        # Whether the Yasno region of the flow has cities, which the address form asks
+        self._has_cities = False
+        # The texts that the user typed in the address form, for each field
+        self._typed: dict[str, str] = {}
+        # The match that the flow took or the user chose, for each level of the address
+        self._chosen: dict[str, YasnoAddressItem] = {}
+        # The matches of the select that is shown, so a chosen value maps to its match
+        self._matches: list[YasnoAddressItem] = []
 
     def _e_svitlo_client(self, username: str, password: str) -> ESvitloClient:
         """Return the E-Svitlo client of the flow, with this login."""
@@ -132,7 +178,10 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             self.data[CONF_PROVIDER] = selected_provider.provider_id
             if selected_provider.provider_type == PROVIDER_TYPE_YASNO:
                 self.data[CONF_REGION] = selected_provider.region_id
-            elif selected_provider.provider_type == PROVIDER_TYPE_E_SVITLO:
+                # The user finds the schedule by an address, or knows the group
+                # noinspection PyTypeChecker
+                return await self.async_step_yasno_method()
+            if selected_provider.provider_type == PROVIDER_TYPE_E_SVITLO:
                 # For E-Svitlo, go to auth step first
                 # noinspection PyTypeChecker
                 return await self.async_step_esvitlo_auth()
@@ -227,8 +276,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         return f"{provider_name} {data.get(CONF_GROUP)}"
 
     async def _async_save_group(self, user_input: dict) -> ConfigFlowResult:
-        """Create the entry with the chosen group, or give the group to the entry."""
-        LOGGER.debug("async_step_group: User input: %s", user_input)
+        """
+        Create the entry with the chosen group, or give the group to the entry.
+
+        The input is the group, and for an address also the names of the address.
+        """
+        LOGGER.debug("async_step_group: User input: %s", _without_address(user_input))
         self.data.update(user_input)  # add group to the config
 
         if self.source == SOURCE_RECONFIGURE:
@@ -266,11 +319,227 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 reason="reconfigure_successful",
             )
 
-        LOGGER.debug("async_step_group: Done. Creating entry from %s", self.data)
+        LOGGER.debug(
+            "async_step_group: Done. Creating entry from %s",
+            _without_address(self.data),
+        )
         # noinspection PyTypeChecker
         return self.async_create_entry(
             title=await self._async_entry_title(self.data), data=self.data
         )
+
+    async def async_step_yasno_method(
+        self,
+        user_input: dict | None = None,  # noqa: ARG002  # the flow manager passes it
+    ) -> ConfigFlowResult:
+        """Let the user find the Yasno schedule by an address, or by a group."""
+        # noinspection PyTypeChecker
+        return self.async_show_menu(
+            step_id="yasno_method", menu_options=["address", "group"]
+        )
+
+    def _address_schema(self) -> vol.Schema:
+        """Return the address form: the city comes first, in a region with cities."""
+        text = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
+        fields = {}
+        if self._has_cities:
+            fields[vol.Required(CONF_CITY)] = text
+        fields[vol.Required(CONF_STREET)] = text
+        fields[vol.Required(CONF_HOUSE)] = text
+        return vol.Schema(fields)
+
+    def _show_address_form(
+        self,
+        errors: dict[str, str] | None = None,
+        placeholders: dict[str, str] | None = None,
+    ) -> ConfigFlowResult:
+        """Show the address form, with the typed texts as the suggested values."""
+        # noinspection PyTypeChecker
+        return self.async_show_form(
+            step_id="address",
+            data_schema=self.add_suggested_values_to_schema(
+                self._address_schema(), self._typed
+            ),
+            errors=errors,
+            description_placeholders={
+                "url": GROUP_PAGE_URLS[PROVIDER_TYPE_YASNO],
+                **(placeholders or {}),
+            },
+        )
+
+    async def _async_search_again_label(self, field: str) -> str:
+        """Return the text of the option that searches again, for a level."""
+        names = await async_get_translations(
+            self.hass, self.hass.config.language, "common", [DOMAIN]
+        )
+        key, english = SEARCH_AGAIN_TEXTS[field]
+        return names.get(common_translation_key(key), english)
+
+    async def _async_show_pick_form(self, field: str) -> ConfigFlowResult:
+        """
+        Show a select of the matches of a level, and the option to search again.
+
+        An exact match is preselected. Without one, no option is, because the
+        frontend would take the first option for the user.
+        """
+        exact = exact_matches(self._matches, self._typed[field])
+        options = [
+            SelectOptionDict(value=str(item.id), label=item.value)
+            for item in self._matches
+        ]
+        options.append(
+            SelectOptionDict(
+                value=SEARCH_AGAIN, label=await self._async_search_again_label(field)
+            )
+        )
+        # noinspection PyTypeChecker
+        return self.async_show_form(
+            step_id=f"pick_{field}",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        field, default=str(exact[0].id) if len(exact) == 1 else None
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options, mode=SelectSelectorMode.LIST
+                        )
+                    ),
+                }
+            ),
+            description_placeholders={
+                "count": str(len(self._matches)),
+                "query": self._typed[field].strip(),
+            },
+        )
+
+    async def _async_take_match(
+        self, field: str, items: list[YasnoAddressItem] | None
+    ) -> ConfigFlowResult | None:
+        """
+        Take the one match of a search, or give the form that its answer needs.
+
+        None means that the flow took the match and goes on to the next level.
+        """
+        errors: dict[str, str] = {}
+        if items is None:
+            errors["base"] = "yasno_no_answer"
+        elif not items:
+            errors[field] = NOT_FOUND_ERRORS[field]
+        elif len(items) > 1:
+            self._matches = items
+            return await self._async_show_pick_form(field)
+        else:
+            self._chosen[field] = items[0]
+            return None
+        return self._show_address_form(errors)
+
+    async def _async_search_address(self) -> ConfigFlowResult:
+        """Search each level that has no match yet, and then ask for the group."""
+        api = YasnoApi(
+            self.hass,
+            region_id=self.data[CONF_REGION],
+            provider_id=self.data[CONF_PROVIDER],
+        )
+        if self._has_cities and CONF_CITY not in self._chosen:
+            items = await api.search_cities(self._typed[CONF_CITY])
+            if (step := await self._async_take_match(CONF_CITY, items)) is not None:
+                return step
+        city = self._chosen.get(CONF_CITY)
+        city_id = city.id if city else None
+
+        if CONF_STREET not in self._chosen:
+            items = await api.search_streets(self._typed[CONF_STREET], city_id)
+            if (step := await self._async_take_match(CONF_STREET, items)) is not None:
+                return step
+        street = self._chosen[CONF_STREET]
+
+        if CONF_HOUSE not in self._chosen:
+            # Yasno does not find a house that has a Latin letter in its number
+            house_query = cyrillic_look_alikes(self._typed[CONF_HOUSE])
+            items = await api.search_houses(street.id, house_query, city_id)
+            if (step := await self._async_take_match(CONF_HOUSE, items)) is not None:
+                return step
+        # noinspection PyTypeChecker
+        return await self._async_finish_address(api)
+
+    async def _async_finish_address(self, api: YasnoApi) -> ConfigFlowResult:
+        """Ask for the group of the chosen house, and save it with the address."""
+        city = self._chosen.get(CONF_CITY)
+        street = self._chosen[CONF_STREET]
+        house = self._chosen[CONF_HOUSE]
+        result, group = await api.get_address_group(
+            street.id, house.id, city.id if city else None
+        )
+        errors: dict[str, str] = {}
+        if result is AddressResult.NOT_FOUND:
+            # Yasno knows the house as a match, but not as an address
+            errors[CONF_HOUSE] = NOT_FOUND_ERRORS[CONF_HOUSE]
+        elif group is None or not await api.fetch_planned_outage_data():
+            errors["base"] = "yasno_no_answer"
+        elif group not in api.get_yasno_groups():
+            errors["base"] = "address_group_not_listed"
+            return self._show_address_form(errors, {"group": group})
+        else:
+            # The names that Yasno wrote go into the entry, never its ids
+            address = {CONF_STREET: street.value, CONF_HOUSE: house.value}
+            if city:
+                address[CONF_CITY] = city.value
+            return await self._async_save_group({CONF_GROUP: group, **address})
+        return self._show_address_form(errors)
+
+    async def async_step_address(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the address, and search it at Yasno."""
+        api = YasnoApi(self.hass)
+        # The regions come from the class cache, if the provider step got them
+        await api.fetch_yasno_regions()
+        region = api.get_region_by_id(self.data[CONF_REGION])
+        self._has_cities = region is not None and region.has_cities
+
+        if user_input is None:
+            return self._show_address_form()
+
+        # The texts come back as the suggested values after an error or a new search
+        self._typed = dict(user_input)
+        self._chosen = {}
+        errors: dict[str, str] = {}
+        if len(self._typed[CONF_STREET].strip()) < YASNO_STREET_QUERY_MIN:
+            errors[CONF_STREET] = "street_too_short"
+            return self._show_address_form(errors)
+        return await self._async_search_address()
+
+    async def _async_pick(
+        self, field: str, user_input: dict | None
+    ) -> ConfigFlowResult:
+        """Take the match that the user chose, or show the address form again."""
+        if user_input is None:
+            return await self._async_show_pick_form(field)
+        if user_input[field] == SEARCH_AGAIN:
+            return self._show_address_form()
+        # The schema of the form that was shown accepts only the offered values
+        self._chosen[field] = next(
+            item for item in self._matches if str(item.id) == user_input[field]
+        )
+        return await self._async_search_address()
+
+    async def async_step_pick_city(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Let the user choose the city among the matches of Yasno."""
+        return await self._async_pick(CONF_CITY, user_input)
+
+    async def async_step_pick_street(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Let the user choose the street among the matches of Yasno."""
+        return await self._async_pick(CONF_STREET, user_input)
+
+    async def async_step_pick_house(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Let the user choose the house among the matches of Yasno."""
+        return await self._async_pick(CONF_HOUSE, user_input)
 
     async def async_step_group(
         self, user_input: dict | None = None
