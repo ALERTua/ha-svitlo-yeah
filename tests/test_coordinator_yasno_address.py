@@ -731,6 +731,35 @@ class TestNotFound:
         assert coordinator.group == "1.1"
         await _unload(hass, entry)
 
+    async def test_found_of_a_new_group_ends_the_results_in_a_row(
+        self, hass, aioclient_mock, hass_storage, nine_o_clock
+    ):
+        """
+        Not found, then a Found of a new group, then Not found: no repair issue.
+
+        Yasno found the address in the middle, so the two Not found results are
+        not in a row.
+        """
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.utcnow(), count=1)
+        )
+
+        await coordinator.async_refresh()
+
+        assert _kept_check(hass_storage, entry) == _check(
+            dt_utils.utcnow() + HOUR, pending="53.1"
+        )
+
+        nine_o_clock.tick(HOUR)
+        _serve(aioclient_mock, streets=NO_STREET)
+        await coordinator.async_refresh()
+
+        assert coordinator.address_check_result is AddressResult.NOT_FOUND
+        assert _kept_check(hass_storage, entry)["not_found_count"] == 1
+        assert _issue(hass, entry) is None
+        await _unload(hass, entry)
+
     async def test_issue_survives_a_restart_and_goes_after_a_found(
         self, hass, aioclient_mock, hass_storage
     ):

@@ -152,8 +152,8 @@ The entry keeps the names of the address as Yasno writes them, and the group. It
 What a result does:
 
 - `FOUND` with the group of the entry: the next check is in a week, and the repair issue goes away.
-- `FOUND` with another group that the planned outages list: the first check sets `pending_group` and plans the next check in one hour (`ADDRESS_RETRY_INTERVAL`). The entry switches when a check finds the same group again, or at once when the check is forced by the button.
-- `NOT_FOUND`: the first result plans a retry in one hour. After `NOT_FOUND_IN_A_ROW` (2) results, the coordinator writes one warning and creates the repair issue `address_not_found`. The group stays, and the next check is in a week.
+- `FOUND` with another group that the planned outages list: the first check sets `pending_group`, sets `not_found_count` to 0 and plans the next check in one hour (`ADDRESS_RETRY_INTERVAL`). The entry switches when a check finds the same group again, or at once when the check is forced by the button.
+- `NOT_FOUND`: the first result plans a retry in one hour. After `NOT_FOUND_IN_A_ROW` (2) results with no `FOUND` result between them, the coordinator writes one warning and creates the repair issue `address_not_found`. The group stays, and the next check is in a week.
 - `UNKNOWN`, or `FOUND` with a group that the planned outages lack: the next try is in one hour. These results keep `not_found_count` and `pending_group` as they are. Thus an `UNKNOWN` between two `NOT_FOUND` results does not reset the count.
 - An exception inside a check becomes `UNKNOWN`. A check never fails the poll, makes no entity unavailable and changes no schedule.
 
