@@ -17,11 +17,17 @@ from unittest.mock import patch
 
 import pytest
 from aiohttp import ClientError
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_utils
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_get_persistent_notifications,
+)
 from pytest_homeassistant_custom_component.components.diagnostics import (
     get_diagnostics_for_config_entry,
 )
@@ -39,6 +45,9 @@ from custom_components.svitlo_yeah.const import (
     CONF_REGION,
     CONF_STREET,
     DOMAIN,
+    EVENT_GROUP_CHANGED,
+    TRANSLATION_KEY_GROUP_CHANGED_MESSAGE,
+    TRANSLATION_KEY_GROUP_CHANGED_TITLE,
     YASNO_ADDRESSES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -47,9 +56,12 @@ from custom_components.svitlo_yeah.coordinator.coordinator import (
     store_key,
 )
 from custom_components.svitlo_yeah.coordinator.yasno import (
+    GROUP_CHANGED_MESSAGE,
+    GROUP_CHANGED_TITLE,
     AddressCheck,
     YasnoCoordinator,
     address_not_found_issue_id,
+    group_changed_notification_id,
 )
 from custom_components.svitlo_yeah.models import YasnoAddress
 from tests.helpers import (
@@ -987,6 +999,431 @@ class TestFoundMeanwhile:
         )
         assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
         await _unload(hass, entry)
+
+
+def _notice(language: str, old: str, new: str) -> tuple[str, str]:
+    """Return the title and the message of the notification about a new group."""
+    if language == "uk":
+        title = "Нова група Yasno"
+        message = (
+            f"Група Yasno для «{ADDRESS_TEXT}» змінилася з {old} на {new}. "
+            "Запис тепер показує графік нової групи."
+        )
+    else:
+        title = "New Yasno group"
+        message = (
+            f"The Yasno group of «{ADDRESS_TEXT}» changed from {old} to {new}. "
+            "The entry now shows the schedule of the new group."
+        )
+    return title, message
+
+
+# A text of the notification that a translation could give instead of the English one
+OWN_MESSAGE = "{entry}: {old_group}>{new_group}"
+
+
+def _group_changed(entry: MockConfigEntry, old: str, new: str) -> dict:
+    """Build the data of the event about a new group of the entry."""
+    return {"config_entry_id": entry.entry_id, "old_group": old, "new_group": new}
+
+
+def _notification(hass, entry: MockConfigEntry) -> dict | None:
+    """Return the notification about the new group of the entry, if it exists."""
+    return async_get_persistent_notifications(hass).get(
+        group_changed_notification_id(entry.entry_id)
+    )
+
+
+def _texts_of(notification: dict | None) -> tuple[str, str] | None:
+    """Return the title and the message of a notification, as the user reads them."""
+    if notification is None:
+        return None
+    return notification["title"], notification["message"]
+
+
+async def _press_the_check_button(hass, entry: MockConfigEntry) -> None:
+    """Press the button of the entry that checks its group at once."""
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "button", DOMAIN, f"{entry.entry_id}_check_group"
+    )
+    assert entity_id is not None
+    await hass.services.async_call(
+        "button", "press", {"entity_id": entity_id}, blocking=True
+    )
+
+
+def _assert_no_address(event, address: dict) -> None:
+    """Check that the event has the three keys of the notice, and no address."""
+    assert set(event.data) == {"config_entry_id", "old_group", "new_group"}
+    text = json.dumps(dict(event.data), ensure_ascii=False)
+    for key in (CONF_CITY, CONF_STREET, CONF_HOUSE):
+        assert key not in event.data
+        # An entry without a city has no city to find
+        assert not address.get(key) or address[key] not in text
+
+
+class TestGroupChangedNotice:
+    """The switch to a new group: an event for automations and a notification."""
+
+    @pytest.mark.parametrize("how", ["call", "button"])
+    async def test_forced_check_tells_the_user(
+        self, hass, aioclient_mock, hass_storage, how
+    ):
+        """
+        A forced check that finds a new group fires one event and shows one notice.
+
+        The button of the entry and the call of the coordinator end the same way.
+        """
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+        assert events == []
+        assert async_get_persistent_notifications(hass) == {}
+
+        if how == "button":
+            await _press_the_check_button(hass, entry)
+        else:
+            await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_GROUP] == "53.1"
+        assert [(e.event_type, dict(e.data)) for e in events] == [
+            ("svitlo_yeah_group_changed", _group_changed(entry, "1.1", "53.1"))
+        ]
+        notifications = async_get_persistent_notifications(hass)
+        assert list(notifications) == [f"svitlo_yeah_group_changed_{entry.entry_id}"]
+        assert _texts_of(_notification(hass, entry)) == _notice("en", "1.1", "53.1")
+        await _unload(hass, entry)
+
+    async def test_texts_follow_the_language_of_the_server(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """The title and the message come in the language of Home Assistant."""
+        hass.config.language = "uk"
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+
+        await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert [dict(e.data) for e in events] == [_group_changed(entry, "1.1", "53.1")]
+        assert len(async_get_persistent_notifications(hass)) == 1
+        assert _texts_of(_notification(hass, entry)) == _notice("uk", "1.1", "53.1")
+        await _unload(hass, entry)
+
+    async def test_second_poll_tells_the_user_and_the_first_one_does_not(
+        self, hass, aioclient_mock, hass_storage, nine_o_clock
+    ):
+        """
+        The first check keeps the new group pending, and it tells nothing yet.
+
+        The second check, an hour later, switches the entry and tells the user.
+        """
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now())
+        )
+
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_GROUP] == "1.1"
+        assert events == []
+        assert async_get_persistent_notifications(hass) == {}
+
+        nine_o_clock.tick(HOUR)
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_GROUP] == "53.1"
+        assert [dict(e.data) for e in events] == [_group_changed(entry, "1.1", "53.1")]
+        assert len(async_get_persistent_notifications(hass)) == 1
+        assert _texts_of(_notification(hass, entry)) == _notice("en", "1.1", "53.1")
+        await _unload(hass, entry)
+
+    # The reply of Yasno to the check, and the result that the check keeps
+    @pytest.mark.parametrize(
+        ("reply", "result"),
+        [
+            ({"group": GROUP_1_1}, AddressResult.FOUND),
+            ({"group": GROUP_60_1}, AddressResult.FOUND),
+            ({"streets": NO_STREET}, AddressResult.NOT_FOUND),
+            ({"group": SERVER_ERROR}, AddressResult.UNKNOWN),
+        ],
+        ids=["same_group", "unlisted_group", "not_found", "unknown"],
+    )
+    @pytest.mark.parametrize("force", [False, True], ids=["poll", "force"])
+    async def test_a_check_without_a_switch_tells_nothing(
+        self, hass, aioclient_mock, hass_storage, reply, result, force
+    ):
+        """
+        A check that does not switch the entry fires no event and shows no notice.
+
+        The group 53.1 is pending, and the second Not found result makes the issue.
+        """
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock, **reply)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+        )
+
+        await _run_check(coordinator, force=force)
+        await hass.async_block_till_done()
+
+        assert coordinator.address_check_result is result
+        assert entry.data[CONF_GROUP] == "1.1"
+        assert entry.runtime_data is coordinator
+        assert events == []
+        assert async_get_persistent_notifications(hass) == {}
+        await _unload(hass, entry)
+
+    async def test_reconfigure_of_the_user_tells_nothing(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        A Reconfigure that gives the entry the group of its address is the user's act.
+
+        The flow writes the new group, and the update listener reloads the entry.
+        The user chose this group, so nothing tells the user about it.
+        """
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + WEEK)
+        )
+
+        result = await _reconfigure_to_the_address(hass, entry)
+        await hass.async_block_till_done()
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data[CONF_GROUP] == "53.1"
+        assert entry.state is ConfigEntryState.LOADED
+        assert entry.runtime_data is not coordinator
+        assert events == []
+        assert async_get_persistent_notifications(hass) == {}
+        await _unload(hass, entry)
+
+    async def test_event_has_no_address(self, hass, aioclient_mock, hass_storage):
+        """The event names the entry by its id: no street, house or city goes out."""
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+
+        await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert len(events) == 1
+        _assert_no_address(events[0], dict(entry.data))
+        assert (entry.data[CONF_STREET], entry.data[CONF_HOUSE]) == (
+            YASNO_KYIV_STREET,
+            YASNO_KYIV_HOUSE,
+        )
+        await _unload(hass, entry)
+
+    async def test_event_of_an_entry_with_a_city_has_no_city(self, hass):
+        """The event of an entry that has a city names no city, street or house."""
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        city = "м. Тестове"
+        data = {**YASNO_KYIV_ADDRESS_1_1, CONF_CITY: city}
+        entry = MockConfigEntry(
+            domain=DOMAIN, data=data, title=f"{city}, {ADDRESS_TEXT}"
+        )
+        entry.add_to_hass(hass)
+
+        YasnoCoordinator(hass, entry)._notify_group_changed("1.1", "53.1")
+        await hass.async_block_till_done()
+
+        assert [dict(e.data) for e in events] == [_group_changed(entry, "1.1", "53.1")]
+        _assert_no_address(events[0], data)
+
+    async def test_later_switch_replaces_the_notification(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """A second switch of the entry shows one notice, with the last change."""
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+        await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+        assert _texts_of(_notification(hass, entry)) == _notice("en", "1.1", "53.1")
+
+        _serve(aioclient_mock, group=GROUP_2_1)
+        reloaded = entry.runtime_data
+        assert reloaded is not coordinator
+        await reloaded.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_GROUP] == "2.1"
+        assert [dict(e.data) for e in events] == [
+            _group_changed(entry, "1.1", "53.1"),
+            _group_changed(entry, "53.1", "2.1"),
+        ]
+        assert list(async_get_persistent_notifications(hass)) == [
+            f"svitlo_yeah_group_changed_{entry.entry_id}"
+        ]
+        assert _texts_of(_notification(hass, entry)) == _notice("en", "53.1", "2.1")
+        await _unload(hass, entry)
+
+    async def test_check_that_finds_the_new_group_in_the_entry_tells_nothing(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        A second check before the reload finds the new group in the entry already.
+
+        The update listener is away, so that no reload comes between the checks.
+        The data does not change the second time, so the user gets one notice.
+        """
+        events = async_capture_events(hass, EVENT_GROUP_CHANGED)
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+        listeners = entry.update_listeners.copy()
+        entry.update_listeners.clear()
+
+        await coordinator.async_check_address_now()
+        await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_GROUP] == "53.1"
+        assert [dict(e.data) for e in events] == [_group_changed(entry, "1.1", "53.1")]
+        assert len(async_get_persistent_notifications(hass)) == 1
+        entry.update_listeners.extend(listeners)
+        await _unload(hass, entry)
+
+    async def test_reload_and_unload_keep_the_notification(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        The new group reloads the entry, and the notice must outlive the reload.
+
+        An unload keeps it too: only the removal of the entry takes it away.
+        """
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+        await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert entry.runtime_data is not coordinator
+        notice = _notification(hass, entry)
+        assert _texts_of(notice) == _notice("en", "1.1", "53.1")
+
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert _notification(hass, entry) == notice
+
+        await _unload(hass, entry)
+
+        assert _notification(hass, entry) == notice
+
+    @pytest.mark.parametrize("unloaded", [False, True], ids=["loaded", "unloaded"])
+    async def test_removal_dismisses_the_notification(
+        self, hass, aioclient_mock, hass_storage, unloaded
+    ):
+        """The removal of the entry dismisses its notice, and no other notice."""
+        persistent_notification.async_create(
+            hass, "Another message", title="Another title", notification_id="another"
+        )
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+        await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+        assert _notification(hass, entry) is not None
+        if unloaded:
+            await _unload(hass, entry)
+
+        assert await hass.config_entries.async_remove(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert _notification(hass, entry) is None
+        assert list(async_get_persistent_notifications(hass)) == ["another"]
+
+    # What the common translations of the poll hold: no group text, or one of them
+    @pytest.mark.parametrize(
+        ("translations", "title", "message"),
+        [
+            ({}, GROUP_CHANGED_TITLE, GROUP_CHANGED_MESSAGE),
+            (
+                {TRANSLATION_KEY_GROUP_CHANGED_TITLE: "Own title"},
+                "Own title",
+                GROUP_CHANGED_MESSAGE,
+            ),
+            (
+                {TRANSLATION_KEY_GROUP_CHANGED_MESSAGE: OWN_MESSAGE},
+                GROUP_CHANGED_TITLE,
+                OWN_MESSAGE,
+            ),
+        ],
+        ids=["no_texts", "only_title", "only_message"],
+    )
+    async def test_missing_translation_falls_back_to_english(
+        self, hass, aioclient_mock, hass_storage, translations, title, message
+    ):
+        """Each text that the translations lack comes from the English constants."""
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+        )
+
+        async def fetch_the_given_texts():
+            coordinator.translations = translations
+
+        with patch.object(
+            coordinator, "async_fetch_translations", side_effect=fetch_the_given_texts
+        ):
+            await coordinator.async_check_address_now()
+        await hass.async_block_till_done()
+
+        assert coordinator.translations == translations
+        assert entry.data[CONF_GROUP] == "53.1"
+        assert _texts_of(_notification(hass, entry)) == (
+            title,
+            message.format(entry=ADDRESS_TEXT, old_group="1.1", new_group="53.1"),
+        )
+        await _unload(hass, entry)
+
+    def test_fallback_texts_are_the_english_texts(self):
+        """The constants of the code say what en.json says: a fallback reads alike."""
+        english = json.loads((TRANSLATIONS / "en.json").read_text(encoding="utf-8"))
+        common = english["common"]
+        title, message = _notice("en", "1.1", "53.1")
+
+        assert common["group_changed_title"] == GROUP_CHANGED_TITLE
+        assert common["group_changed_message"] == GROUP_CHANGED_MESSAGE
+        assert title == GROUP_CHANGED_TITLE
+        assert message == GROUP_CHANGED_MESSAGE.format(
+            entry=ADDRESS_TEXT, old_group="1.1", new_group="53.1"
+        )
+
+    @pytest.mark.parametrize("language", ["en", "uk"])
+    def test_translation_uses_the_sent_placeholders(self, language):
+        """The message names the entry and both groups, and the title names nothing."""
+        common = json.loads(
+            (TRANSLATIONS / f"{language}.json").read_text(encoding="utf-8")
+        )["common"]
+
+        assert _placeholders(common["group_changed_title"]) == set()
+        assert _placeholders(common["group_changed_message"]) == {
+            "entry",
+            "old_group",
+            "new_group",
+        }
 
 
 class TestUnknown:

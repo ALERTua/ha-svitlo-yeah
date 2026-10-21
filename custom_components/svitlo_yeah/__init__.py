@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.components import persistent_notification
 from homeassistant.const import Platform
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import issue_registry as ir
@@ -24,7 +25,11 @@ from .coordinator.coordinator import (
 from .coordinator.dtek.json import DtekCoordinatorJson
 from .coordinator.e_svitlo import ESvitloCoordinator
 from .coordinator.soe import SoeCoordinator
-from .coordinator.yasno import YasnoCoordinator, address_not_found_issue_id
+from .coordinator.yasno import (
+    YasnoCoordinator,
+    address_not_found_issue_id,
+    group_changed_notification_id,
+)
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -88,5 +93,13 @@ async def async_unload_entry(
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -> None:
-    """Delete the last data that the entry kept for a restart."""
+    """
+    Delete the last data that the entry kept for a restart.
+
+    The notification about a new group of the entry goes too. An unload keeps it,
+    because the new group itself reloads the entry.
+    """
     await Store(hass, STORE_VERSION, store_key(entry.entry_id)).async_remove()
+    persistent_notification.async_dismiss(
+        hass, group_changed_notification_id(entry.entry_id)
+    )

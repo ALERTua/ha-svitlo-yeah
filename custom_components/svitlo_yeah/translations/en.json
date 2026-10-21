@@ -294,6 +294,8 @@
     "event_name_planned_outage": "Planned Outage",
     "event_name_scheduled_outage": "Scheduled Outage",
     "event_name_emergency_outage": "Emergency Outage",
+    "group_changed_title": "New Yasno group",
+    "group_changed_message": "The Yasno group of «{entry}» changed from {old_group} to {new_group}. The entry now shows the schedule of the new group.",
     "kyiv_region": "Kyiv Oblast",
     "dnipro": "Dnipro",
     "odesa": "Odesa",
