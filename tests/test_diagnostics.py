@@ -1,6 +1,7 @@
 """The diagnostics of an entry help a bug report (gold diagnostics)."""
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.diagnostics import (
     get_diagnostics_for_config_entry,
@@ -13,7 +14,7 @@ from custom_components.svitlo_yeah.const import (
     DOMAIN,
 )
 from custom_components.svitlo_yeah.models import ConnectivityState
-from tests.helpers import PROVIDERS
+from tests.helpers import PROVIDERS, REMOVED_E_SVITLO_ENTRY
 
 pytestmark = pytest.mark.usefixtures(
     "enable_custom_integrations", "empty_yasno_region_cache"
@@ -86,3 +87,25 @@ async def test_diagnostics_hide_the_address_of_an_entry_with_a_city(
     data = result["entry"]["data"]
     assert {key: data[key] for key in address} == dict.fromkeys(address, "**REDACTED**")
     assert not [_ for _ in address.values() if _ in str(result)]
+
+
+async def test_diagnostics_of_an_entry_that_never_loaded(hass, hass_client):
+    """
+    An old E-Svitlo entry stops at its setup, so it has no coordinator.
+
+    Its diagnostics have the entry settings only, and its login stays hidden.
+    """
+    entry = MockConfigEntry(domain=DOMAIN, data=REMOVED_E_SVITLO_ENTRY, title="Old")
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+
+    result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+
+    login = dict.fromkeys(
+        ("username", "password", "account_id", "address_str"), "**REDACTED**"
+    )
+    assert result == {
+        "entry": {"data": {**REMOVED_E_SVITLO_ENTRY, **login}, "options": {}}
+    }

@@ -50,8 +50,16 @@ async def async_get_config_entry_diagnostics(
     Return the entry settings without personal data, and what the coordinator knows.
 
     The events are those of the next-outage sensors: the next TIMEFRAME_TO_CHECK.
+    An entry that never loaded, for example of a removed provider, has no
+    coordinator, so its diagnostics have the entry settings only.
     """
-    coordinator = entry.runtime_data
+    settings = {
+        "data": async_redact_data(dict(entry.data), TO_REDACT),
+        "options": async_redact_data(dict(entry.options), TO_REDACT),
+    }
+    coordinator = getattr(entry, "runtime_data", None)
+    if coordinator is None:
+        return {"entry": settings}
     now = dt_utils.now()
     state: dict[str, Any] = {
         "group": coordinator.group,
@@ -71,10 +79,7 @@ async def async_get_config_entry_diagnostics(
     ):
         state["address_check"] = check
     return {
-        "entry": {
-            "data": async_redact_data(dict(entry.data), TO_REDACT),
-            "options": async_redact_data(dict(entry.options), TO_REDACT),
-        },
+        "entry": settings,
         "coordinator": state,
         "events": [
             _event(e)
