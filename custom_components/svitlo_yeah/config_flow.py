@@ -69,11 +69,9 @@ LOGGER = logging.getLogger(__name__)
 # The checkbox of the form that accepts outdated DTEK data
 CONF_ACKNOWLEDGE = "acknowledge"
 
-# The page where a user finds the group, for the text under the group field. A
+# The page where a user finds a DTEK group, for the text under the group field. A
 # Yasno region has its own page (yasno_region_page).
-GROUP_PAGE_URLS: dict[str, str] = {
-    PROVIDER_TYPE_DTEK_JSON: "https://www.dtek-krem.com.ua/ua/shutdowns",
-}
+DTEK_GROUP_PAGE_URL = "https://www.dtek-krem.com.ua/ua/shutdowns"
 
 # The option that ends a select of matches or of houses, and shows the address form
 SEARCH_AGAIN = "search_again"
@@ -812,7 +810,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 # Each Yasno region has its own page
                 "url": self._yasno_page()
                 if provider_type == PROVIDER_TYPE_YASNO
-                else GROUP_PAGE_URLS[provider_type]
+                else DTEK_GROUP_PAGE_URL
             },
         )
 
