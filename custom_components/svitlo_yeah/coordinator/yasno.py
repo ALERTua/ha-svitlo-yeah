@@ -383,14 +383,14 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         NOT_FOUND_IN_A_ROW results, a warning and a repair issue ask for the address.
         """
         count = check.not_found_count + 1
+        # A new group must come from two checks with no Not found between them
+        check = replace(check, pending_group=None, not_found_count=count)
         if count < NOT_FOUND_IN_A_ROW:
             self._address_check = replace(
-                check, not_found_count=count, next_check=now + ADDRESS_RETRY_INTERVAL
+                check, next_check=now + ADDRESS_RETRY_INTERVAL
             )
             return
-        self._address_check = replace(
-            check, not_found_count=count, next_check=now + ADDRESS_CHECK_INTERVAL
-        )
+        self._address_check = replace(check, next_check=now + ADDRESS_CHECK_INTERVAL)
         if count == NOT_FOUND_IN_A_ROW:
             # The id, not the title: the title of an address entry is the address
             LOGGER.warning(
