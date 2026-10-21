@@ -4,7 +4,7 @@ from pathlib import Path
 
 from homeassistant.components.blueprint.models import Blueprint
 from homeassistant.components.blueprint.schemas import BLUEPRINT_SCHEMA
-from homeassistant.util.yaml import load_yaml_dict
+from homeassistant.util.yaml import Input, load_yaml_dict
 
 from custom_components.svitlo_yeah.const import DOMAIN, EVENT_GROUP_CHANGED
 
@@ -43,12 +43,32 @@ def test_blueprint_listens_to_the_event_of_a_new_group():
 
 def test_templates_read_the_keys_of_the_event():
     """
-    The templates read the keys that the event has.
+    The variables and the condition read the keys that the event has.
 
-    The event has no address, so the name of the entry comes from its id.
+    The event has no address, so the name of the entry comes from its id. The push
+    sends the message of the input, and its default reads the variables.
     """
-    text = BLUEPRINT.read_text(encoding="utf-8")
+    blueprint = _blueprint()
+    data = blueprint.data
 
-    for key in ("config_entry_id", "old_group", "new_group"):
-        assert f"trigger.event.data.{key}" in text
-    assert "config_entry_attr(trigger.event.data.config_entry_id, 'title')" in text
+    assert data["variables"] == {
+        "entry": Input("entry"),
+        "entry_title": (
+            "{{ config_entry_attr(trigger.event.data.config_entry_id, 'title') }}"
+        ),
+        "old_group": "{{ trigger.event.data.old_group }}",
+        "new_group": "{{ trigger.event.data.new_group }}",
+    }
+    assert data["conditions"] == [
+        {
+            "condition": "template",
+            "value_template": (
+                "{{ not entry or trigger.event.data.config_entry_id == entry }}"
+            ),
+        }
+    ]
+    (action,) = data["actions"]
+    assert (action["title"], action["message"]) == (Input("title"), Input("message"))
+    message = blueprint.inputs["message"]["default"]
+    for variable in ("entry_title", "old_group", "new_group"):
+        assert f"{{{{ {variable} }}}}" in message
