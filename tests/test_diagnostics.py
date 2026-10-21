@@ -10,6 +10,8 @@ from pytest_homeassistant_custom_component.components.diagnostics import (
 from custom_components.svitlo_yeah.const import (
     CONF_CITY,
     CONF_HOUSE,
+    CONF_PROVIDER,
+    CONF_PROVIDER_TYPE,
     CONF_STREET,
     DOMAIN,
 )
@@ -21,12 +23,11 @@ pytestmark = pytest.mark.usefixtures(
 )
 
 
-# The keys of an entry of the removed E-Svitlo provider: a login and an account
-E_SVITLO_DATA = {
-    "username": "user@example.com",
-    "password": "a password",
-    "account_id": "1234567",
-    "address_str": "м. Тестове, вул. Тестова, 1",
+# The login and the account of an entry of the removed E-Svitlo provider
+E_SVITLO_LOGIN = {
+    key: value
+    for key, value in REMOVED_E_SVITLO_ENTRY.items()
+    if key not in (CONF_PROVIDER_TYPE, CONF_PROVIDER)
 }
 
 
@@ -66,14 +67,17 @@ async def test_diagnostics_hide_the_login_of_an_old_e_svitlo_entry(
 ):
     """The data of an entry of the removed E-Svitlo provider never shows its login."""
     result = await _diagnostics(
-        hass, hass_client, aioclient_mock, provider, E_SVITLO_DATA
+        hass, hass_client, aioclient_mock, provider, E_SVITLO_LOGIN
     )
 
     data = result["entry"]["data"]
-    assert {key: data[key] for key in E_SVITLO_DATA} == dict.fromkeys(
-        E_SVITLO_DATA, "**REDACTED**"
+    assert {key: data[key] for key in E_SVITLO_LOGIN} == dict.fromkeys(
+        E_SVITLO_LOGIN, "**REDACTED**"
     )
-    assert not [_ for _ in E_SVITLO_DATA.values() if _ in str(result)]
+    # A short value, such as the account number, can be a part of a time by chance
+    texts = [_ for _ in E_SVITLO_LOGIN.values() if len(_) > len("user")]
+    assert texts
+    assert not [_ for _ in texts if _ in str(result)]
 
 
 async def test_diagnostics_hide_the_address_of_an_entry_with_a_city(
@@ -103,9 +107,7 @@ async def test_diagnostics_of_an_entry_that_never_loaded(hass, hass_client):
 
     result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
 
-    login = dict.fromkeys(
-        ("username", "password", "account_id", "address_str"), "**REDACTED**"
-    )
+    login = dict.fromkeys(E_SVITLO_LOGIN, "**REDACTED**")
     assert result == {
         "entry": {"data": {**REMOVED_E_SVITLO_ENTRY, **login}, "options": {}}
     }
