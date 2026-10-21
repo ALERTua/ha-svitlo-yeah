@@ -6,7 +6,12 @@ from pytest_homeassistant_custom_component.components.diagnostics import (
     get_diagnostics_for_config_entry,
 )
 
-from custom_components.svitlo_yeah.const import DOMAIN
+from custom_components.svitlo_yeah.const import (
+    CONF_CITY,
+    CONF_HOUSE,
+    CONF_STREET,
+    DOMAIN,
+)
 from custom_components.svitlo_yeah.models import ConnectivityState
 from tests.helpers import PROVIDERS
 
@@ -68,3 +73,16 @@ async def test_diagnostics_hide_the_login_of_an_old_e_svitlo_entry(
         E_SVITLO_DATA, "**REDACTED**"
     )
     assert not [_ for _ in E_SVITLO_DATA.values() if _ in str(result)]
+
+
+async def test_diagnostics_hide_the_address_of_an_entry_with_a_city(
+    hass, hass_client, aioclient_mock
+):
+    """The city, the street and the house of an address entry never show."""
+    address = {CONF_CITY: "м. Тестове", CONF_STREET: "вул. Тестова", CONF_HOUSE: "77Б"}
+
+    result = await _diagnostics(hass, hass_client, aioclient_mock, "yasno", address)
+
+    data = result["entry"]["data"]
+    assert {key: data[key] for key in address} == dict.fromkeys(address, "**REDACTED**")
+    assert not [_ for _ in address.values() if _ in str(result)]
