@@ -459,6 +459,7 @@ class TestReconfigureGroup:
         aioclient_mock.get(YASNO_PLANNED_URL, json={"1.1": {}, "3.1": {}})
 
         result = await entry.start_reconfigure_flow(hass)
+        result = await _choose_group_method(hass, result)
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == ["1.1", "3.1"]
         assert _default(result, CONF_GROUP) is None
@@ -532,6 +533,7 @@ class TestEntryTitle:
         aioclient_mock.get(YASNO_PLANNED_URL, json={"1.1": {}, "3.1": {}})
 
         result = await entry.start_reconfigure_flow(hass)
+        result = await _choose_group_method(hass, result)
         result = await _configure(hass, result, {CONF_GROUP: "3.1"})
 
         assert result["reason"] == "reconfigure_successful"

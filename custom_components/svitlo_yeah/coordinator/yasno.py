@@ -224,7 +224,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         await super()._async_restore(stored)
         check = self._address_check
         if check is not None and check.not_found_count >= NOT_FOUND_IN_A_ROW:
-            self._create_address_issue()
+            await self._async_create_address_issue()
 
     async def async_check_address_now(self) -> None:
         """
@@ -243,6 +243,24 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             # The force goes back after the check, and also after a poll that
             # stopped before the check, so that no later poll gets it
             self._force_address_check = False
+
+    async def async_address_found(self, address: YasnoAddress) -> None:
+        """
+        Keep that a Reconfigure found the address of the entry: the clock starts again.
+
+        The Not found results of the address and its repair issue go away. A new
+        group of the address comes with the Reconfigure, so no group is pending.
+        Another address needs nothing: the kept state of another address is no state.
+        """
+        if address != self._address:
+            return
+        self._address_check = AddressCheck(
+            address, dt_utils.now() + ADDRESS_CHECK_INTERVAL
+        )
+        ir.async_delete_issue(
+            self.hass, DOMAIN, address_not_found_issue_id(self.config_entry.entry_id)
+        )
+        await self._async_store_last_data()
 
     @override
     async def _async_after_update(self) -> None:
@@ -285,6 +303,8 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         """
         entry_id = self.config_entry.entry_id
         address = check.address
+        # A Reconfigure that finds the address keeps a newer state meanwhile
+        kept = self._address_check
         try:
             result, group = await self.api.resolve_address(address)
         except Exception as err:  # noqa: BLE001  # a failed check must not fail the poll
@@ -296,8 +316,13 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             )
             result, group = AddressResult.UNKNOWN, None
         self.address_check_result = result
-        # The entry can be unloaded, removed or get another address meanwhile
-        if self._shutdown_requested or self._entry_address() != address:
+        # The entry can be unloaded, removed or get another address meanwhile, and a
+        # Reconfigure that found the address makes this answer an old one
+        if (
+            self._shutdown_requested
+            or self._entry_address() != address
+            or self._address_check is not kept
+        ):
             return
         LOGGER.debug("The check of the address of entry %s gives %s", entry_id, result)
         now = dt_utils.now()
@@ -320,7 +345,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 check, pending_group=group, next_check=now + ADDRESS_RETRY_INTERVAL
             )
         elif result is AddressResult.NOT_FOUND:
-            self._address_not_found(check, now)
+            await self._async_address_not_found(check, now)
         else:
             # No sure answer, or a new group that the planned outages do not list
             self._address_check = replace(
@@ -328,7 +353,9 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
             )
         await self._async_store_last_data()
 
-    def _address_not_found(self, check: AddressCheck, now: dt.datetime) -> None:
+    async def _async_address_not_found(
+        self, check: AddressCheck, now: dt.datetime
+    ) -> None:
         """
         Count a Not found result; the group of the entry stays.
 
@@ -341,6 +368,9 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 check, not_found_count=count, next_check=now + ADDRESS_RETRY_INTERVAL
             )
             return
+        self._address_check = replace(
+            check, not_found_count=count, next_check=now + ADDRESS_CHECK_INTERVAL
+        )
         if count == NOT_FOUND_IN_A_ROW:
             # The id, not the title: the title of an address entry is the address
             LOGGER.warning(
@@ -349,10 +379,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 self.config_entry.entry_id,
                 self.group,
             )
-        self._create_address_issue()
-        self._address_check = replace(
-            check, not_found_count=count, next_check=now + ADDRESS_CHECK_INTERVAL
-        )
+        await self._async_create_address_issue()
 
     async def _async_switch_group(
         self, address: YasnoAddress, group: str, now: dt.datetime
@@ -388,8 +415,17 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         """Return the address that the entry has now: a Reconfigure can change it."""
         return YasnoAddress.from_entry_data(self.config_entry.data)
 
-    def _create_address_issue(self) -> None:
-        """Show a repair issue that asks for the address, which Yasno does not find."""
+    async def _async_create_address_issue(self) -> None:
+        """
+        Show a repair issue that asks for the address, which Yasno does not find.
+
+        The issue shows only while the state counts enough Not found results: a
+        Reconfigure that finds the address can clear them while the texts load.
+        """
+        integration = await self._async_integration_title()
+        check = self._address_check
+        if check is None or check.not_found_count < NOT_FOUND_IN_A_ROW:
+            return
         ir.async_create_issue(
             self.hass,
             DOMAIN,
@@ -405,6 +441,8 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 "url": YASNO_REGION_PAGES.get(
                     self.region_id, YASNO_REGION_PAGES[_KYIV_REGION_ID]
                 ),
+                # The way to Reconfigure goes through the list of integrations
+                "integration": integration,
             },
         )
 
