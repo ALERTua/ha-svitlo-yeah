@@ -16,9 +16,7 @@ from custom_components.svitlo_yeah.const import (
     CONF_STREET,
     DTEK_PROVIDER_URLS,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
-    SOE_SCHEDULE_URL,
     TZ_UA,
     YASNO_ADDRESSES_ENDPOINT,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
@@ -85,11 +83,16 @@ REMOVED_E_SVITLO_ENTRY = {
     "account_id": "101",
     "address_str": "Суми, вул. Тестова, 0",
 }
-
-SOE_SUMY_4_1 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_SOE,
+# An entry of SOE, which release 0.11.0 removed too, as an earlier config flow wrote it
+REMOVED_SOE_ENTRY = {
+    CONF_PROVIDER_TYPE: "soe",
     CONF_PROVIDER: "sumy",
     CONF_GROUP: "4.1",
+}
+# For each removed provider: the entry data, and the name that the texts show
+REMOVED_PROVIDER_ENTRIES = {
+    "e_svitlo": (REMOVED_E_SVITLO_ENTRY, "E-Svitlo"),
+    "soe": (REMOVED_SOE_ENTRY, "SOE"),
 }
 
 
@@ -122,41 +125,6 @@ def yasno_outage_all_day_today() -> dict:
             "updatedOn": today.isoformat(),
         }
     }
-
-
-def soe_group(group: str, periods: list[tuple[str, str]], update: str) -> dict:
-    """Build one sub-queue of the SOE answer, as the site gives it."""
-    return {
-        "cherga_n": group,
-        "no_data": not periods,
-        "last_update": f"Оновлено: {update}",
-        "lst_time_disc": [
-            {"start_time": start, "end_time": end, "diff_time": ""}
-            for start, end in periods
-        ],
-        "text_time_munyv": "час, що пройшов",
-        "text_time_curent": "поточний час вимкнення",
-        "text_time_tom": "майбутній час вимкнення",
-    }
-
-
-def soe_outage_all_day_today() -> dict:
-    """Build an SOE answer in which sub-queue 4.1 has no power all day today."""
-    update = f"{datetime.now(TZ_UA):%d.%m.%Y} 10:00"
-    return {
-        "data": [
-            soe_group("4.1", [("00:00", "00:00")], update),
-            soe_group("4.2", [], update),
-        ]
-    }
-
-
-def soe_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the SOE schedule, or fail the request."""
-    if answer:
-        aioclient_mock.get(SOE_SCHEDULE_URL, json=soe_outage_all_day_today())
-    else:
-        aioclient_mock.get(SOE_SCHEDULE_URL, exc=ClientError())
 
 
 def dtek_answers(aioclient_mock, fact: dict | None = None) -> None:
@@ -210,10 +178,6 @@ PROVIDERS = {
     "yasno": (
         YASNO_KYIV_1_1,
         lambda mock, *, answer: yasno_answers(mock, answer=answer),
-    ),
-    "soe": (
-        SOE_SUMY_4_1,
-        lambda mock, *, answer: soe_answers(mock, answer=answer),
     ),
 }
 

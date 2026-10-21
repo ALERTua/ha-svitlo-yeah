@@ -11,10 +11,7 @@ if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
 
 from custom_components.svitlo_yeah.const import TZ_UA
-from custom_components.svitlo_yeah.models import (
-    PlannedOutageEvent,
-    PlannedOutageEventType,
-)
+from custom_components.svitlo_yeah.models import PlannedOutageEvent
 
 LOGGER = logging.getLogger(__name__)
 
@@ -84,45 +81,6 @@ def parse_timestamp(timestamp_str: str) -> dt.datetime | None:
 
     LOGGER.debug("Failed to parse timestamp: %s", timestamp_str)
     return None
-
-
-def parse_periods(periods: object, day: dt.date) -> list[PlannedOutageEvent]:
-    """
-    Return the outages of one day from a list of periods; another shape has none.
-
-    The site of SOE gives a period as {"start_time": "HH:MM", "end_time": "HH:MM"}
-    in Kyiv time. As on the site of SOE, the end "00:00" is the next midnight,
-    so "00:00"-"00:00" is the whole day. An end before the start is on the next
-    day too, for example "23:00"-"02:00".
-    """
-    if not isinstance(periods, list):
-        return []
-    return [event for period in periods if (event := _parse_period(period, day))]
-
-
-def _parse_period(period: object, day: dt.date) -> PlannedOutageEvent | None:
-    """Return the outage of one period, or None for a period without usable times."""
-    if not isinstance(period, dict):
-        # A period of another shape has no times, as a period without them
-        return None
-    start_text = period.get("start_time")
-    end_text = period.get("end_time")
-    if not start_text or not end_text:
-        return None
-    try:
-        start_time = dt.time.fromisoformat(start_text)
-        end_time = dt.time.fromisoformat(end_text)
-    except (ValueError, TypeError):  # fmt: skip  # remove in 2027
-        LOGGER.exception("Failed to parse disconnection period %s", period)
-        return None
-
-    start = dt.datetime.combine(day, start_time, tzinfo=TZ_UA)
-    end = dt.datetime.combine(day, end_time, tzinfo=TZ_UA)
-    if end_time == dt.time.min or end_time < start_time:
-        end += dt.timedelta(days=1)
-    return PlannedOutageEvent(
-        start=start, end=end, event_type=PlannedOutageEventType.DEFINITE
-    )
 
 
 def start_moment(event: PlannedOutageEvent | CalendarEvent) -> dt.datetime:

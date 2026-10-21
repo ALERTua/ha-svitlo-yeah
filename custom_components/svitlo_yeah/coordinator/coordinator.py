@@ -94,7 +94,7 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
 
     config_entry: SvitloYeahConfigEntry
     api: ApiT
-    # The DTEK source key, the Yasno dso id or the SOE provider id
+    # The DTEK source key or the Yasno dso id
     provider_id: ProviderIdT
 
     def __init__(
@@ -469,11 +469,11 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
 
     def get_scheduled_events_between(
         self,
-        start_date: dt.datetime,  # noqa: ARG002  # a provider with a schedule reads it
-        end_date: dt.datetime,  # noqa: ARG002  # a provider with a schedule reads it
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
-        """Get scheduled outage events: none for a provider without such a schedule."""
-        return []
+        """Get the scheduled outage events that overlap the range."""
+        raise NotImplementedError
 
     def _get_calendar_event(
         self, event: PlannedOutageEvent | None

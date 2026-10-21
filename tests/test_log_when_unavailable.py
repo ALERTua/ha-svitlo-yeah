@@ -82,7 +82,7 @@ async def test_source_down_is_logged_once_and_back_once(
 
     assert _infos(caplog, BACK) == 1
     assert _infos(caplog, GONE) == 1
-    # Both lines name the source: the DTEK key, the Yasno dso id, or sumy
+    # Both lines name the source: the DTEK key or the Yasno dso id
     data, _ = PROVIDERS[provider]
     assert _infos(caplog, f"provider {data[CONF_PROVIDER]} ") == 2
     await _unload(hass, entry)

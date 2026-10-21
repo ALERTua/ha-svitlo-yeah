@@ -36,7 +36,6 @@ providing outage calendars, countdown timers, and status updates.
 | **Poltava and Oblast**         | POE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Poltavaoblenergo.json)                                                                                                                      |
 | **Rivne and Oblast**           | ROE      | [yaroslav2901/OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA/blob/main/data/Rivneoblenergo.json)                                                                                                                        |
 | **Vinnytsia and Oblast**       | VOE      | [olnet93/gpv-voe-vinnytsia](https://github.com/olnet93/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json)<br/>[vn-progr/gpv-voe-vinnytsia](https://github.com/vn-progr/gpv-voe-vinnytsia/blob/main/data/Vinnytsiaoblenerho.json) |
-| **Sumy and Oblast**            | SOE      | [soe.com.ua](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules)                                                                                                                                                           |
 
 ## Installation
 
@@ -60,7 +59,7 @@ This integration is configurable via UI. On **Devices and Services** page, click
 
 ### Setup parameters
 
-Before you start, find your outage group on the website of your provider. A Yasno provider (Kyiv or Dnipro) can find the group for you: you give the address of your house, and the integration asks Yasno for the group. See [Yasno address](#yasno-address). For «SOE — Sumy and Oblast — SOE», find your sub-queue by address on [the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules). See [Sumy and Oblast (soe.com.ua)](#sumy-and-oblast-soecomua).
+Before you start, find your outage group on the website of your provider. A Yasno provider (Kyiv or Dnipro) can find the group for you: you give the address of your house, and the integration asks Yasno for the group. See [Yasno address](#yasno-address).
 
 | Step | Field | Description |
 |---|---|---|
@@ -73,7 +72,7 @@ Before you start, find your outage group on the website of your provider. A Yasn
 | Select your house | House | A dropdown with a search box. It lists all houses of the street. Select your house, or type its number. The first option, «This is not my street, search again», goes back to the address form. |
 | Settings | Select your group | Your outage group, for example `1.1`. Find it on the website of your provider, for example [Yasno](https://static.yasno.ua/kyiv/outages) or [DTEK](https://www.dtek-krem.com.ua/ua/shutdowns). For DTEK Dnipro, the list shows a CEK group with its number in the source, for example «ЦЕК 1.1 (1001.1)». |
 
-Each region and group is a separate entry, and so is each Yasno address. To change the group of a DTEK or soe.com.ua entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again.
+Each region and group is a separate entry, and so is each Yasno address. To change the group of a DTEK entry later, open the menu of the entry and select **Reconfigure**. It shows the **Select your group** field again.
 
 For a Yasno entry, **Reconfigure** shows the same menu as the setup. **By address** suggests the current street (and city), and then the current house, so a check of the same address takes two clicks. **By group** preselects the current group. A group entry can get an address, and an address entry can go back to a group. Then it loses the **Update group** button, and it keeps the **Group** sensor. A new address in the same group is saved. Reconfigure ends with «Nothing changed» only when the group and the address are the same.
 
@@ -153,10 +152,6 @@ The blueprint has these inputs:
 When there are no outages for a while, DTEK JSON sources may stop publishing and all data becomes outdated. In that case setup shows a confirmation step: you can still pick your group from the last-known schedule after acknowledging the risk. The step shows when the source last updated the schedule, in Kyiv time. Once outages resume, double-check that your group hasn't changed.
 
 The outdated data serves only the choice of the group, and the integration does not use it after setup. The integration keeps the last fresh schedule of each entry, also across a restart of Home Assistant. If a source becomes outdated or does not answer, the integration uses that schedule until the source publishes fresh data again, also when that schedule gets older. The **Schedule Updated On** sensor shows the update time of the schedule that the integration uses.
-
-### Sumy and Oblast (soe.com.ua)
-
-The option «SOE — Sumy and Oblast — SOE» reads the schedule that the site of Sumyoblenergo shows. The site gives the schedule of the current day only, so the calendar and the next-outage sensors show the outages of tomorrow after midnight. A sub-queue without outages has an empty list on the site, and the **Electricity** sensor shows normal for it. If the site stops listing your sub-queue, the sensor shows unknown, and **Settings** → **Repairs** shows a warning. The site has no emergency schedules (ГАВ), which use other queue numbers. When Sumyoblenergo applies them, the hourly schedule on the site and in the integration does not apply.
 
 ### Here's how the devices look
 
@@ -374,7 +369,12 @@ The integration keeps the last schedule of each entry, also across a restart of 
 <details>
 <summary>The entry does not load, and Repairs shows «Version 0.11.0 removed the source of …»</summary>
 
-**Description:** the entry uses E-Svitlo, a source that version 0.11.0 of the integration removed. The source stopped giving the outage schedule to other programs. The outage section of [sm.e-svitlo.com.ua](https://sm.e-svitlo.com.ua/) is empty, and the site sends each user to [the schedule on the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules). No other open source of the Sumy schedule exists, so the integration has no replacement for this entry. The integration does not delete the entry itself.
+**Description:** the entry uses E-Svitlo or SOE. Version 0.11.0 of the integration removed these two sources of the Sumy and Oblast schedule, because each source stopped giving the outage schedule to other programs:
+
+- [soe.com.ua](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules) closed its schedule API to other programs.
+- [sm.e-svitlo.com.ua](https://sm.e-svitlo.com.ua/) stopped giving outage data. Its outage section is empty, and the site sends each user to [the schedule on the site of Sumyoblenergo](https://www.soe.com.ua/consumers/shutdowns?tab=hourly-schedules).
+
+No other open source of the Sumy schedule exists, so the integration has no replacement for this entry. The integration does not delete the entry itself.
 
 **Resolution:**
 

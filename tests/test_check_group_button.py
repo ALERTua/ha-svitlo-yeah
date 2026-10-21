@@ -116,7 +116,7 @@ async def test_address_entry_has_the_button(hass, aioclient_mock):
 
 @pytest.mark.parametrize("provider", PROVIDERS)
 async def test_entry_without_an_address_has_no_button(hass, aioclient_mock, provider):
-    """A group entry of Yasno, and a DTEK or SOE entry, have none."""
+    """A group entry of Yasno, and a DTEK entry, have none."""
     data, answers = PROVIDERS[provider]
     answers(aioclient_mock, answer=True)
 

@@ -14,7 +14,6 @@ from .const import (
     DOMAIN,
     ISSUE_PROVIDER_REMOVED,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
     REMOVED_PROVIDERS,
 )
@@ -25,7 +24,6 @@ from .coordinator.coordinator import (
     store_key,
 )
 from .coordinator.dtek.json import DtekCoordinatorJson
-from .coordinator.soe import SoeCoordinator
 from .coordinator.yasno import (
     YasnoCoordinator,
     address_not_found_issue_id,
@@ -92,8 +90,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: SvitloYeahConfigEntry) -
         coordinator = DtekCoordinatorJson(hass, entry)
     elif provider_type == PROVIDER_TYPE_YASNO:
         coordinator = YasnoCoordinator(hass, entry)
-    elif provider_type == PROVIDER_TYPE_SOE:
-        coordinator = SoeCoordinator(hass, entry)
     else:
         # Nothing can make the entry usable, so the user adds it again
         raise ConfigEntryError(
