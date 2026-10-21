@@ -760,7 +760,9 @@ class YasnoApi:
 
         Each level searches for its stored name, and goes on with the one item
         that has this name. Yasno changes its ids, so the names are stored and
-        the ids are searched again.
+        the ids are searched again. When the query of the stored house is cut at
+        the cap without the house, the result is Unknown, because each other query
+        that can find the house gives a longer list.
         """
         city_id = None
         if address.city is not None:
