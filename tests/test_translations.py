@@ -11,6 +11,7 @@ import pytest
 from custom_components.svitlo_yeah import const
 from custom_components.svitlo_yeah.config_flow import (
     NOT_FOUND_ERRORS,
+    SEARCH_AGAIN,
     SEARCH_AGAIN_TEXTS,
 )
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
@@ -306,21 +307,31 @@ def test_each_step_of_the_address_flow_has_its_texts(language):
     assert set(steps["house"]["data"]) == {"house"}
 
 
+def _search_again_texts(language: str) -> dict[str, str]:
+    """
+    Return the text of the option that searches again, for each translation key.
+
+    The frontend takes the text of an option of a select from the section of the
+    select, by the translation key of the select.
+    """
+    selector = _load(language)["selector"]
+    return {
+        key: selector.get(key, {}).get("options", {}).get(SEARCH_AGAIN, "")
+        for key, _ in SEARCH_AGAIN_TEXTS.values()
+    }
+
+
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_each_search_again_option_has_a_text(language):
-    """The common section has the text of the option that searches again."""
-    common = _load(language)["common"]
-    assert {
-        key for key, _ in SEARCH_AGAIN_TEXTS.values() if not common.get(key)
-    } == set()
+    """The section of each select has the text of its option that searches again."""
+    texts = _search_again_texts(language)
+    assert texts  # the table of the flow has the selects
+    assert {key for key, text in texts.items() if not text} == set()
 
 
 def test_search_again_fallback_is_the_english_text():
-    """A language file without the text gives the English one, as en.json has it."""
-    common = _load("en")["common"]
-    assert dict(SEARCH_AGAIN_TEXTS.values()) == {
-        key: common[key] for key, _ in SEARCH_AGAIN_TEXTS.values()
-    }
+    """The label that the flow gives the option is the English text of en.json."""
+    assert dict(SEARCH_AGAIN_TEXTS.values()) == _search_again_texts("en")
 
 
 def test_address_texts_name_the_placeholders_that_the_flow_sends():

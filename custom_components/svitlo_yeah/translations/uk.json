@@ -185,6 +185,21 @@
         "esvitloprovider_sumy": "E-Svitlo — Суми та Область — СОЕ",
         "soeprovider_sumy": "СОЕ — Суми та Область — СОЕ"
       }
+    },
+    "city_match": {
+      "options": {
+        "search_again": "Мого міста немає, шукати знову"
+      }
+    },
+    "street_match": {
+      "options": {
+        "search_again": "Моєї вулиці немає, шукати знову"
+      }
+    },
+    "house_match": {
+      "options": {
+        "search_again": "Це не моя вулиця, шукати знову"
+      }
     }
   },
   "entity": {
@@ -277,9 +292,6 @@
     "zhytomyr": "Житомир",
     "sumy": "Суми",
     "poltava": "Полтава",
-    "rivne": "Рівне",
-    "search_again_city": "Мого міста немає, шукати знову",
-    "search_again_street": "Моєї вулиці немає, шукати знову",
-    "search_again_house_street": "Це не моя вулиця, шукати знову"
+    "rivne": "Рівне"
   }
 }

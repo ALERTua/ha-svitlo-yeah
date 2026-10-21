@@ -82,22 +82,26 @@ GROUP_PAGE_URLS: dict[str, str] = {
     PROVIDER_TYPE_SOE: SOE_SITE_URL,
 }
 
+# The Yasno page of each region, by the region id, as the page script of Yasno has them
+YASNO_REGION_PAGES: dict[int, str] = {
+    25: "https://static.yasno.ua/kyiv/outages",
+    3: "https://static.yasno.ua/dnipro/outages",
+}
+
 # The keys of an entry that name the address of a person, so no log line shows them
 ADDRESS_KEYS = (CONF_CITY, CONF_STREET, CONF_HOUSE)
 
 # The option that ends a select of matches or of houses, and shows the address form
 SEARCH_AGAIN = "search_again"
 
-# For each select: the key of its "search again" text in the common section of the
-# translations, and the English text for a language file without it. The select of the
-# houses lists the houses of the street, so its option says that the street is wrong.
+# For each select: its translation key, which gives the "search again" option a text in
+# the language of the user, and the English text for a language without one. The select
+# of the houses lists the houses of the street, so its option says that the street is
+# wrong. The frontend keeps the label of each other option, which has no translation.
 SEARCH_AGAIN_TEXTS: dict[str, tuple[str, str]] = {
-    CONF_CITY: ("search_again_city", "My city is not in the list, search again"),
-    CONF_STREET: ("search_again_street", "My street is not in the list, search again"),
-    CONF_HOUSE: (
-        "search_again_house_street",
-        "This is not my street, search again",
-    ),
+    CONF_CITY: ("city_match", "My city is not in the list, search again"),
+    CONF_STREET: ("street_match", "My street is not in the list, search again"),
+    CONF_HOUSE: ("house_match", "This is not my street, search again"),
 }
 
 # The error under the field of a level, when Yasno knows no such text
@@ -420,20 +424,18 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={
-                "url": GROUP_PAGE_URLS[PROVIDER_TYPE_YASNO],
+                "url": self._yasno_page(),
                 **(placeholders or {}),
             },
             # The house comes after this form, so its button says Next
             last_step=False,
         )
 
-    async def _async_search_again_label(self, field: str) -> str:
-        """Return the text of the option that searches again, for a level."""
-        names = await async_get_translations(
-            self.hass, self.hass.config.language, "common", [DOMAIN]
+    def _yasno_page(self) -> str:
+        """Return the Yasno page of the region of the flow, or the page of Київ."""
+        return YASNO_REGION_PAGES.get(
+            self.data.get(CONF_REGION), GROUP_PAGE_URLS[PROVIDER_TYPE_YASNO]
         )
-        key, english = SEARCH_AGAIN_TEXTS[field]
-        return names.get(common_translation_key(key), english)
 
     async def _async_show_pick_form(self, field: str) -> ConfigFlowResult:
         """
@@ -442,15 +444,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         No option is preselected, because the frontend would take the first option
         for the user. The text names the address that the matches belong to.
         """
+        translation_key, english = SEARCH_AGAIN_TEXTS[field]
         options = [
             SelectOptionDict(value=str(item.id), label=item.value)
             for item in self._matches
         ]
-        options.append(
-            SelectOptionDict(
-                value=SEARCH_AGAIN, label=await self._async_search_again_label(field)
-            )
-        )
+        options.append(SelectOptionDict(value=SEARCH_AGAIN, label=english))
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id=f"pick_{field}",
@@ -458,7 +457,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(field, default=None): SelectSelector(
                         SelectSelectorConfig(
-                            options=options, mode=SelectSelectorMode.LIST
+                            options=options,
+                            mode=SelectSelectorMode.LIST,
+                            translation_key=translation_key,
                         )
                     ),
                 }
@@ -518,39 +519,44 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         errors: dict[str, str] | None = None,
         placeholders: dict[str, str] | None = None,
+        typed: str | None = None,
     ) -> ConfigFlowResult:
         """
         Show the dropdown of all houses of the street, and the option to search again.
 
         The dropdown takes a typed text too, and its search box finds a house by
         the typed part of the number. The text names the street of the houses.
+        After an error, the field shows the house that the user gave.
         """
         houses = self._houses or []
+        translation_key, english = SEARCH_AGAIN_TEXTS[CONF_HOUSE]
+        # A long list hides its last option, so the search again option comes first
+        options = [SelectOptionDict(value=SEARCH_AGAIN, label=english)]
         # The field shows the value of the chosen option, so the value is the number
         # of the house, not its id. One number is one option.
         numbers = dict.fromkeys(item.value for item in houses)
-        options = [SelectOptionDict(value=number, label=number) for number in numbers]
-        options.append(
-            SelectOptionDict(
-                value=SEARCH_AGAIN,
-                label=await self._async_search_again_label(CONF_HOUSE),
-            )
+        options.extend(
+            SelectOptionDict(value=number, label=number) for number in numbers
         )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOUSE, default=None): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        custom_value=True,
+                        sort=False,
+                        translation_key=translation_key,
+                    )
+                ),
+            }
+        )
+        if typed is not None:
+            schema = self.add_suggested_values_to_schema(schema, {CONF_HOUSE: typed})
         # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="house",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_HOUSE, default=None): SelectSelector(
-                        SelectSelectorConfig(
-                            options=options,
-                            mode=SelectSelectorMode.DROPDOWN,
-                            custom_value=True,
-                            sort=False,
-                        )
-                    ),
-                }
-            ),
+            data_schema=schema,
             errors=errors,
             description_placeholders={
                 "place": self._place(),
@@ -602,7 +608,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             errors["base"] = "yasno_no_answer"
         elif group not in api.get_yasno_groups():
             errors["base"] = "address_group_not_listed"
-            return await self._async_show_house_form(errors, {"group": group})
+            return await self._async_show_house_form(
+                errors, {"group": group}, typed=house.value
+            )
         else:
             # The names that Yasno wrote go into the entry, never its ids
             address = {CONF_STREET: street.value, CONF_HOUSE: house.value}
@@ -616,7 +624,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                     "group": group,
                 },
             )
-        return await self._async_show_house_form(errors)
+        return await self._async_show_house_form(errors, typed=house.value)
 
     async def async_step_address(
         self, user_input: dict | None = None
@@ -694,7 +702,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             return self._show_address_form()
         found = await self._async_find_house(api, user_input[CONF_HOUSE])
         if isinstance(found, dict):
-            return await self._async_show_house_form(found)
+            return await self._async_show_house_form(
+                found, typed=user_input[CONF_HOUSE]
+            )
         return await self._async_finish_address(api, found)
 
     async def async_step_group(
@@ -796,7 +806,12 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="group",
             data_schema=data_schema,
-            description_placeholders={"url": GROUP_PAGE_URLS[provider_type]},
+            description_placeholders={
+                # Each Yasno region has its own page
+                "url": self._yasno_page()
+                if provider_type == PROVIDER_TYPE_YASNO
+                else GROUP_PAGE_URLS[provider_type]
+            },
         )
 
     async def async_step_reconfigure(
