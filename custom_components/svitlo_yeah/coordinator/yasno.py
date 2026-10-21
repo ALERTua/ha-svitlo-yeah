@@ -286,7 +286,8 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
 
         The check never runs in the first refresh: the update listener that
         reloads the entry with a new group comes only after it, and the first
-        refresh holds up the start of Home Assistant.
+        refresh holds up the start of Home Assistant. A due check also waits while
+        Yasno does not answer the schedule, but a forced check runs.
         """
         if (
             self._address is None
@@ -312,6 +313,10 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 await self._async_store_last_data()
                 return
             if now < check.next_check:
+                return
+            # Yasno did not answer the schedule of this poll, so the check would only
+            # wait for another timeout. The check stays due for the next poll.
+            if self.last_fetch_failed:
                 return
         await self._async_check_address(
             check or AddressCheck(self._address, now), force=force
