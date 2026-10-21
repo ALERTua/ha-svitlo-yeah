@@ -24,6 +24,7 @@ from custom_components.svitlo_yeah.const import (
     PROVIDER_TYPE_YASNO,
     SOE_SCHEDULE_URL,
     TZ_UA,
+    YASNO_ADDRESSES_ENDPOINT,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -61,6 +62,21 @@ YASNO_KYIV = {
     "id": 25,
     "value": "Київ",
     "dsos": [{"id": 902, "name": "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"}],
+}
+# The measured address chain of Київ: the street (id 1647) and its house 6 with the
+# Cyrillic letter (id 41362) give the group 53.1. Each value is the reply that
+# aioclient_mock gives for a request of that level.
+YASNO_KYIV_STREET_REPLY = {"json": [{"id": 1647, "value": YASNO_KYIV_STREET}]}
+YASNO_KYIV_HOUSE_REPLY = {"json": [{"id": 41362, "value": YASNO_KYIV_HOUSE}]}
+YASNO_GROUP_53_1_REPLY = {"json": {"group": 53, "subgroup": 1}}
+YASNO_GROUP_1_1_REPLY = {"json": {"group": 1, "subgroup": 1}}
+# Yasno finds no such street: a list without the name, shorter than the cap
+YASNO_NO_STREET_REPLY = {"json": []}
+YASNO_SERVER_ERROR_REPLY = {"status": 500}
+# What Yasno answers for an id that it does not know
+YASNO_ENTRY_NOT_FOUND_REPLY = {
+    "status": 404,
+    "json": {"code": "EntryNotFound", "detail": "House 41362 not found"},
 }
 
 E_SVITLO_ACCOUNT_101 = {
@@ -179,6 +195,27 @@ def yasno_answers(aioclient_mock, *, answer: bool) -> None:
         aioclient_mock.get(YASNO_PLANNED_URL, json=yasno_outage_all_day_today())
     else:
         aioclient_mock.get(YASNO_PLANNED_URL, exc=ClientError())
+
+
+def yasno_address_answers(
+    aioclient_mock,
+    *,
+    group: dict = YASNO_GROUP_53_1_REPLY,
+    streets: dict = YASNO_KYIV_STREET_REPLY,
+) -> None:
+    """
+    Serve the regions, the planned outages and the address requests of Yasno.
+
+    The planned outages list the groups 1.1 and 53.1, so an entry can switch from
+    the group 1.1 to the group 53.1 of the address. The group request and the street
+    request give the replies of the call, as the keywords of aioclient_mock.
+    """
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    day = yasno_outage_all_day_today()["1.1"]
+    aioclient_mock.get(YASNO_PLANNED_URL, json=dict.fromkeys(("1.1", "53.1"), day))
+    aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "streets", **streets)
+    aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "houses", **YASNO_KYIV_HOUSE_REPLY)
+    aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "group", **group)
 
 
 def e_svitlo_answers(aioclient_mock, *, answer: bool) -> None:

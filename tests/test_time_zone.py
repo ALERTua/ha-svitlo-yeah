@@ -215,7 +215,8 @@ async def test_yasno_emergency_today_and_an_outage_tomorrow(
     entry = await _set_up(hass, YASNO_KYIV_1_1)
 
     entities = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-    assert len(entities) == 9
+    # The nine entities of each entry, and the group sensor that a Yasno entry has
+    assert len(entities) == 10
     assert [e.entity_id for e in entities if hass.states.get(e.entity_id) is None] == []
     assert entry.runtime_data.current_state == ConnectivityState.STATE_EMERGENCY
     assert entry.runtime_data.next_event.start == TUESDAY + timedelta(hours=1)

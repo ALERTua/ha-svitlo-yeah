@@ -230,8 +230,12 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         """
         Check the group of the address at once, and switch to a new group at once.
 
-        The check runs inside a poll, so it waits for the lock of the poll.
+        The check runs inside a poll, so it waits for the lock of the poll. After
+        it, address_check_result is the result of this check, or None when the poll
+        stopped before the check.
         """
+        # The result of an earlier check must not count as the result of this one
+        self.address_check_result = None
         self._force_address_check = True
         try:
             await self.async_refresh()

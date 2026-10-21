@@ -206,6 +206,9 @@
     "button": {
       "refresh": {
         "name": "Force refresh now"
+      },
+      "check_group": {
+        "name": "Update group"
       }
     },
     "calendar": {
@@ -239,6 +242,9 @@
       },
       "next_connectivity": {
         "name": "Next Connectivity"
+      },
+      "group": {
+        "name": "Group"
       }
     }
   },
@@ -258,6 +264,12 @@
     },
     "login_rejected": {
       "message": "E-Svitlo refused the login. To enter the current password, go to Settings > Devices & services. If E-Svitlo has maintenance now, try again later."
+    },
+    "check_group_failed": {
+      "message": "Yasno does not answer, so the group stays. Try again in a few minutes."
+    },
+    "address_not_found": {
+      "message": "Yasno does not find the address of this entry. The entry keeps its group."
     },
     "unknown_provider_type": {
       "message": "This entry has the unknown provider type «{provider_type}». Delete the entry and add it again."

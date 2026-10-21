@@ -31,15 +31,19 @@ ADDRESS_TEXT = f"{YASNO_KYIV_STREET}, {YASNO_KYIV_HOUSE}"
 # The entity ids that Home Assistant gives for this address, and for the group 1.1
 ADDRESS_ENTITY_IDS = {
     "button.vul_sverstiuka_evgena_6a_force_refresh_now",
+    "button.vul_sverstiuka_evgena_6a_update_group",
     "calendar.vul_sverstiuka_evgena_6a_planned_outages",
     "calendar.vul_sverstiuka_evgena_6a_scheduled_outages",
     "sensor.vul_sverstiuka_evgena_6a_electricity",
+    "sensor.vul_sverstiuka_evgena_6a_group",
     "sensor.vul_sverstiuka_evgena_6a_next_connectivity",
     "sensor.vul_sverstiuka_evgena_6a_next_planned_outage",
     "sensor.vul_sverstiuka_evgena_6a_next_scheduled_outage",
     "sensor.vul_sverstiuka_evgena_6a_schedule_data_changed_on",
     "sensor.vul_sverstiuka_evgena_6a_schedule_updated_on",
 }
+# The ids of a group entry from before the group sensor. They must not change: a user
+# has automations and dashboards that name them.
 GROUP_ENTITY_IDS = {
     "button.kiiv_dtek_1_1_force_refresh_now",
     "calendar.kiiv_dtek_1_1_planned_outages",
@@ -51,6 +55,8 @@ GROUP_ENTITY_IDS = {
     "sensor.kiiv_dtek_1_1_schedule_data_changed_on",
     "sensor.kiiv_dtek_1_1_schedule_updated_on",
 }
+# The only new entity of a group entry: the group sensor
+GROUP_SENSOR_ID = "sensor.kiiv_dtek_1_1_group"
 
 
 async def _start(hass, data: dict, title: str = "Mock Title") -> MockConfigEntry:
@@ -118,13 +124,18 @@ async def test_entity_ids_come_from_the_address(hass, aioclient_mock):
 
 
 async def test_group_entry_keeps_its_device_name_and_entity_ids(hass, aioclient_mock):
-    """An entry with a group only has the names that it had before addresses."""
+    """
+    An entry with a group only has the names that it had before addresses.
+
+    The entity ids that it had stay, and it has the group sensor besides them. It has
+    no button that checks an address.
+    """
     yasno_answers(aioclient_mock, answer=True)
 
     entry = await _start(hass, YASNO_KYIV_1_1, "Київ ДТЕК 1.1")
 
     assert _device(hass, entry).name == "Київ ДТЕК 1.1"
-    assert _entity_ids(hass, entry) == GROUP_ENTITY_IDS
+    assert _entity_ids(hass, entry) == GROUP_ENTITY_IDS | {GROUP_SENSOR_ID}
     await _unload(hass, entry)
 
 
