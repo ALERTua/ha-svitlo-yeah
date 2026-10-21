@@ -148,8 +148,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self._chosen: dict[str, YasnoAddressItem] = {}
         # The matches of the select that is shown, so a chosen value maps to its match
         self._matches: list[YasnoAddressItem] = []
-        # All houses of the chosen street. None until the house step asks for them,
-        # so an error of the house form shows the same list without a new search.
+        # The houses of the chosen street that Yasno lists. None until the house step
+        # asks for them, so an error of the house form shows the same list without a
+        # new search.
         self._houses: list[YasnoAddressItem] | None = None
 
     @override
@@ -489,7 +490,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         typed: str | None = None,
     ) -> ConfigFlowResult:
         """
-        Show the dropdown of all houses of the street, and the option to search again.
+        Show the houses that Yasno lists for the street, and the option to search again.
 
         The dropdown takes a typed number too. The field suggests the house of an
         error, or the house of the entry in a Reconfigure on the street of the entry.
@@ -692,7 +693,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_house(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
-        """Let the user choose the house among all houses of the street, or type it."""
+        """Let the user choose a house that Yasno lists for the street, or type it."""
         api = self._yasno_api()
         if user_input is None:
             if self._houses is None:
