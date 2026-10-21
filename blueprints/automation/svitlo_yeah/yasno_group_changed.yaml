@@ -1,0 +1,65 @@
+blueprint:
+  name: Svitlo Yeah - New Yasno group of an address
+  description: >-
+    Send a push to your phone when the weekly check of a Yasno entry with an address,
+    or its button «Update group», gives the entry a new group.
+    The phone needs the official Home Assistant app.
+  domain: automation
+  source_url: https://github.com/ALERTua/ha-svitlo-yeah/blob/main/blueprints/automation/svitlo_yeah/yasno_group_changed.yaml
+  author: ALERTua
+  input:
+    notify_device:
+      name: Device to notify
+      description: The phone that gets the push. It needs the official Home Assistant app.
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+    entry:
+      name: Entry
+      description: The Svitlo Yeah entry to watch. Leave it empty to watch each entry.
+      default: ""
+      selector:
+        config_entry:
+          integration: svitlo_yeah
+    title:
+      name: Title
+      description: The title of the push.
+      default: "Нова група Yasno"
+      selector:
+        text: {}
+    message:
+      name: Message
+      description: >-
+        The text of the push. {{ entry_title }} is the name of the entry, which is
+        its address, and {{ old_group }} and {{ new_group }} are the groups.
+      default: "Група Yasno для «{{ entry_title }}» змінилася з {{ old_group }} на {{ new_group }}."
+      selector:
+        text:
+          multiline: true
+
+# Two entries can get a new group in one poll, and each gets its push
+mode: queued
+
+triggers:
+  - trigger: event
+    event_type: svitlo_yeah_group_changed
+
+variables:
+  entry: !input entry
+  # The event has no address, so the name of the entry comes from its id
+  entry_title: "{{ config_entry_attr(trigger.event.data.config_entry_id, 'title') }}"
+  old_group: "{{ trigger.event.data.old_group }}"
+  new_group: "{{ trigger.event.data.new_group }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ not entry or trigger.event.data.config_entry_id == entry }}"
+
+actions:
+  - alias: "Send the push about the new group"
+    domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: !input title
+    message: !input message
