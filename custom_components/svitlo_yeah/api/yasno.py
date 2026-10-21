@@ -695,15 +695,14 @@ class YasnoApi:
         self, street_id: int, city_id: int | None = None
     ) -> list[YasnoAddressItem] | None:
         """
-        Return all houses of a street in the natural order, or None without an answer.
+        Return the houses of a street that the queries find, in the natural order.
 
-        Yasno gives at most YASNO_ADDRESS_MATCHES_CAP houses for one query, and it
-        finds a query inside the number of a house. So the search asks one query for
-        each digit, and a query that got the cap gets ten longer ones: the query and
-        each digit. A wave of queries runs at the same time, a few requests at once.
-        Any query without a sure answer gives None. After
-        YASNO_HOUSE_LIST_REQUESTS_MAX requests the search stops, and it returns the
-        houses that it found.
+        Yasno finds a query inside the number of a house, and it gives at most
+        YASNO_ADDRESS_MATCHES_CAP houses for one query. So each digit is a query, and
+        a query that got the cap gets ten longer ones. A cut answer can hide a house,
+        so the house step also searches a typed number at Yasno. A query without a
+        sure answer gives None. The search stops after YASNO_HOUSE_LIST_REQUESTS_MAX
+        requests.
         """
         semaphore = asyncio.Semaphore(_HOUSE_REQUESTS_AT_ONCE)
 

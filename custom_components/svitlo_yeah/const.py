@@ -67,11 +67,8 @@ def yasno_region_page(region_id: int | None) -> str:
 YASNO_ADDRESS_MATCHES_CAP: Final = 20
 # Yasno finds a street only from this many letters
 YASNO_STREET_QUERY_MIN: Final = 3
-# The most requests that one list of all houses of a street takes. Yasno gives at most
-# YASNO_ADDRESS_MATCHES_CAP houses for one query, so the list asks one query for each
-# digit, and a query that got the cap gets ten longer ones. A usual street needs 10
-# requests (39 houses of Сверстюка), a long one needs more (133 houses of Велика
-# Васильківська need 80). The limit ends a search that does not stop.
+# Stops a list of houses that does not end. A usual street takes 10 requests, and a
+# long one about 80.
 YASNO_HOUSE_LIST_REQUESTS_MAX: Final = 300
 
 # API Block names
