@@ -53,6 +53,16 @@ def group_not_listed_issue_id(entry_id: str) -> str:
     return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
 
 
+async def async_integration_title(hass: HomeAssistant) -> str:
+    """
+    Return the integration name that the list of integrations shows.
+
+    A repair issue names it, because the way to an entry goes through that list.
+    """
+    titles = await async_get_translations(hass, hass.config.language, "title", [DOMAIN])
+    return titles.get(f"component.{DOMAIN}.title", NAME)
+
+
 def _ends_after(event: PlannedOutageEvent, now: dt.datetime) -> bool:
     """Return whether the event ends after now (an all-day one at its end date)."""
     if isinstance(event.end, dt.datetime):
@@ -70,7 +80,7 @@ def store_key(entry_id: str) -> str:
 type SvitloYeahConfigEntry = ConfigEntry[IntegrationCoordinator]
 
 
-class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
+class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
     DataUpdateCoordinator[None]
 ):
     """
@@ -84,7 +94,7 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
 
     config_entry: SvitloYeahConfigEntry
     api: ApiT
-    # The DTEK source key, the Yasno dso id or the SOE provider id; E-Svitlo has none
+    # The DTEK source key, the Yasno dso id or the SOE provider id
     provider_id: ProviderIdT
 
     def __init__(
@@ -106,8 +116,6 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
         self.group_listed: bool | None = None
         # Whether the last fetch got no answer, for the refresh button and the log
         self.last_fetch_failed = False
-        # Whether the server refused the login; only E-Svitlo has a login
-        self.login_rejected = False
         self._store: Store[dict] | None = None
         self._stored: dict | None = None
 
@@ -244,19 +252,17 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
         """
         if failed == self.last_fetch_failed:
             return
-        # An E-Svitlo entry has no provider_id, and its address is personal data
-        source = self.provider_id or getattr(self.provider, "region_name", None)
         if failed:
             LOGGER.info(
                 "The source of provider %s does not answer for group %s, "
                 "so the entities keep the last schedule",
-                source,
+                self.provider_id,
                 self.group,
             )
         else:
             LOGGER.info(
                 "The source of provider %s answers again for group %s",
-                source,
+                self.provider_id,
                 self.group,
             )
         self.last_fetch_failed = failed
@@ -306,13 +312,7 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
 
     async def _async_integration_title(self) -> str:
         """Return the integration name that the list of integrations shows."""
-        titles = await async_get_translations(
-            self.hass,
-            self.hass.config.language,
-            "title",
-            [DOMAIN],
-        )
-        return titles.get(f"component.{DOMAIN}.title", NAME)
+        return await async_integration_title(self.hass)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""

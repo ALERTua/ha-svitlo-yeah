@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from custom_components.svitlo_yeah.const import CONF_CITY, CONF_HOUSE, CONF_STREET
 
-from .providers import ESvitloProvider, SoeProvider, YasnoProvider
+from .providers import SoeProvider, YasnoProvider
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ConnectivityState",
-    "ESvitloProvider",
     "PlannedOutageEvent",
     "PlannedOutageEventType",
     "SoeProvider",

@@ -91,21 +91,15 @@ class IntegrationRefreshButton(IntegrationEntity, ButtonEntity):
         """
         Force an immediate data refresh, ignoring the update interval.
 
-        Fail when the source does not answer or E-Svitlo refuses the login. Never
-        touch last_update_success, because the entities keep the last data.
+        Fail when the source does not answer. Never touch last_update_success,
+        because the entities keep the last data.
         """
         LOGGER.debug("Manual refresh requested for %s", self.coordinator.group)
         await self.coordinator.async_refresh()
-        # No answer goes first, also while an older refused login waits for a new one
         if self.coordinator.last_fetch_failed:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="refresh_failed",
-            )
-        if self.coordinator.login_rejected:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="login_rejected",
             )
 
 

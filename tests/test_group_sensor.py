@@ -173,9 +173,9 @@ async def test_address_entry_has_the_group_sensor_enabled(hass, aioclient_mock):
     await _unload(hass, entry)
 
 
-@pytest.mark.parametrize("provider", ["dtek", "e_svitlo", "soe"])
+@pytest.mark.parametrize("provider", ["dtek", "soe"])
 async def test_other_providers_have_no_group_sensor(hass, aioclient_mock, provider):
-    """A DTEK, E-Svitlo or SOE entry keeps the sensors that it had."""
+    """A DTEK or SOE entry keeps the sensors that it had."""
     data, answers = PROVIDERS[provider]
     answers(aioclient_mock, answer=True)
 

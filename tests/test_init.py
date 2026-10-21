@@ -7,30 +7,36 @@ from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.svitlo_yeah import button, calendar, sensor
+from custom_components.svitlo_yeah import (
+    button,
+    calendar,
+    provider_removed_issue_id,
+    sensor,
+)
 from custom_components.svitlo_yeah.const import (
-    CONF_ACCOUNT_ID,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
     DOMAIN,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_YASNO,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
+from custom_components.svitlo_yeah.coordinator.coordinator import (
+    STORE_VERSION,
+    store_key,
+)
 from custom_components.svitlo_yeah.coordinator.dtek.json import DtekCoordinatorJson
 from custom_components.svitlo_yeah.coordinator.yasno import YasnoCoordinator
 from tests.helpers import (
-    E_SVITLO_ACCOUNT_101,
     PROVIDERS,
+    REMOVED_E_SVITLO_ENTRY,
     YASNO_PLANNED_URL,
-    e_svitlo_answers,
     kyiv_midnight,
     yasno_outage_all_day_today,
 )
@@ -41,6 +47,16 @@ pytestmark = pytest.mark.usefixtures(
 
 KYIV_REGIONS = [{"id": 25, "value": "Київ", "dsos": [{"id": 902, "name": "ДТЕК"}]}]
 INTEGRATION_LOGGER = "custom_components.svitlo_yeah"
+# The title of an older entry can be the address of a person, so no log line has it
+REMOVED_ENTRY_TITLE = REMOVED_E_SVITLO_ENTRY["address_str"]
+# The names that the texts about a removed provider show, in English
+REMOVED_PLACEHOLDERS = {"provider": "E-Svitlo", "integration": "Svitlo Yeah!"}
+
+
+def _issues(hass) -> list[ir.IssueEntry]:
+    """Return the repair issues of the integration."""
+    registry = ir.async_get(hass)
+    return [issue for (domain, _), issue in registry.issues.items() if domain == DOMAIN]
 
 
 def _planned_outages(*groups: str) -> dict:
@@ -129,29 +145,88 @@ async def test_device_without_a_provider_logs_from_the_entity_module(
     await hass.async_block_till_done()
 
 
-async def test_each_e_svitlo_entry_logs_in_with_its_own_session(hass, aioclient_mock):
-    """
-    Two E-Svitlo accounts do not share the cookies of one login.
+async def _set_up_removed_entry(hass) -> MockConfigEntry:
+    """Add an E-Svitlo entry of an earlier release, and start its setup."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=REMOVED_E_SVITLO_ENTRY, title=REMOVED_ENTRY_TITLE
+    )
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    return entry
 
-    The shared session of Home Assistant keeps the cookies of all integrations.
+
+async def test_entry_of_a_removed_provider_stops_with_a_repair_issue(
+    hass, aioclient_mock, caplog
+):
     """
-    e_svitlo_answers(aioclient_mock, answer=True)
-    entries = []
-    for account in ("101", "102"):
-        entry = MockConfigEntry(
-            domain=DOMAIN, data={**E_SVITLO_ACCOUNT_101, CONF_ACCOUNT_ID: account}
-        )
-        entry.add_to_hass(hass)
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        entries.append(entry)
+    The entry does not load, and a repair issue asks the user to delete it.
+
+    The error and the issue name the provider and the way to the entry. The
+    integration asks no source and logs no title.
+    """
+    caplog.set_level(logging.DEBUG, logger=INTEGRATION_LOGGER)
+
+    entry = await _set_up_removed_entry(hass)
+
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert entry.error_reason_translation_key == "provider_removed"
+    assert entry.error_reason_translation_placeholders == REMOVED_PLACEHOLDERS
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, provider_removed_issue_id(entry.entry_id)
+    )
+    assert issue is not None
+    assert issue.translation_key == "provider_removed"
+    assert issue.translation_placeholders == {
+        "entry": REMOVED_ENTRY_TITLE,
+        **REMOVED_PLACEHOLDERS,
+    }
+    assert (issue.severity, issue.is_fixable, issue.is_persistent) == (
+        ir.IssueSeverity.ERROR,
+        False,
+        False,
+    )
+    assert hass.config_entries.async_entries(DOMAIN) == [entry]
+    assert aioclient_mock.call_count == 0
+    records = [r for r in caplog.records if r.name.startswith(INTEGRATION_LOGGER)]
+    assert records  # the debug log of the setup is on
+    assert [r for r in records if REMOVED_ENTRY_TITLE in r.getMessage()] == []
+
+
+async def test_second_setup_of_a_removed_provider_keeps_one_issue(hass):
+    """A reload or a restart sets the entry up again, and the issue stays one."""
+    entry = await _set_up_removed_entry(hass)
+
+    await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
 
-    first, second = (entry.runtime_data.api.session for entry in entries)
-    assert first is not second
-    assert async_get_clientsession(hass) not in (first, second)
-    for entry in entries:
-        assert await hass.config_entries.async_unload(entry.entry_id)
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert [issue.issue_id for issue in _issues(hass)] == [
+        provider_removed_issue_id(entry.entry_id)
+    ]
+
+
+async def test_deleted_entry_of_a_removed_provider_takes_its_issue_along(
+    hass, hass_storage
+):
+    """The user deletes the entry: its issue and the data that it kept go too."""
+    entry = await _set_up_removed_entry(hass)
+    # The data that an earlier release kept for the entry
+    key = store_key(entry.entry_id)
+    hass_storage[key] = {
+        "version": STORE_VERSION,
+        "minor_version": 1,
+        "key": key,
+        "data": {"source": {}, "group": "4.1"},
+    }
+    assert len(_issues(hass)) == 1
+
+    assert await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
+
+    assert _issues(hass) == []
+    assert key not in hass_storage
+    assert hass.config_entries.async_entries(DOMAIN) == []
 
 
 async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
@@ -229,10 +304,6 @@ async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
             },
             "entry_without_group",
         ),
-        (
-            {CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO, CONF_PROVIDER: "sumy"},
-            "entry_without_login",
-        ),
     ],
     ids=[
         "no_provider_type",
@@ -243,14 +314,14 @@ async def test_only_the_button_limits_parallel_calls(hass, aioclient_mock):
         "yasno_without_region",
         "yasno_without_provider",
         "yasno_without_group",
-        "e_svitlo_without_login",
     ],
 )
 async def test_broken_entry_stops_with_a_translated_error(hass, data, error):
     """
     An entry that cannot work stops its setup.
 
-    It tells the user why, in the language of the user.
+    It tells the user why, in the language of the user. Only an entry of a
+    removed provider gets a repair issue.
     """
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     entry.add_to_hass(hass)
@@ -260,6 +331,7 @@ async def test_broken_entry_stops_with_a_translated_error(hass, data, error):
 
     assert entry.state is ConfigEntryState.SETUP_ERROR
     assert entry.error_reason_translation_key == error
+    assert _issues(hass) == []
 
 
 async def test_changed_data_reload_the_entry(hass, aioclient_mock):

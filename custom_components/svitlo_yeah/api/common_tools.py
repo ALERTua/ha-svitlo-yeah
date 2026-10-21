@@ -90,10 +90,10 @@ def parse_periods(periods: object, day: dt.date) -> list[PlannedOutageEvent]:
     """
     Return the outages of one day from a list of periods; another shape has none.
 
-    E-Svitlo and the site of SOE give a period as {"start_time": "HH:MM",
-    "end_time": "HH:MM"} in Kyiv time. As on the site of SOE, the end "00:00"
-    is the next midnight, so "00:00"-"00:00" is the whole day. An end before
-    the start is on the next day too, for example "23:00"-"02:00".
+    The site of SOE gives a period as {"start_time": "HH:MM", "end_time": "HH:MM"}
+    in Kyiv time. As on the site of SOE, the end "00:00" is the next midnight,
+    so "00:00"-"00:00" is the whole day. An end before the start is on the next
+    day too, for example "23:00"-"02:00".
     """
     if not isinstance(periods, list):
         return []

@@ -3,16 +3,9 @@
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.util import dt as dt_utils
 
-from .const import (
-    CONF_ACCOUNT_ID,
-    CONF_ADDRESS_STR,
-    CONF_CITY,
-    CONF_HOUSE,
-    CONF_STREET,
-)
+from .const import CONF_CITY, CONF_HOUSE, CONF_STREET
 from .coordinator.coordinator import TIMEFRAME_TO_CHECK
 from .coordinator.yasno import YasnoCoordinator
 
@@ -24,17 +17,8 @@ if TYPE_CHECKING:
 
     from .coordinator.coordinator import SvitloYeahConfigEntry
 
-# The E-Svitlo login, the personal account and its address identify a person, and so
-# does the address of a Yasno entry
-TO_REDACT = {
-    CONF_USERNAME,
-    CONF_PASSWORD,
-    CONF_ACCOUNT_ID,
-    CONF_ADDRESS_STR,
-    CONF_CITY,
-    CONF_STREET,
-    CONF_HOUSE,
-}
+# The address of a Yasno entry identifies a person
+TO_REDACT = {CONF_CITY, CONF_STREET, CONF_HOUSE}
 
 
 def _iso(value: dt.datetime | dt.date | None) -> str | None:
@@ -71,7 +55,6 @@ async def async_get_config_entry_diagnostics(
             repr(coordinator.last_exception) if coordinator.last_exception else None
         ),
         "last_fetch_failed": coordinator.last_fetch_failed,
-        "login_rejected": coordinator.login_rejected,
         "schedule_updated_on": _iso(coordinator.schedule_updated_on),
         "outage_data_last_changed": _iso(coordinator.outage_data_last_changed),
     }

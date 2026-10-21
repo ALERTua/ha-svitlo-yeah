@@ -10,7 +10,6 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
 )
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers.selector import (
     SelectOptionDict,
@@ -25,7 +24,6 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .api.dtek.base import FetchResult
 from .api.dtek.json import DtekAPIJson
-from .api.e_svitlo import ESvitloClient, LoginResult
 from .api.soe import SoeClient
 from .api.yasno import (
     YASNO_REGIONS_ENDPOINT,
@@ -37,8 +35,6 @@ from .api.yasno import (
     normalize_name,
 )
 from .const import (
-    CONF_ACCOUNT_ID,
-    CONF_ADDRESS_STR,
     CONF_CITY,
     CONF_GROUP,
     CONF_HOUSE,
@@ -48,24 +44,23 @@ from .const import (
     CONF_STREET,
     DOMAIN,
     DTEK_PROVIDER_URLS,
-    E_SVITLO_URL,
     NAME,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_E_SVITLO,
     PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
+    REMOVED_PROVIDERS,
     SOE_SITE_URL,
     TZ_UA,
     YASNO_REGION_PAGES,
     YASNO_STREET_QUERY_MIN,
     common_translation_key,
 )
+from .coordinator.coordinator import async_integration_title
 from .coordinator.yasno import YasnoCoordinator
 from .models import YasnoAddress
 from .models.providers import (
     BaseProvider,
     DTEKJsonProvider,
-    ESvitloProvider,
     SoeProvider,
     YasnoProvider,
 )
@@ -130,27 +125,6 @@ def _typed_matches(items: list[YasnoAddressItem], typed: str) -> list[YasnoAddre
     ]
 
 
-def _esvitlo_login_schema() -> vol.Schema:
-    """
-    Return the E-Svitlo login form.
-
-    The autocomplete values let a password manager fill in the form.
-    """
-    return vol.Schema(
-        {
-            vol.Required(CONF_USERNAME): TextSelector(
-                TextSelectorConfig(type=TextSelectorType.TEXT, autocomplete="username")
-            ),
-            vol.Required(CONF_PASSWORD): TextSelector(
-                TextSelectorConfig(
-                    type=TextSelectorType.PASSWORD,
-                    autocomplete="current-password",
-                )
-            ),
-        }
-    )
-
-
 class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Svitlo Yeah."""
 
@@ -168,10 +142,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         self._stale_ack = False
         # The update time of the outdated DTEK data, which the warning shows
         self._stale_updated = ""
-        # One E-Svitlo client opens one session for the whole flow
-        self._client: ESvitloClient | None = None
-        # The E-Svitlo accounts that the account form offers
-        self._accounts: list[dict] = []
         # Whether the Yasno region of the flow has cities, which the address form asks
         self._has_cities = False
         # The name of the Yasno region of the flow, for the first part of each address
@@ -185,16 +155,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # All houses of the chosen street. None until the house step asks for them,
         # so an error of the house form shows the same list without a new search.
         self._houses: list[YasnoAddressItem] | None = None
-
-    def _e_svitlo_client(self, username: str, password: str) -> ESvitloClient:
-        """Return the E-Svitlo client of the flow, with this login."""
-        if self._client is None:
-            self._client = ESvitloClient(
-                self.hass, ESvitloProvider(user_name=username, password=password)
-            )
-        elif (self._client.user_name, self._client.pwd) != (username, password):
-            self._client.use_login(username, password)
-        return self._client
 
     @override
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
@@ -211,10 +171,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
                 # The user finds the schedule by an address, or knows the group
                 # noinspection PyTypeChecker
                 return await self.async_step_yasno_method()
-            if selected_provider.provider_type == PROVIDER_TYPE_E_SVITLO:
-                # For E-Svitlo, go to auth step first
-                # noinspection PyTypeChecker
-                return await self.async_step_esvitlo_auth()
 
             # noinspection PyTypeChecker
             return await self.async_step_group()
@@ -237,12 +193,9 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # Create DTEKJsonProvider instances for each available provider key
         dtek_providers = [DTEKJsonProvider(region_name=_) for _ in DTEK_PROVIDER_URLS]
 
-        e_svitlo_provider = ESvitloProvider(user_name="sumy", password="")
-
         all_providers = [
             *yasno_providers,
             *dtek_providers,
-            e_svitlo_provider,
             SoeProvider(),
         ]
         self.available_providers = {_.unique_key: _ for _ in all_providers}
@@ -278,8 +231,7 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
 
         Thus the entries differ on the page of the integration. A Yasno entry with
         an address has the address, because the user knows the address, and its
-        group can change: the user chose this over an address-free log. An E-Svitlo
-        title has no address, because the debug log shows the title.
+        group can change: the user chose this over an address-free log.
         """
         if address := YasnoAddress.from_entry_data(data):
             return address.text
@@ -291,8 +243,6 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         provider_name = names.get(
             common_translation_key(str(provider_id)), str(provider_id)
         )
-        if provider_type == PROVIDER_TYPE_E_SVITLO:
-            return f"{provider_name} E-Svitlo"
         if provider_type == PROVIDER_TYPE_SOE:
             provider_name = f"{provider_name} {SoeProvider().short_name}"
         if provider_type == PROVIDER_TYPE_YASNO:
@@ -883,14 +833,20 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         Let the user pick another group, or another address, for an existing entry.
 
         A Yasno entry gets the menu of a new entry, so a group entry can get an
-        address, and an address entry can go back to a group.
+        address, and an address entry can go back to a group. An entry of a
+        removed provider stops at once, because no group list exists for it.
         """
         entry = self._get_reconfigure_entry()
         self.data = dict(entry.data)
-        if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_E_SVITLO:
-            # E-Svitlo takes the group from the account, so it has no group list
+        if provider := REMOVED_PROVIDERS.get(self.data.get(CONF_PROVIDER_TYPE)):
             # noinspection PyTypeChecker
-            return self.async_abort(reason="reconfigure_e_svitlo")
+            return self.async_abort(
+                reason="provider_removed",
+                description_placeholders={
+                    "provider": provider,
+                    "integration": await async_integration_title(self.hass),
+                },
+            )
         if self.data.get(CONF_PROVIDER_TYPE) == PROVIDER_TYPE_YASNO:
             # The address form suggests the address of the entry
             if address := YasnoAddress.from_entry_data(entry.data):
@@ -924,181 +880,4 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=data_schema,
             errors=errors,
             description_placeholders={"updated": self._stale_updated},
-        )
-
-    async def async_step_esvitlo_auth(
-        self, user_input: dict | None = None
-    ) -> ConfigFlowResult:
-        """Handle authentication step for E-Svitlo."""
-        errors = {}
-
-        if user_input is not None:
-            LOGGER.debug("async_step_esvitlo_auth: User input received")
-
-            # Validate credentials by attempting login
-            client = self._e_svitlo_client(
-                user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
-            )
-            login = await client.try_login()
-
-            if login is LoginResult.OK:
-                # Authentication successful, store credentials and proceed
-                self.data[CONF_USERNAME] = user_input[CONF_USERNAME]
-                self.data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
-
-                # Proceed to account/group selection
-                # noinspection PyTypeChecker
-                return await self.async_step_esvitlo_account()
-
-            errors["base"] = (
-                "invalid_auth" if login is LoginResult.REJECTED else "cannot_connect"
-            )
-
-        # Show authentication form
-        data_schema = _esvitlo_login_schema()
-
-        # After an error, keep the typed username; the password is never sent back
-        if user_input is not None:
-            data_schema = self.add_suggested_values_to_schema(
-                data_schema, {CONF_USERNAME: user_input[CONF_USERNAME]}
-            )
-
-        # noinspection PyTypeChecker
-        return self.async_show_form(
-            step_id="esvitlo_auth",
-            data_schema=data_schema,
-            errors=errors,
-            description_placeholders={"esvitlo_url": E_SVITLO_URL},
-        )
-
-    async def async_step_reauth(
-        self,
-        entry_data: Mapping[str, Any],  # noqa: ARG002  # the flow manager passes it
-    ) -> ConfigFlowResult:
-        """Ask for the E-Svitlo login again, after the server refused it."""
-        # noinspection PyTypeChecker
-        return await self.async_step_reauth_confirm()
-
-    async def async_step_reauth_confirm(
-        self, user_input: dict | None = None
-    ) -> ConfigFlowResult:
-        """Check the new E-Svitlo login, and keep it in the entry."""
-        entry = self._get_reauth_entry()
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            client = self._e_svitlo_client(
-                user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
-            )
-            login = await client.try_login()
-            accounts = await client.get_accounts() if login is LoginResult.OK else None
-            account_id = entry.data.get(CONF_ACCOUNT_ID)
-            if login is LoginResult.REJECTED:
-                errors["base"] = "invalid_auth"
-            elif accounts is None:
-                errors["base"] = "cannot_connect"
-            elif account_id is not None and all(
-                str(a.get("a")) != str(account_id) for a in accounts
-            ):
-                # Another login must not swap the account of the entry
-                # noinspection PyTypeChecker
-                return self.async_abort(reason="wrong_account")
-            else:
-                # Only a changed login reloads, through the listener, as in Reconfigure
-                # noinspection PyTypeChecker
-                return self.async_update_and_abort(
-                    entry,
-                    data_updates={
-                        CONF_USERNAME: user_input[CONF_USERNAME],
-                        CONF_PASSWORD: user_input[CONF_PASSWORD],
-                    },
-                    reason="reauth_successful",
-                )
-
-        # The username of the entry, or the typed one; the password is never sent back
-        username = (user_input or entry.data).get(CONF_USERNAME)
-        # noinspection PyTypeChecker
-        return self.async_show_form(
-            step_id="reauth_confirm",
-            data_schema=self.add_suggested_values_to_schema(
-                _esvitlo_login_schema(), {CONF_USERNAME: username}
-            ),
-            errors=errors,
-            description_placeholders={"esvitlo_url": E_SVITLO_URL},
-        )
-
-    async def async_step_esvitlo_account(
-        self, user_input: dict | None = None
-    ) -> ConfigFlowResult:
-        """Handle account/group selection for E-Svitlo."""
-        if user_input is not None:
-            self.data[CONF_ACCOUNT_ID] = user_input[CONF_ACCOUNT_ID]
-
-            # One entry for each E-Svitlo account: a second one only repeats it
-            self._async_abort_entries_match(
-                {
-                    key: self.data[key]
-                    for key in (CONF_PROVIDER_TYPE, CONF_PROVIDER, CONF_ACCOUNT_ID)
-                }
-            )
-
-            # The address comes from the accounts that the form offered
-            selected_acc = next(
-                (
-                    a
-                    for a in self._accounts
-                    if str(a.get("a")) == str(user_input[CONF_ACCOUNT_ID])
-                ),
-                None,
-            )
-
-            if selected_acc:
-                self.data[CONF_ADDRESS_STR] = selected_acc.get("address")
-
-            # noinspection PyTypeChecker
-            return self.async_create_entry(
-                title=await self._async_entry_title(self.data), data=self.data
-            )
-
-        # The client of the login step is still logged in
-        client = self._e_svitlo_client(
-            self.data[CONF_USERNAME], self.data[CONF_PASSWORD]
-        )
-        accounts = await client.get_accounts()
-        if accounts is None:
-            # The server gave no list of accounts: a network or a server error
-            # noinspection PyTypeChecker
-            return self.async_abort(reason="e_svitlo_connection_error")
-        if not accounts:
-            # noinspection PyTypeChecker
-            return self.async_abort(reason="no_accounts_found")
-        self._accounts = accounts
-
-        # Create options mapping: { account_id: "Address (LS)" }
-        options = {}
-        for acc in accounts:
-            label = f"{acc.get('address')} ({acc.get('ls')})"
-            # account_id is 'a' field
-            val = acc.get("a")
-            options[val] = label
-
-        # noinspection PyTypeChecker
-        return self.async_show_form(
-            step_id="esvitlo_account",
-            data_schema=vol.Schema(
-                {
-                    # The frontend sends the default, so it is a value of the options
-                    vol.Required(
-                        CONF_ACCOUNT_ID, default=str(next(iter(options)))
-                    ): SelectSelector(
-                        SelectSelectorConfig(
-                            options=[
-                                SelectOptionDict(value=str(k), label=v)
-                                for k, v in options.items()
-                            ],
-                            mode=SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                }
-            ),
         )

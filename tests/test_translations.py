@@ -25,7 +25,7 @@ CONFIG_FLOW = TRANSLATIONS.parent / "config_flow.py"
 README = Path(__file__).parent.parent / "README.md"
 LANGUAGES = ["en", "uk"]
 # The provider options whose source covers one region with its oblast
-REGION_OPTIONS = ("dtekjsonprovider_", "esvitloprovider_", "soeprovider_")
+REGION_OPTIONS = ("dtekjsonprovider_", "soeprovider_")
 # The letters of the oblenergo abbreviations, as the English region names spell
 # them, for example Khmelnytskyi, Chernihiv and Zhytomyr
 LATIN = dict(
@@ -35,8 +35,8 @@ LATIN = dict(
         strict=True,
     )
 )
-# Home Assistant aborts with this reason: _async_abort_entries_match with
-# already_configured
+# The flow aborts with this reason through AbortFlow, which the parser of the abort
+# reasons does not read
 HA_ABORT_REASONS = {"already_configured"}
 # The steps of the address flow, and the errors of its form that the code does not
 # read from a table (the not found errors come from NOT_FOUND_ERRORS)
@@ -188,6 +188,35 @@ def test_each_exception_has_a_text(language):
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
+def test_each_repair_issue_has_a_title_and_a_description(language):
+    """Each repair issue of const.py has a title and a description for Repairs."""
+    keys = [value for name, value in vars(const).items() if name.startswith("ISSUE_")]
+    assert keys  # the issues of const.py
+
+    issues = _load(language).get("issues", {})
+    assert [
+        key
+        for key in keys
+        if not all(issues.get(key, {}).get(part) for part in ("title", "description"))
+    ] == []
+
+
+def test_removed_provider_texts_name_the_placeholders_that_the_code_sends():
+    """
+    The error, the abort and the issue of a removed provider name its placeholders.
+
+    Each one gets the provider and the integration, and the issue gets the entry.
+    """
+    texts = _load("en")
+    sent = {"provider", "integration"}
+    assert _placeholders(texts["exceptions"]["provider_removed"]["message"]) == sent
+    assert _placeholders(texts["config"]["abort"]["provider_removed"]) == sent
+    issue = texts["issues"]["provider_removed"]
+    assert _placeholders(issue["title"]) == {"entry"}
+    assert _placeholders(issue["description"]) == {"entry", *sent}
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
 def test_each_sensor_and_button_has_a_name(language):
     """Each sensor and button has a name: without it, the entity has no name."""
     entities = _load(language)["entity"]
@@ -251,7 +280,7 @@ def test_each_provider_option_names_the_region_of_its_devices(language):
     regions = {
         key: key.split("_", 1)[1] for key in options if key.startswith(REGION_OPTIONS)
     }
-    assert len(regions) == len(DTEK_PROVIDER_URLS) + 2  # and Sumy: E-Svitlo, SOE
+    assert len(regions) == len(DTEK_PROVIDER_URLS) + 1  # and Sumy: SOE
 
     assert [
         key
@@ -290,7 +319,7 @@ def test_each_ukrainian_abbreviation_spells_the_english_one():
         for key, parts in _option_parts("uk").items()
         if key.startswith(REGION_OPTIONS) and len(parts) == 3
     }
-    assert len(ukrainian) == 13  # the options of the oblenergos
+    assert len(ukrainian) == 12  # the options of the oblenergos
 
     assert {
         key: "".join(LATIN[letter] for letter in abbreviation)
