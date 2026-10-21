@@ -645,9 +645,16 @@ class IntegrationConfigFlow(ConfigFlow, domain=DOMAIN):
         # The regions come from the class cache, if the provider step got them
         await api.fetch_yasno_regions()
         region = api.get_region_by_id(self.data[CONF_REGION])
-        self._has_cities = region is not None and region.has_cities
+        if region is None:
+            # The regions request failed and the cache is empty, for example in a
+            # Reconfigure. Without the region the form cannot know if it needs a city.
+            return self.async_abort(
+                reason="yasno_connection_error",
+                description_placeholders={"url": YASNO_REGIONS_ENDPOINT},
+            )
+        self._has_cities = region.has_cities
         # The forms after this one name the region in the address that they show
-        self._region_name = region.name if region is not None else ""
+        self._region_name = region.name
 
         if user_input is None:
             return self._show_address_form()
