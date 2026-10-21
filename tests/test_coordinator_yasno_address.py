@@ -678,7 +678,8 @@ class TestNotFound:
         """
         Once: another try in an hour. Twice: a warning and the issue, for a week.
 
-        The group of the entry stays, and a third result warns no more.
+        The group of the entry stays, the pending group goes, and a third result
+        warns no more.
         """
         caplog.set_level(logging.INFO, logger=LOGGER_NAME)
         _serve(aioclient_mock, streets=NO_STREET)
@@ -690,7 +691,7 @@ class TestNotFound:
 
         assert coordinator.address_check_result is AddressResult.NOT_FOUND
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.utcnow() + HOUR, pending="53.1", count=1
+            dt_utils.utcnow() + HOUR, count=1
         )
         assert _issue(hass, entry) is None
         assert _records(caplog, logging.WARNING) == []
@@ -699,7 +700,7 @@ class TestNotFound:
         await coordinator.async_refresh()
 
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.utcnow() + WEEK, pending="53.1", count=2
+            dt_utils.utcnow() + WEEK, count=2
         )
         issue = _issue(hass, entry)
         assert issue is not None
@@ -758,6 +759,40 @@ class TestNotFound:
         assert coordinator.address_check_result is AddressResult.NOT_FOUND
         assert _kept_check(hass_storage, entry)["not_found_count"] == 1
         assert _issue(hass, entry) is None
+        await _unload(hass, entry)
+
+    async def test_not_found_between_two_founds_of_a_new_group_stops_the_switch(
+        self, hass, aioclient_mock, hass_storage, nine_o_clock
+    ):
+        """
+        A new group, then Not found, then the new group again: no switch yet.
+
+        Two checks with no Not found between them must find the new group.
+        """
+        _serve(aioclient_mock)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.utcnow())
+        )
+        await coordinator.async_refresh()
+
+        nine_o_clock.tick(HOUR)
+        _serve(aioclient_mock, streets=NO_STREET)
+        await coordinator.async_refresh()
+
+        assert _kept_check(hass_storage, entry) == _check(
+            dt_utils.utcnow() + HOUR, count=1
+        )
+
+        nine_o_clock.tick(HOUR)
+        _serve(aioclient_mock)
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_GROUP] == "1.1"
+        assert entry.runtime_data is coordinator
+        assert _kept_check(hass_storage, entry) == _check(
+            dt_utils.utcnow() + HOUR, pending="53.1"
+        )
         await _unload(hass, entry)
 
     async def test_issue_survives_a_restart_and_goes_after_a_found(
