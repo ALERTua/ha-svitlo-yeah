@@ -35,7 +35,7 @@ from custom_components.svitlo_yeah.const import (
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
     TRANSLATION_KEY_GROUP_CHANGED_MESSAGE,
     TRANSLATION_KEY_GROUP_CHANGED_TITLE,
-    YASNO_REGION_PAGES,
+    yasno_region_page,
 )
 from custom_components.svitlo_yeah.models import (
     ConnectivityState,
@@ -57,9 +57,6 @@ ADDRESS_RETRY_INTERVAL = dt.timedelta(hours=1)
 NOT_FOUND_IN_A_ROW = 2
 # The key of the state of the check in the kept data of the source
 _ADDRESS_CHECK_KEY = "address_check"
-# The region of Київ: its page is the page of a region that YASNO_REGION_PAGES lacks,
-# as in the config flow
-_KYIV_REGION_ID = 25
 # The texts of the notification about a new group, when the translations lack them
 GROUP_CHANGED_TITLE = "New Yasno group"
 GROUP_CHANGED_MESSAGE = (
@@ -511,9 +508,7 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 # The title of an address entry is the address
                 "entry": self.config_entry.title,
                 "group": str(self.group),
-                "url": YASNO_REGION_PAGES.get(
-                    self.region_id, YASNO_REGION_PAGES[_KYIV_REGION_ID]
-                ),
+                "url": yasno_region_page(self.region_id),
                 # The way to Reconfigure goes through the list of integrations
                 "integration": integration,
             },
