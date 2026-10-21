@@ -13,6 +13,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.svitlo_yeah.const import (
     CONF_GROUP,
     CONF_PROVIDER,
+    CONF_PROVIDER_TYPE,
     CONF_REGION,
     DOMAIN,
     DTEK_PROVIDER_URLS,
@@ -437,6 +438,24 @@ class TestReconfigureGroup:
         assert result["description_placeholders"] == {
             "provider": provider,
             "integration": "Svitlo Yeah!",
+        }
+        assert entry.data == data
+        assert aioclient_mock.call_count == 0
+
+    @pytest.mark.parametrize("provider_type", ["other", None], ids=["other", "none"])
+    async def test_entry_of_an_unknown_provider_type_stops_at_once(
+        self, hass, aioclient_mock, provider_type
+    ):
+        """Reconfigure of an entry of an unknown provider type stops, and names it."""
+        data = {**YASNO_KYIV_1_1, CONF_PROVIDER_TYPE: provider_type}
+        entry = _add_entry(hass, data)
+
+        result = await entry.start_reconfigure_flow(hass)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "unknown_provider_type"
+        assert result["description_placeholders"] == {
+            "provider_type": str(provider_type)
         }
         assert entry.data == data
         assert aioclient_mock.call_count == 0

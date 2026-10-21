@@ -6,6 +6,7 @@
       "reconfigure_successful": "The entry now uses the new group or the new address. To update the entity IDs, open the device and select Recreate entity IDs.",
       "reconfigure_unchanged": "The entry already uses this group and this address. Nothing changed.",
       "provider_removed": "Version 0.11.0 of the integration removed the source {provider}, so Reconfigure cannot change this entry. The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. Delete this entry: go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete.",
+      "unknown_provider_type": "This entry has the unknown provider type «{provider_type}», so Reconfigure cannot change it. Delete the entry and add it again.",
       "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
       "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}"
