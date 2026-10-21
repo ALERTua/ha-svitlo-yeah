@@ -294,6 +294,8 @@
     "event_name_planned_outage": "Планове відключення",
     "event_name_scheduled_outage": "Графікове відключення",
     "event_name_emergency_outage": "Екстрене відключення",
+    "group_changed_title": "Нова група Yasno",
+    "group_changed_message": "Група Yasno для «{entry}» змінилася з {old_group} на {new_group}. Запис тепер показує графік нової групи.",
     "kyiv_region": "Київська Область",
     "dnipro": "Дніпро",
     "odesa": "Одеса",

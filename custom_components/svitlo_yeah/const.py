@@ -121,6 +121,15 @@ SOE_SCHEDULE_URL: Final = (
 
 
 EVENT_DATA_CHANGED: Final = f"{DOMAIN}_data_changed"
+# The check of an address gave the entry a new group. Also the prefix of the id of
+# its notification, one for each entry.
+EVENT_GROUP_CHANGED: Final = f"{DOMAIN}_group_changed"
+TRANSLATION_KEY_GROUP_CHANGED_TITLE: Final = common_translation_key(
+    "group_changed_title"
+)
+TRANSLATION_KEY_GROUP_CHANGED_MESSAGE: Final = common_translation_key(
+    "group_changed_message"
+)
 
 DTEK_PROVIDER_URLS: dict[str, list[str]] = {
     "kyiv_region": [

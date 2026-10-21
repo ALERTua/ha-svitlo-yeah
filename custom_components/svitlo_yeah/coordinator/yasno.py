@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, override
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.translation import async_get_translations
@@ -28,9 +29,12 @@ from custom_components.svitlo_yeah.const import (
     CONF_REGION,
     CONF_STREET,
     DOMAIN,
+    EVENT_GROUP_CHANGED,
     ISSUE_ADDRESS_NOT_FOUND,
     TRANSLATION_KEY_EVENT_EMERGENCY_OUTAGE,
     TRANSLATION_KEY_EVENT_PLANNED_OUTAGE,
+    TRANSLATION_KEY_GROUP_CHANGED_MESSAGE,
+    TRANSLATION_KEY_GROUP_CHANGED_TITLE,
     YASNO_REGION_PAGES,
 )
 from custom_components.svitlo_yeah.models import (
@@ -56,11 +60,22 @@ _ADDRESS_CHECK_KEY = "address_check"
 # The region of Київ: its page is the page of a region that YASNO_REGION_PAGES lacks,
 # as in the config flow
 _KYIV_REGION_ID = 25
+# The texts of the notification about a new group, when the translations lack them
+GROUP_CHANGED_TITLE = "New Yasno group"
+GROUP_CHANGED_MESSAGE = (
+    "The Yasno group of «{entry}» changed from {old_group} to {new_group}. "
+    "The entry now shows the schedule of the new group."
+)
 
 
 def address_not_found_issue_id(entry_id: str) -> str:
     """Return the id of the repair issue about an address that Yasno does not find."""
     return f"{ISSUE_ADDRESS_NOT_FOUND}_{entry_id}"
+
+
+def group_changed_notification_id(entry_id: str) -> str:
+    """Return the id of the notification about the new group of an entry."""
+    return f"{EVENT_GROUP_CHANGED}_{entry_id}"
 
 
 @dataclass(frozen=True)
@@ -410,6 +425,39 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
                 self.group,
                 group,
             )
+            self._notify_group_changed(str(self.group), group)
+
+    def _notify_group_changed(self, old_group: str, new_group: str) -> None:
+        """
+        Tell the user about the new group: a notification, and an event for automations.
+
+        The event has no address, because the recorder keeps each event: the entry
+        id gives its title. The texts come from the translations of this poll, in
+        the language of the server, so no await comes after the check of the entry.
+        A later change replaces the notification of the entry.
+        """
+        entry_id = self.config_entry.entry_id
+        self.hass.bus.async_fire(
+            EVENT_GROUP_CHANGED,
+            {
+                "config_entry_id": entry_id,
+                "old_group": old_group,
+                "new_group": new_group,
+            },
+        )
+        message = self.translations.get(
+            TRANSLATION_KEY_GROUP_CHANGED_MESSAGE, GROUP_CHANGED_MESSAGE
+        )
+        persistent_notification.async_create(
+            self.hass,
+            message.format(
+                entry=self.config_entry.title, old_group=old_group, new_group=new_group
+            ),
+            title=self.translations.get(
+                TRANSLATION_KEY_GROUP_CHANGED_TITLE, GROUP_CHANGED_TITLE
+            ),
+            notification_id=group_changed_notification_id(entry_id),
+        )
 
     def _entry_address(self) -> YasnoAddress | None:
         """Return the address that the entry has now: a Reconfigure can change it."""
