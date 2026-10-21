@@ -356,6 +356,46 @@ class TestTheClock:
         assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
         await _unload(hass, entry)
 
+    async def test_due_check_waits_while_the_schedule_fails(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        A poll whose schedule request fails runs no due check: Yasno is down.
+
+        The check stays due, and the next poll with an answer runs it.
+        """
+        _serve(aioclient_mock, group=GROUP_1_1, schedule=False)
+        due = dt_utils.utcnow() - timedelta(minutes=1)
+        entry, coordinator = await _start(hass, hass_storage, check=_check(due))
+
+        await coordinator.async_refresh()
+
+        assert coordinator.last_fetch_failed is True
+        assert _address_requests(aioclient_mock) == []
+        assert _kept_check(hass_storage, entry) == _check(due)
+
+        _serve(aioclient_mock, group=GROUP_1_1)
+        await coordinator.async_refresh()
+
+        assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
+        await _unload(hass, entry)
+
+    async def test_forced_check_runs_while_the_schedule_fails(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """The button checks the address also when Yasno does not give the schedule."""
+        _serve(aioclient_mock, group=GROUP_1_1, schedule=False)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
+        )
+
+        await coordinator.async_check_address_now()
+
+        assert coordinator.last_fetch_failed is True
+        assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
+        assert coordinator.address_check_result is AddressResult.FOUND
+        await _unload(hass, entry)
+
     async def test_kept_state_of_another_address_counts_as_no_state(
         self, hass, aioclient_mock, hass_storage
     ):
@@ -1621,7 +1661,11 @@ class TestUnknown:
         )
         _serve(aioclient_mock, group=SERVER_ERROR, schedule=schedule)
 
-        await coordinator.async_refresh()
+        if schedule:
+            await coordinator.async_refresh()
+        else:
+            # A due check waits while the schedule fails, so the button forces it
+            await coordinator.async_check_address_now()
 
         assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
         assert coordinator.address_check_result is AddressResult.UNKNOWN
