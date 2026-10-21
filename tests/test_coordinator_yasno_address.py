@@ -538,6 +538,48 @@ class TestFound:
         assert entry.data[CONF_GROUP] == "1.1"
         await _unload(hass, entry)
 
+    async def test_press_during_a_running_poll_gives_one_check(
+        self, hass, aioclient_mock, hass_storage
+    ):
+        """
+        A press while a poll waits for the schedule: that poll runs the check.
+
+        The check takes the force, so the poll of the press runs no second check.
+        The press still gets the result of the check of the running poll.
+        """
+        _serve(aioclient_mock, group=GROUP_1_1)
+        entry, coordinator = await _start(
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
+        )
+        asked, release = asyncio.Event(), asyncio.Event()
+
+        async def wait_and_answer(method, url, _data):
+            asked.set()
+            await release.wait()
+            return AiohttpClientMockResponse(method, url, json=_planned())
+
+        # The first registered reply that matches answers, so this one goes first
+        aioclient_mock._mocks.insert(
+            0,
+            AiohttpClientMockResponse(
+                "get", URL(YASNO_PLANNED_URL), side_effect=wait_and_answer
+            ),
+        )
+
+        poll = hass.async_create_task(coordinator.async_refresh())
+        await _until_asked(asked, release)
+        press = hass.async_create_task(coordinator.async_check_address_now())
+        # The press sets the force, and then it waits for the lock of the poll
+        await asyncio.sleep(0)
+        release.set()
+        await poll
+        await press
+
+        assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
+        assert coordinator.address_check_result is AddressResult.FOUND
+        assert coordinator._force_address_check is False
+        await _unload(hass, entry)
+
 
 def _wait_for(mock, path: str, reply: dict):
     """Make the request of the path wait; return the events of the ask and answer."""

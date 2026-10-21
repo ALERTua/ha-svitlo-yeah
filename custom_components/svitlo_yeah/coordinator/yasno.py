@@ -246,9 +246,10 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         """
         Check the group of the address at once, and switch to a new group at once.
 
-        The check runs inside a poll, so it waits for the lock of the poll. After
-        it, address_check_result is the result of this check, or None when the poll
-        stopped before the check.
+        The check runs inside a poll, so it waits for the lock of the poll. A poll
+        that runs already can take the force, and then its check is the check of
+        this call. After it, address_check_result is the result of this check, or
+        None when the poll stopped before the check.
         """
         # The result of an earlier check must not count as the result of this one
         self.address_check_result = None
@@ -295,6 +296,9 @@ class YasnoCoordinator(IntegrationCoordinator[YasnoApi, int]):
         now = dt_utils.utcnow()
         check = self._address_check
         force = self._force_address_check
+        # This poll takes the force before any await. Thus a press while a poll
+        # runs gives one forced check, and the poll of the press runs no second one.
+        self._force_address_check = False
         if not force:
             if check is None:
                 # A missing time starts the clock, so the check does not repeat the
