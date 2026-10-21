@@ -14,6 +14,7 @@ import string
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from aiohttp import ClientError
@@ -48,6 +49,7 @@ from custom_components.svitlo_yeah.const import (
     EVENT_GROUP_CHANGED,
     TRANSLATION_KEY_GROUP_CHANGED_MESSAGE,
     TRANSLATION_KEY_GROUP_CHANGED_TITLE,
+    TZ_UA,
     YASNO_ADDRESSES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -228,7 +230,7 @@ def _counting(hass, entry: MockConfigEntry, count: int | None) -> YasnoCoordinat
     coordinator = YasnoCoordinator(hass, entry)
     if count is not None:
         coordinator._address_check = AddressCheck(
-            ADDRESS, dt_utils.now(), not_found_count=count
+            ADDRESS, dt_utils.utcnow(), not_found_count=count
         )
     return coordinator
 
@@ -263,7 +265,7 @@ class TestTheClock:
         await coordinator.async_refresh()
 
         assert _address_requests(aioclient_mock) == []
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         assert coordinator.address_check_result is None
         await _unload(hass, entry)
 
@@ -284,12 +286,51 @@ class TestTheClock:
         assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
         await _unload(hass, entry)
 
+    @pytest.mark.parametrize(
+        "start",
+        [
+            # The DST ends on 2026-11-01 in the US and on 2026-10-25 in Europe
+            datetime(2026, 10, 28, 9, tzinfo=ZoneInfo("US/Pacific")),
+            datetime(2026, 10, 21, 9, tzinfo=TZ_UA),
+            # The DST starts on 2027-03-28 in Europe
+            datetime(2027, 3, 25, 9, tzinfo=TZ_UA),
+        ],
+        ids=["us_autumn", "kyiv_autumn", "kyiv_spring"],
+    )
+    async def test_week_is_seven_times_24_hours_across_a_dst_change(
+        self, hass, aioclient_mock, hass_storage, nine_o_clock, start
+    ):
+        """
+        A DST change of the time zone of Home Assistant does not move the check.
+
+        A local time plus seven days keeps the local hour, and the check then
+        comes one hour early or late.
+        """
+        await hass.config.async_set_time_zone(str(start.tzinfo))
+        nine_o_clock.move_to(start)
+        _serve(aioclient_mock, group=GROUP_1_1)
+        entry, coordinator = await _start(hass, hass_storage)
+        await coordinator.async_refresh()
+
+        check = coordinator._address_check
+        assert check is not None
+        assert check.next_check - dt_utils.utcnow() == timedelta(hours=7 * 24)
+
+        nine_o_clock.tick(WEEK - timedelta(minutes=1))
+        await coordinator.async_refresh()
+        assert _address_requests(aioclient_mock) == []
+
+        nine_o_clock.tick(timedelta(minutes=1))
+        await coordinator.async_refresh()
+        assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
+        await _unload(hass, entry)
+
     async def test_restart_does_not_check_before_the_time(
         self, hass, aioclient_mock, hass_storage
     ):
         """After a restart, the kept time of the next check stays."""
         _serve(aioclient_mock)
-        next_check = dt_utils.now() + timedelta(days=3)
+        next_check = dt_utils.utcnow() + timedelta(days=3)
 
         entry, coordinator = await _start(
             hass, hass_storage, check=_check(next_check, count=1)
@@ -307,7 +348,7 @@ class TestTheClock:
         _serve(aioclient_mock, group=GROUP_1_1)
 
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() - timedelta(days=2))
+            hass, hass_storage, check=_check(dt_utils.utcnow() - timedelta(days=2))
         )
         assert _address_requests(aioclient_mock) == []
 
@@ -324,7 +365,7 @@ class TestTheClock:
         Its Not found results, and its repair issue, are about the old address.
         """
         _serve(aioclient_mock)
-        past = dt_utils.now() - timedelta(days=2)
+        past = dt_utils.utcnow() - timedelta(days=2)
 
         entry, coordinator = await _start(
             hass, hass_storage, check=_check(past, count=2, house="2")
@@ -333,7 +374,7 @@ class TestTheClock:
         await coordinator.async_refresh()
 
         assert _address_requests(aioclient_mock) == []
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         await _unload(hass, entry)
 
 
@@ -346,13 +387,13 @@ class TestFound:
         entry, coordinator = await _start(
             hass,
             hass_storage,
-            check=_check(dt_utils.now(), pending="53.1", count=1),
+            check=_check(dt_utils.utcnow(), pending="53.1", count=1),
         )
 
         await coordinator.async_refresh()
 
         assert coordinator.address_check_result is AddressResult.FOUND
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         assert entry.data[CONF_GROUP] == "1.1"
         await _unload(hass, entry)
 
@@ -367,7 +408,7 @@ class TestFound:
         caplog.set_level(logging.INFO, logger=LOGGER_NAME)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now())
+            hass, hass_storage, check=_check(dt_utils.utcnow())
         )
 
         await coordinator.async_refresh()
@@ -376,7 +417,7 @@ class TestFound:
         assert entry.data[CONF_GROUP] == "1.1"
         assert entry.runtime_data is coordinator
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.now() + HOUR, pending="53.1"
+            dt_utils.utcnow() + HOUR, pending="53.1"
         )
 
         nine_o_clock.tick(HOUR)
@@ -392,7 +433,7 @@ class TestFound:
         assert reloaded.group_listed is True
         kept = hass_storage[store_key(entry.entry_id)]["data"]
         assert (kept["group"], kept["group_listed"]) == ("53.1", True)
-        assert kept["source"]["address_check"] == _check(dt_utils.now() + WEEK)
+        assert kept["source"]["address_check"] == _check(dt_utils.utcnow() + WEEK)
         assert _records(caplog, logging.INFO) == [
             f"The Yasno group of entry {entry.entry_id} changed from 1.1 to 53.1"
         ]
@@ -404,7 +445,7 @@ class TestFound:
         """A check that finds another new group keeps it pending instead."""
         _serve(aioclient_mock, group=GROUP_2_1)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1")
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1")
         )
 
         await coordinator.async_refresh()
@@ -412,7 +453,7 @@ class TestFound:
 
         assert entry.data[CONF_GROUP] == "1.1"
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.now() + HOUR, pending="2.1"
+            dt_utils.utcnow() + HOUR, pending="2.1"
         )
         await _unload(hass, entry)
 
@@ -423,7 +464,7 @@ class TestFound:
         """A group that the planned outages lack is no answer: retry in an hour."""
         _serve(aioclient_mock, group=GROUP_60_1)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="60.1")
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="60.1")
         )
 
         if force:
@@ -435,7 +476,7 @@ class TestFound:
         assert entry.data[CONF_GROUP] == "1.1"
         assert entry.runtime_data is coordinator
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.now() + HOUR, pending="60.1"
+            dt_utils.utcnow() + HOUR, pending="60.1"
         )
         await _unload(hass, entry)
 
@@ -445,7 +486,7 @@ class TestFound:
     ):
         """The force skips the wait for the time and for the second check."""
         _serve(aioclient_mock)
-        check = _check(dt_utils.now() + timedelta(days=5)) if kept else None
+        check = _check(dt_utils.utcnow() + timedelta(days=5)) if kept else None
         entry, coordinator = await _start(hass, hass_storage, check=check)
 
         await coordinator.async_check_address_now()
@@ -455,7 +496,7 @@ class TestFound:
         assert coordinator._force_address_check is False
         assert entry.data[CONF_GROUP] == "53.1"
         assert entry.runtime_data is not coordinator
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         await _unload(hass, entry)
 
     async def test_force_goes_back_after_a_check_without_a_switch(
@@ -464,12 +505,12 @@ class TestFound:
         """After a forced check, the next poll waits for the time again."""
         _serve(aioclient_mock, group=GROUP_1_1)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
 
         await coordinator.async_check_address_now()
         assert coordinator._force_address_check is False
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
 
         aioclient_mock.mock_calls.clear()
         await coordinator.async_refresh()
@@ -482,7 +523,7 @@ class TestFound:
         """A poll that fails before the check leaves no force for the next poll."""
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
 
         with patch.object(
@@ -546,7 +587,7 @@ class TestRaceGuard:
         """
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1")
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1")
         )
         kept = hass_storage[store_key(entry.entry_id)]["data"]
         asked, release = _wait_for(aioclient_mock, "group", GROUP_53_1)
@@ -573,7 +614,7 @@ class TestRaceGuard:
         """The entry gets another address while the switch saves: no group goes in."""
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1")
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1")
         )
         listeners = entry.update_listeners.copy()
         entry.update_listeners.clear()
@@ -603,7 +644,7 @@ class TestRaceGuard:
         """A check that ends after an unload or a removal writes and keeps nothing."""
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1")
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1")
         )
         kept = hass_storage[store_key(entry.entry_id)]["data"]
         asked, release = _wait_for(aioclient_mock, "group", GROUP_53_1)
@@ -642,14 +683,14 @@ class TestNotFound:
         caplog.set_level(logging.INFO, logger=LOGGER_NAME)
         _serve(aioclient_mock, streets=NO_STREET)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1")
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1")
         )
 
         await coordinator.async_refresh()
 
         assert coordinator.address_check_result is AddressResult.NOT_FOUND
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.now() + HOUR, pending="53.1", count=1
+            dt_utils.utcnow() + HOUR, pending="53.1", count=1
         )
         assert _issue(hass, entry) is None
         assert _records(caplog, logging.WARNING) == []
@@ -658,7 +699,7 @@ class TestNotFound:
         await coordinator.async_refresh()
 
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.now() + WEEK, pending="53.1", count=2
+            dt_utils.utcnow() + WEEK, pending="53.1", count=2
         )
         issue = _issue(hass, entry)
         assert issue is not None
@@ -696,7 +737,7 @@ class TestNotFound:
         """The setup restores the issue from the store; a later Found removes it."""
         _serve(aioclient_mock, group=GROUP_1_1)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), count=2)
+            hass, hass_storage, check=_check(dt_utils.utcnow(), count=2)
         )
 
         issue = _issue(hass, entry)
@@ -706,14 +747,14 @@ class TestNotFound:
         await coordinator.async_refresh()
 
         assert _issue(hass, entry) is None
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         await _unload(hass, entry)
 
     async def test_unload_deletes_the_issue(self, hass, aioclient_mock, hass_storage):
         """The issue goes with the unload, as group_not_listed does."""
         _serve(aioclient_mock)
         entry, _ = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + WEEK, count=2)
+            hass, hass_storage, check=_check(dt_utils.utcnow() + WEEK, count=2)
         )
         assert _issue(hass, entry) is not None
 
@@ -822,7 +863,7 @@ class TestAddressFound:
         """
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=2)
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=2)
         )
         assert _issue(hass, entry) is not None
 
@@ -830,9 +871,9 @@ class TestAddressFound:
 
         assert _issue(hass, entry) is None
         assert coordinator._address_check == AddressCheck(
-            ADDRESS, dt_utils.now() + WEEK
+            ADDRESS, dt_utils.utcnow() + WEEK
         )
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         await _unload(hass, entry)
 
     # An address that differs from the address of the entry in one name
@@ -855,7 +896,9 @@ class TestAddressFound:
         entry, coordinator = await _start(
             hass,
             hass_storage,
-            check=_check(dt_utils.now() + timedelta(days=3), pending="53.1", count=2),
+            check=_check(
+                dt_utils.utcnow() + timedelta(days=3), pending="53.1", count=2
+            ),
         )
         before = coordinator._address_check
         kept = _kept_check(hass_storage, entry)
@@ -881,7 +924,7 @@ class TestAddressFound:
         data = {**YASNO_KYIV_ADDRESS_1_1, CONF_GROUP: "53.1"}
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), count=2), data=data
+            hass, hass_storage, check=_check(dt_utils.utcnow(), count=2), data=data
         )
         assert _issue(hass, entry) is not None
 
@@ -892,7 +935,7 @@ class TestAddressFound:
         assert entry.data == data
         assert entry.runtime_data is coordinator
         assert _issue(hass, entry) is None
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
 
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
@@ -940,7 +983,7 @@ class TestFoundMeanwhile:
         caplog.set_level(logging.INFO, logger=LOGGER_NAME)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=1)
         )
 
         async def found_while_yasno_answers(_address):
@@ -957,9 +1000,9 @@ class TestFoundMeanwhile:
         assert coordinator.address_check_result is answer[0]
         assert _issue(hass, entry) is None
         assert coordinator._address_check == AddressCheck(
-            ADDRESS, dt_utils.now() + WEEK
+            ADDRESS, dt_utils.utcnow() + WEEK
         )
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         assert entry.data[CONF_GROUP] == "1.1"
         assert entry.runtime_data is coordinator
         # No warning about the address and no line about a new group
@@ -979,7 +1022,7 @@ class TestFoundMeanwhile:
         """
         _serve(aioclient_mock, streets=NO_STREET)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=1)
         )
 
         async def title_after_found():
@@ -995,9 +1038,9 @@ class TestFoundMeanwhile:
         assert coordinator.address_check_result is AddressResult.NOT_FOUND
         assert _issue(hass, entry) is None
         assert coordinator._address_check == AddressCheck(
-            ADDRESS, dt_utils.now() + WEEK
+            ADDRESS, dt_utils.utcnow() + WEEK
         )
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + WEEK)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + WEEK)
         await _unload(hass, entry)
 
 
@@ -1077,7 +1120,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
         assert events == []
         assert async_get_persistent_notifications(hass) == {}
@@ -1105,7 +1148,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
 
         await coordinator.async_check_address_now()
@@ -1127,7 +1170,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now())
+            hass, hass_storage, check=_check(dt_utils.utcnow())
         )
 
         await coordinator.async_refresh()
@@ -1170,7 +1213,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock, **reply)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=1)
         )
 
         await _run_check(coordinator, force=force)
@@ -1195,7 +1238,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + WEEK)
+            hass, hass_storage, check=_check(dt_utils.utcnow() + WEEK)
         )
 
         result = await _reconfigure_to_the_address(hass, entry)
@@ -1215,7 +1258,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
 
         await coordinator.async_check_address_now()
@@ -1252,7 +1295,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
         await coordinator.async_check_address_now()
         await hass.async_block_till_done()
@@ -1287,7 +1330,7 @@ class TestGroupChangedNotice:
         events = async_capture_events(hass, EVENT_GROUP_CHANGED)
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
         listeners = entry.update_listeners.copy()
         entry.update_listeners.clear()
@@ -1312,7 +1355,7 @@ class TestGroupChangedNotice:
         """
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
         await coordinator.async_check_address_now()
         await hass.async_block_till_done()
@@ -1340,7 +1383,7 @@ class TestGroupChangedNotice:
         )
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
         await coordinator.async_check_address_now()
         await hass.async_block_till_done()
@@ -1378,7 +1421,7 @@ class TestGroupChangedNotice:
         """Each text that the translations lack comes from the English constants."""
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now() + timedelta(days=5))
+            hass, hass_storage, check=_check(dt_utils.utcnow() + timedelta(days=5))
         )
 
         async def fetch_the_given_texts():
@@ -1436,7 +1479,7 @@ class TestUnknown:
         """The pending group and the count stay; the flags of the schedule too."""
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+            hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=1)
         )
         _serve(aioclient_mock, group=SERVER_ERROR, schedule=schedule)
 
@@ -1445,7 +1488,7 @@ class TestUnknown:
         assert _address_requests(aioclient_mock) == ["streets", "houses", "group"]
         assert coordinator.address_check_result is AddressResult.UNKNOWN
         assert _kept_check(hass_storage, entry) == _check(
-            dt_utils.now() + HOUR, pending="53.1", count=1
+            dt_utils.utcnow() + HOUR, pending="53.1", count=1
         )
         assert coordinator.last_fetch_failed is not schedule
         assert coordinator.last_update_success is True
@@ -1458,7 +1501,7 @@ class TestUnknown:
         """An error inside the check counts as no answer, and its text stays out."""
         _serve(aioclient_mock)
         entry, coordinator = await _start(
-            hass, hass_storage, check=_check(dt_utils.now())
+            hass, hass_storage, check=_check(dt_utils.utcnow())
         )
 
         with patch.object(
@@ -1469,7 +1512,7 @@ class TestUnknown:
         assert coordinator.last_update_success is True
         assert coordinator.last_fetch_failed is False
         assert coordinator.address_check_result is AddressResult.UNKNOWN
-        assert _kept_check(hass_storage, entry) == _check(dt_utils.now() + HOUR)
+        assert _kept_check(hass_storage, entry) == _check(dt_utils.utcnow() + HOUR)
         assert _records(caplog, logging.WARNING) == [
             f"The check of the address of entry {entry.entry_id} failed with KeyError"
         ]
@@ -1567,14 +1610,14 @@ async def test_diagnostics_show_the_check_without_the_address(
     """The diagnostics show the state and the last result of the check, no address."""
     _serve(aioclient_mock, group=SERVER_ERROR)
     entry, coordinator = await _start(
-        hass, hass_storage, check=_check(dt_utils.now(), pending="53.1", count=1)
+        hass, hass_storage, check=_check(dt_utils.utcnow(), pending="53.1", count=1)
     )
     await coordinator.async_refresh()
 
     result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
 
     assert result["coordinator"]["address_check"] == {
-        "next_check": (dt_utils.now() + HOUR).isoformat(),
+        "next_check": (dt_utils.utcnow() + HOUR).isoformat(),
         "pending_group": "53.1",
         "not_found_count": 1,
         "last_result": "unknown",
