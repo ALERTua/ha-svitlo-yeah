@@ -2,19 +2,22 @@
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .providers import ESvitloProvider, SoeProvider, YasnoProvider
+from custom_components.svitlo_yeah.const import CONF_CITY, CONF_HOUSE, CONF_STREET
+
+from .providers import YasnoProvider
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Mapping
 
 __all__ = [
     "ConnectivityState",
-    "ESvitloProvider",
     "PlannedOutageEvent",
     "PlannedOutageEventType",
-    "SoeProvider",
+    "YasnoAddress",
+    "YasnoAddressItem",
     "YasnoPlannedOutageDayStatus",
     "YasnoProvider",
     "YasnoRegion",
@@ -65,11 +68,18 @@ class YasnoRegion:
     id: int  # 25
     name: str  # Київ
     dsos: list[YasnoProvider] = field(default_factory=list)
+    # Whether an address in the region has a city, for example in Дніпро. A stored
+    # region of an older version has no such key.
+    has_cities: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> YasnoRegion:
         """Create instance from dict data."""
-        output = cls(id=data["id"], name=data["value"])
+        output = cls(
+            id=data["id"],
+            name=data["value"],
+            has_cities=data.get("hasCities") is True,
+        )
         output.dsos = [
             YasnoProvider.from_dict(
                 data=_, region_id=output.id, region_name=output.name
@@ -77,3 +87,47 @@ class YasnoRegion:
             for _ in data["dsos"]
         ]
         return output
+
+
+@dataclass(frozen=True)
+class YasnoAddressItem:
+    """One match of a Yasno search of a city, a street or a house."""
+
+    id: int  # 1647
+    value: str  # вул. Сверстюка Євгена
+
+
+@dataclass(frozen=True)
+class YasnoAddress:
+    """The names of an address, as Yasno writes them."""
+
+    street: str  # вул. Сверстюка Євгена
+    house: str  # the number with its letter, as Yasno writes it
+    # Only a region with cities has it, for example «м. Дніпро»
+    city: str | None = None
+
+    @classmethod
+    def from_entry_data(cls, data: Mapping[str, Any]) -> YasnoAddress | None:
+        """Return the address of an entry, or None for an entry with a group only."""
+        street, house = data.get(CONF_STREET), data.get(CONF_HOUSE)
+        if not street or not house:
+            return None
+        return cls(street=street, house=house, city=data.get(CONF_CITY))
+
+    def as_entry_data(self) -> dict[str, str]:
+        """Return the address as the data of an entry keeps it: no key for no city."""
+        data = {CONF_STREET: self.street, CONF_HOUSE: self.house}
+        if self.city is not None:
+            data[CONF_CITY] = self.city
+        return data
+
+    @property
+    def text(self) -> str:
+        """
+        Return the address as one name, for the entry and the device.
+
+        «вул. Сверстюка Євгена, 1», or «м. Дніпро, вул. Грушевського Михайла, 1».
+        """
+        parts = (self.city, self.street, self.house)
+        # Yasno writes some names with a space at the end
+        return ", ".join(part.strip() for part in parts if part)

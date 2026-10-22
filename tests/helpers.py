@@ -8,20 +8,17 @@ from unittest.mock import AsyncMock, MagicMock
 from aiohttp import ClientError
 
 from custom_components.svitlo_yeah.const import (
-    CONF_ACCOUNT_ID,
-    CONF_ADDRESS_STR,
     CONF_GROUP,
+    CONF_HOUSE,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
     CONF_REGION,
+    CONF_STREET,
     DTEK_PROVIDER_URLS,
-    E_SVITLO_SUMY_BASE_URL,
     PROVIDER_TYPE_DTEK_JSON,
-    PROVIDER_TYPE_E_SVITLO,
-    PROVIDER_TYPE_SOE,
     PROVIDER_TYPE_YASNO,
-    SOE_SCHEDULE_URL,
     TZ_UA,
+    YASNO_ADDRESSES_ENDPOINT,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
@@ -46,31 +43,56 @@ YASNO_KYIV_1_1 = {
     CONF_GROUP: "1.1",
 }
 YASNO_PLANNED_URL = YASNO_PLANNED_OUTAGES_ENDPOINT.format(region_id=25, dso_id=902)
+# A Yasno entry that has an address too, in group 1.1 as YASNO_KYIV_1_1. Yasno writes
+# the letter of a house in Cyrillic, and ruff reads a Cyrillic letter as a Latin one.
+YASNO_KYIV_STREET = "вул. Сверстюка Євгена"
+YASNO_KYIV_HOUSE = "6\N{CYRILLIC CAPITAL LETTER A}"
+YASNO_KYIV_ADDRESS_1_1 = {
+    **YASNO_KYIV_1_1,
+    CONF_STREET: YASNO_KYIV_STREET,
+    CONF_HOUSE: YASNO_KYIV_HOUSE,
+}
 YASNO_KYIV = {
     "id": 25,
     "value": "Київ",
     "dsos": [{"id": 902, "name": "ПРАТ «ДТЕК КИЇВСЬКІ ЕЛЕКТРОМЕРЕЖІ»"}],
 }
+# The measured address chain of Київ: the street (id 1647) and its house 6 with the
+# Cyrillic letter (id 41362) give the group 53.1. Each value is the reply that
+# aioclient_mock gives for a request of that level.
+YASNO_KYIV_STREET_REPLY = {"json": [{"id": 1647, "value": YASNO_KYIV_STREET}]}
+YASNO_KYIV_HOUSE_REPLY = {"json": [{"id": 41362, "value": YASNO_KYIV_HOUSE}]}
+YASNO_GROUP_53_1_REPLY = {"json": {"group": 53, "subgroup": 1}}
+YASNO_GROUP_1_1_REPLY = {"json": {"group": 1, "subgroup": 1}}
+# Yasno finds no such street: a list without the name, shorter than the cap
+YASNO_NO_STREET_REPLY = {"json": []}
+YASNO_SERVER_ERROR_REPLY = {"status": 500}
+# What Yasno answers for an id that it does not know
+YASNO_ENTRY_NOT_FOUND_REPLY = {
+    "status": 404,
+    "json": {"code": "EntryNotFound", "detail": "House 41362 not found"},
+}
 
-E_SVITLO_ACCOUNT_101 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO,
+# An entry of E-Svitlo, which release 0.11.0 removed, as an earlier config flow wrote
+# it: the login, the personal account and its address. Each value is made up.
+REMOVED_E_SVITLO_ENTRY = {
+    CONF_PROVIDER_TYPE: "e-svitlo",
     CONF_PROVIDER: "sumy",
     "username": "user",
     "password": "secret",
-    CONF_ACCOUNT_ID: "101",
-    CONF_ADDRESS_STR: "Суми, вул. Перша, 1",
+    "account_id": "101",
+    "address_str": "Суми, вул. Тестова, 0",
 }
-E_SVITLO_LOGIN_URL = E_SVITLO_SUMY_BASE_URL + "api_main/login_api.json"
-E_SVITLO_ACCOUNTS_URL = E_SVITLO_SUMY_BASE_URL + "api_main_reg/short_list_ls_api.json"
-E_SVITLO_DETAILS_URL = E_SVITLO_SUMY_BASE_URL + "/api_main_reg/all_details_ls_api.json"
-E_SVITLO_DISCONNECTIONS_URL = (
-    E_SVITLO_SUMY_BASE_URL + "api_main/get_user_disconnections_image_api.json"
-)
-
-SOE_SUMY_4_1 = {
-    CONF_PROVIDER_TYPE: PROVIDER_TYPE_SOE,
+# An entry of SOE, which release 0.11.0 removed too, as an earlier config flow wrote it
+REMOVED_SOE_ENTRY = {
+    CONF_PROVIDER_TYPE: "soe",
     CONF_PROVIDER: "sumy",
     CONF_GROUP: "4.1",
+}
+# For each removed provider: the entry data, and the name that the texts show
+REMOVED_PROVIDER_ENTRIES = {
+    "e_svitlo": (REMOVED_E_SVITLO_ENTRY, "E-Svitlo"),
+    "soe": (REMOVED_SOE_ENTRY, "SOE"),
 }
 
 
@@ -105,53 +127,6 @@ def yasno_outage_all_day_today() -> dict:
     }
 
 
-def e_svitlo_outage_all_day_today() -> dict:
-    """Build an E-Svitlo answer with an outage all day today, updated at 10:00."""
-    today = datetime.now(TZ_UA)
-    return {
-        "data": {
-            "date_today": today.strftime("%d.%m.%Y"),
-            "lst_time_disc": [{"start_time": "00:00", "end_time": "23:59"}],
-            "last_update": f"Оновлено: {today:%d.%m.%Y} 10:00",
-        }
-    }
-
-
-def soe_group(group: str, periods: list[tuple[str, str]], update: str) -> dict:
-    """Build one sub-queue of the SOE answer, as the site gives it."""
-    return {
-        "cherga_n": group,
-        "no_data": not periods,
-        "last_update": f"Оновлено: {update}",
-        "lst_time_disc": [
-            {"start_time": start, "end_time": end, "diff_time": ""}
-            for start, end in periods
-        ],
-        "text_time_munyv": "час, що пройшов",
-        "text_time_curent": "поточний час вимкнення",
-        "text_time_tom": "майбутній час вимкнення",
-    }
-
-
-def soe_outage_all_day_today() -> dict:
-    """Build an SOE answer in which sub-queue 4.1 has no power all day today."""
-    update = f"{datetime.now(TZ_UA):%d.%m.%Y} 10:00"
-    return {
-        "data": [
-            soe_group("4.1", [("00:00", "00:00")], update),
-            soe_group("4.2", [], update),
-        ]
-    }
-
-
-def soe_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the SOE schedule, or fail the request."""
-    if answer:
-        aioclient_mock.get(SOE_SCHEDULE_URL, json=soe_outage_all_day_today())
-    else:
-        aioclient_mock.get(SOE_SCHEDULE_URL, exc=ClientError())
-
-
 def dtek_answers(aioclient_mock, fact: dict | None = None) -> None:
     """Serve the DTEK feeds with this fact schedule, or fail each request without it."""
     for url in KYIV_REGION_URLS:
@@ -170,16 +145,25 @@ def yasno_answers(aioclient_mock, *, answer: bool) -> None:
         aioclient_mock.get(YASNO_PLANNED_URL, exc=ClientError())
 
 
-def e_svitlo_answers(aioclient_mock, *, answer: bool) -> None:
-    """Serve the E-Svitlo login and disconnections, or fail the disconnections."""
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    if answer:
-        aioclient_mock.post(
-            E_SVITLO_DISCONNECTIONS_URL, json=e_svitlo_outage_all_day_today()
-        )
-    else:
-        aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, exc=ClientError())
+def yasno_address_answers(
+    aioclient_mock,
+    *,
+    group: dict = YASNO_GROUP_53_1_REPLY,
+    streets: dict = YASNO_KYIV_STREET_REPLY,
+) -> None:
+    """
+    Serve the regions, the planned outages and the address requests of Yasno.
+
+    The planned outages list the groups 1.1 and 53.1, so an entry can switch from
+    the group 1.1 to the group 53.1 of the address. The group request and the street
+    request give the replies of the call, as the keywords of aioclient_mock.
+    """
+    aioclient_mock.get(YASNO_REGIONS_ENDPOINT, json=[YASNO_KYIV])
+    day = yasno_outage_all_day_today()["1.1"]
+    aioclient_mock.get(YASNO_PLANNED_URL, json=dict.fromkeys(("1.1", "53.1"), day))
+    aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "streets", **streets)
+    aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "houses", **YASNO_KYIV_HOUSE_REPLY)
+    aioclient_mock.get(YASNO_ADDRESSES_ENDPOINT + "group", **group)
 
 
 # For each provider: the entry data, and a function that makes its source
@@ -194,14 +178,6 @@ PROVIDERS = {
     "yasno": (
         YASNO_KYIV_1_1,
         lambda mock, *, answer: yasno_answers(mock, answer=answer),
-    ),
-    "e_svitlo": (
-        E_SVITLO_ACCOUNT_101,
-        lambda mock, *, answer: e_svitlo_answers(mock, answer=answer),
-    ),
-    "soe": (
-        SOE_SUMY_4_1,
-        lambda mock, *, answer: soe_answers(mock, answer=answer),
     ),
 }
 

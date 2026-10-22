@@ -26,9 +26,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
 from custom_components.svitlo_yeah.api.yasno import YasnoApi
 from custom_components.svitlo_yeah.const import (
     DOMAIN,
-    E_SVITLO_ERROR_NOT_LOGGED_IN,
     EVENT_DATA_CHANGED,
-    TZ_UA,
     YASNO_REGIONS_ENDPOINT,
 )
 from custom_components.svitlo_yeah.coordinator.coordinator import (
@@ -39,17 +37,12 @@ from custom_components.svitlo_yeah.coordinator.coordinator import (
 from custom_components.svitlo_yeah.models import ConnectivityState
 from tests.helpers import (
     DTEK_KYIV_REGION_1_1,
-    E_SVITLO_ACCOUNT_101,
-    E_SVITLO_DETAILS_URL,
-    E_SVITLO_DISCONNECTIONS_URL,
-    E_SVITLO_LOGIN_URL,
     KYIV_REGION_URLS,
     PROVIDERS,
     YASNO_KYIV,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
     dtek_answers,
-    e_svitlo_outage_all_day_today,
     fact_with_an_outage_today,
     kyiv_midnight,
     yasno_outage_all_day_today,
@@ -328,118 +321,6 @@ async def test_yasno_regions_that_come_later_name_the_provider(hass, aioclient_m
     await _unload(hass, entry)
 
 
-async def test_e_svitlo_data_goes_into_the_store(hass, aioclient_mock, hass_storage):
-    """The raw E-Svitlo answer, its update time and the group are kept."""
-    answer = e_svitlo_outage_all_day_today()
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
-    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
-    entry.add_to_hass(hass)
-
-    coordinator = await _set_up(hass, entry)
-
-    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
-    kept = hass_storage[store_key(entry.entry_id)]["data"]["source"]
-    updated = datetime.now(TZ_UA).replace(hour=10, minute=0, second=0, microsecond=0)
-    assert kept == {
-        "disconnections": answer,
-        "last_update": updated.isoformat(),
-        "group": "4.1",
-    }
-    await _unload(hass, entry)
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        {"error": {"err": "Технічні роботи"}},
-        {"data": {}},
-        {"error": "Технічні роботи"},
-        {"data": None},
-        [],
-    ],
-    ids=["error_text", "empty_data", "error_string", "null_data", "not_an_object"],
-)
-async def test_e_svitlo_answer_without_a_schedule_keeps_the_last_one(
-    hass, aioclient_mock, hass_storage, body
-):
-    """An answer 200 without a schedule counts as no answer: the old states stay."""
-    answer = e_svitlo_outage_all_day_today()
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
-    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
-    entry.add_to_hass(hass)
-    coordinator = await _set_up(hass, entry)
-    changes = async_capture_events(hass, EVENT_DATA_CHANGED)
-
-    aioclient_mock.clear_requests()
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=body)
-    await coordinator.async_refresh()
-    await hass.async_block_till_done()
-
-    assert coordinator.last_update_success  # the entities stay available
-    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
-    assert coordinator.last_fetch_failed
-    assert changes == []
-    kept = hass_storage[store_key(entry.entry_id)]["data"]["source"]
-    assert kept["disconnections"] == answer
-    await _unload(hass, entry)
-
-
-@pytest.mark.parametrize("empty", ["error", "dict_tom"])
-async def test_e_svitlo_schedule_with_an_empty_field_is_a_schedule(
-    hass, aioclient_mock, empty
-):
-    """A schedule with "error": null or "dict_tom": null is a schedule, no failure."""
-    answer = e_svitlo_outage_all_day_today()
-    if empty == "error":
-        answer["error"] = None
-    else:
-        answer["data"]["dict_tom"] = None
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    aioclient_mock.post(E_SVITLO_DISCONNECTIONS_URL, json=answer)
-    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
-    entry.add_to_hass(hass)
-
-    coordinator = await _set_up(hass, entry)
-
-    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
-    assert not coordinator.last_fetch_failed
-    await _unload(hass, entry)
-
-
-async def test_e_svitlo_restart_without_an_answer_shows_the_kept_schedule(
-    hass, aioclient_mock, hass_storage
-):
-    """After a restart, E-Svitlo shows the kept outage, and the device has its group."""
-    updated = datetime.now(TZ_UA).replace(hour=10, minute=0, second=0, microsecond=0)
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
-    entry = MockConfigEntry(domain=DOMAIN, data=E_SVITLO_ACCOUNT_101)
-    entry.add_to_hass(hass)
-    hass_storage[store_key(entry.entry_id)] = _kept(
-        {
-            "disconnections": e_svitlo_outage_all_day_today(),
-            "last_update": updated.isoformat(),
-            "group": "4.1",
-        },
-        group="4.1",
-    )
-
-    coordinator = await _set_up(hass, entry)
-
-    assert coordinator.current_state == ConnectivityState.STATE_PLANNED_OUTAGE
-    assert coordinator.schedule_updated_on == updated
-    assert coordinator.group == "4.1"
-    # The client still asks the server for the group, the kept one names the device
-    assert coordinator.api.group is None
-    await _unload(hass, entry)
-
-
 def _dtek_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
     """Keep a DTEK outage all day; serve it again, or power all day."""
     fact = fact_with_an_outage_today(datetime.now(UTC) - timedelta(hours=1))
@@ -474,22 +355,11 @@ def _yasno_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
     return YASNO_KYIV_1_1, source, "1.1"
 
 
-def _e_svitlo_restart(mock, *, changed: bool) -> tuple[dict, dict, str]:
-    """Keep an E-Svitlo outage all day; serve it again, or a day without outages."""
-    answer = e_svitlo_outage_all_day_today()
-    served = {"data": {**answer["data"], "lst_time_disc": []}} if changed else answer
-    mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    mock.post(E_SVITLO_DISCONNECTIONS_URL, json=served)
-    source = {"disconnections": answer, "last_update": None, "group": "4.1"}
-    return E_SVITLO_ACCOUNT_101, source, "4.1"
-
-
 @pytest.mark.parametrize("changed", [True, False], ids=["changed", "same"])
 @pytest.mark.parametrize(
     "restart",
-    [_dtek_restart, _yasno_restart, _e_svitlo_restart],
-    ids=["dtek", "yasno", "e_svitlo"],
+    [_dtek_restart, _yasno_restart],
+    ids=["dtek", "yasno"],
 )
 async def test_first_answer_after_a_restart_is_compared_with_the_kept_schedule(
     hass, aioclient_mock, hass_storage, freezer, restart, changed
@@ -520,22 +390,13 @@ async def test_first_answer_after_a_restart_is_compared_with_the_kept_schedule(
     await _unload(hass, entry)
 
 
-@pytest.mark.parametrize(
-    ("data", "urls"),
-    [
-        (YASNO_KYIV_1_1, [YASNO_REGIONS_ENDPOINT, YASNO_PLANNED_URL]),
-        (E_SVITLO_ACCOUNT_101, [E_SVITLO_LOGIN_URL]),
-    ],
-    ids=["yasno", "e_svitlo"],
-)
 async def test_new_entry_without_an_answer_keeps_nothing(
-    hass, aioclient_mock, hass_storage, data, urls
+    hass, aioclient_mock, hass_storage
 ):
     """A new entry whose source does not answer has nothing to keep."""
-    for url in urls:
+    for url in (YASNO_REGIONS_ENDPOINT, YASNO_PLANNED_URL):
         aioclient_mock.get(url, exc=ClientError())
-        aioclient_mock.post(url, exc=ClientError())
-    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    entry = MockConfigEntry(domain=DOMAIN, data=YASNO_KYIV_1_1)
     entry.add_to_hass(hass)
 
     await _set_up(hass, entry)
@@ -563,38 +424,20 @@ def _late_yasno_answer(mock, answer) -> None:
     mock.get(YASNO_PLANNED_URL, side_effect=answer(late))
 
 
-def _late_e_svitlo_answer(mock, answer) -> None:
-    """Serve E-Svitlo with another schedule that waits."""
-    late = e_svitlo_outage_all_day_today()
-    late["data"]["lst_time_disc"] = [{"start_time": "20:00", "end_time": "22:00"}]
-    mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    mock.post(E_SVITLO_DETAILS_URL, json={"data": {"lst_cherga": ["4.1"]}})
-    mock.post(E_SVITLO_DISCONNECTIONS_URL, side_effect=answer(late))
-
-
-def _late_e_svitlo_refusal(mock, answer) -> None:
-    """End the E-Svitlo session with an answer that waits, and refuse the new login."""
-    late = {"error": {"err": E_SVITLO_ERROR_NOT_LOGGED_IN}}
-    mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": False}})
-    mock.post(E_SVITLO_DISCONNECTIONS_URL, side_effect=answer(late))
-
-
 @pytest.mark.parametrize("action", ["remove", "unload"])
 @pytest.mark.parametrize(
     ("provider", "late_answer"),
     [
         ("dtek", _late_dtek_answer),
         ("yasno", _late_yasno_answer),
-        ("e_svitlo", _late_e_svitlo_answer),
-        ("e_svitlo", _late_e_svitlo_refusal),
     ],
-    ids=["dtek", "yasno", "e_svitlo", "e_svitlo_refusal"],
+    ids=["dtek", "yasno"],
 )
 async def test_poll_that_ends_after_the_entry_is_gone_changes_nothing(
     hass, aioclient_mock, hass_storage, caplog, provider, late_answer, action
 ):
     """
-    A poll that ends after an unload or a removal keeps nothing and asks nothing.
+    A poll that ends after an unload or a removal keeps nothing and creates no issue.
 
     Home Assistant does not cancel a running poll at the unload of the entry.
     """
@@ -633,7 +476,6 @@ async def test_poll_that_ends_after_the_entry_is_gone_changes_nothing(
         assert hass_storage[store_key(entry.entry_id)]["data"] == kept
     issue_id = group_not_listed_issue_id(entry.entry_id)
     assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
-    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
     assert [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR] == []
 
 

@@ -9,7 +9,14 @@ from pathlib import Path
 import pytest
 
 from custom_components.svitlo_yeah import const
+from custom_components.svitlo_yeah.button import CHECK_GROUP_BUTTON, REFRESH_BUTTON
+from custom_components.svitlo_yeah.config_flow import (
+    NOT_FOUND_ERRORS,
+    SEARCH_AGAIN,
+    SEARCH_AGAIN_TEXTS,
+)
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
+from custom_components.svitlo_yeah.sensor import GROUP_SENSOR, SENSORS
 
 TRANSLATIONS = Path(__file__).parent.parent / (
     "custom_components/svitlo_yeah/translations"
@@ -18,19 +25,30 @@ CONFIG_FLOW = TRANSLATIONS.parent / "config_flow.py"
 README = Path(__file__).parent.parent / "README.md"
 LANGUAGES = ["en", "uk"]
 # The provider options whose source covers one region with its oblast
-REGION_OPTIONS = ("dtekjsonprovider_", "esvitloprovider_", "soeprovider_")
+REGION_OPTIONS = ("dtekjsonprovider_",)
 # The letters of the oblenergo abbreviations, as the English region names spell
 # them, for example Khmelnytskyi, Chernihiv and Zhytomyr
 LATIN = dict(
     zip(
-        "ВЕЖЗЛОПРСТХЧ",
-        ("V", "E", "Zh", "Z", "L", "O", "P", "R", "S", "T", "Kh", "Ch"),
+        "ВЕЖЗЛОПРТХЧ",
+        ("V", "E", "Zh", "Z", "L", "O", "P", "R", "T", "Kh", "Ch"),
         strict=True,
     )
 )
-# Home Assistant aborts with this reason: _async_abort_entries_match with
-# already_configured
+# The flow aborts with this reason through AbortFlow, which the parser of the abort
+# reasons does not read
 HA_ABORT_REASONS = {"already_configured"}
+# The steps of the address flow, and the errors of its form that the code does not
+# read from a table (the not found errors come from NOT_FOUND_ERRORS)
+ADDRESS_STEPS = ("yasno_method", "address", "pick_city", "pick_street", "house")
+ADDRESS_ERRORS = {
+    "city_too_short",
+    "street_too_short",
+    "name_not_unique",
+    "street_without_houses",
+    "yasno_no_answer",
+    "address_group_not_listed",
+}
 
 
 def _load(language: str) -> dict:
@@ -81,6 +99,19 @@ def _form_errors() -> set[str]:
         )
         for node in ast.walk(assign.value)
         if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+
+
+def _entry_descriptions() -> set[str]:
+    """Return each key that config_flow.py gives as the description of a new entry."""
+    tree = ast.parse(CONFIG_FLOW.read_text(encoding="utf-8"))
+    return {
+        keyword.value.value
+        for keyword in ast.walk(tree)
+        if isinstance(keyword, ast.keyword)
+        and keyword.arg == "description"
+        and isinstance(keyword.value, ast.Constant)
+        and isinstance(keyword.value.value, str)
     }
 
 
@@ -139,6 +170,16 @@ def test_each_form_error_has_a_text(language):
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
+def test_each_entry_description_has_a_text(language):
+    """The dialog of a new entry shows a bare key when its description has no text."""
+    keys = _entry_descriptions()
+    assert keys  # the parser found the descriptions of config_flow.py
+
+    texts = _load(language)["config"]["create_entry"]
+    assert {k for k in keys if not texts.get(k)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
 def test_each_exception_has_a_text(language):
     """Each translated exception has a text: without it, the UI shows a bare key."""
     keys = _exception_keys()
@@ -146,6 +187,52 @@ def test_each_exception_has_a_text(language):
 
     texts = _load(language).get("exceptions", {})
     assert {k for k in keys if not texts.get(k, {}).get("message")} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_repair_issue_has_a_title_and_a_description(language):
+    """Each repair issue of const.py has a title and a description for Repairs."""
+    keys = [value for name, value in vars(const).items() if name.startswith("ISSUE_")]
+    assert keys  # the issues of const.py
+
+    issues = _load(language).get("issues", {})
+    assert [
+        key
+        for key in keys
+        if not all(issues.get(key, {}).get(part) for part in ("title", "description"))
+    ] == []
+
+
+def test_removed_provider_texts_name_the_placeholders_that_the_code_sends():
+    """
+    The error, the abort and the issue of a removed provider name its placeholders.
+
+    Each one gets the provider and the integration, and the issue gets the entry.
+    """
+    texts = _load("en")
+    sent = {"provider", "integration"}
+    assert _placeholders(texts["exceptions"]["provider_removed"]["message"]) == sent
+    assert _placeholders(texts["config"]["abort"]["provider_removed"]) == sent
+    issue = texts["issues"]["provider_removed"]
+    assert _placeholders(issue["title"]) == {"entry"}
+    assert _placeholders(issue["description"]) == {"entry", *sent}
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_sensor_and_button_has_a_name(language):
+    """Each sensor and button has a name: without it, the entity has no name."""
+    entities = _load(language)["entity"]
+    descriptions = {
+        "sensor": (*SENSORS, GROUP_SENSOR),
+        "button": (REFRESH_BUTTON, CHECK_GROUP_BUTTON),
+    }
+
+    assert {
+        f"{platform}.{d.translation_key}"
+        for platform, group in descriptions.items()
+        for d in group
+        if not entities[platform].get(d.translation_key, {}).get("name")
+    } == set()
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
@@ -195,7 +282,7 @@ def test_each_provider_option_names_the_region_of_its_devices(language):
     regions = {
         key: key.split("_", 1)[1] for key in options if key.startswith(REGION_OPTIONS)
     }
-    assert len(regions) == len(DTEK_PROVIDER_URLS) + 2  # and Sumy: E-Svitlo, SOE
+    assert len(regions) == len(DTEK_PROVIDER_URLS)
 
     assert [
         key
@@ -234,9 +321,80 @@ def test_each_ukrainian_abbreviation_spells_the_english_one():
         for key, parts in _option_parts("uk").items()
         if key.startswith(REGION_OPTIONS) and len(parts) == 3
     }
-    assert len(ukrainian) == 13  # the options of the oblenergos
+    assert len(ukrainian) == 11  # the options of the oblenergos
 
     assert {
         key: "".join(LATIN[letter] for letter in abbreviation)
         for key, abbreviation in ukrainian.items()
     } == {key: english[key][-1] for key in ukrainian}
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_error_of_the_address_form_has_a_text(language):
+    """
+    Each error of the address form has a text, because the form shows a bare key.
+
+    The not found errors come from a table, so the parser of the form errors above
+    does not read them.
+    """
+    errors = ADDRESS_ERRORS | set(NOT_FOUND_ERRORS.values())
+    texts = _load(language)["config"]["error"]
+    assert {e for e in errors if not texts.get(e)} == set()
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_step_of_the_address_flow_has_its_texts(language):
+    """The menu, the address form and the selects have a title and their fields."""
+    steps = _load(language)["config"]["step"]
+    assert {s for s in ADDRESS_STEPS if not steps.get(s, {}).get("title")} == set()
+
+    menu = steps["yasno_method"]
+    assert set(menu["menu_options"]) == {"address", "group"}
+    assert set(menu["menu_option_descriptions"]) == {"address", "group"}
+    assert set(steps["address"]["data"]) == {"city", "street"}
+    for level in ("city", "street"):
+        assert set(steps[f"pick_{level}"]["data"]) == {level}
+    assert set(steps["house"]["data"]) == {"house"}
+
+
+def _search_again_texts(language: str) -> dict[str, str]:
+    """
+    Return the text of the option that searches again, for each translation key.
+
+    The frontend takes the text of an option of a select from the section of the
+    select, by the translation key of the select.
+    """
+    selector = _load(language)["selector"]
+    return {
+        key: selector.get(key, {}).get("options", {}).get(SEARCH_AGAIN, "")
+        for key, _ in SEARCH_AGAIN_TEXTS.values()
+    }
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_each_search_again_option_has_a_text(language):
+    """The section of each select has the text of its option that searches again."""
+    texts = _search_again_texts(language)
+    assert texts  # the table of the flow has the selects
+    assert {key for key, text in texts.items() if not text} == set()
+
+
+def test_search_again_fallback_is_the_english_text():
+    """The label that the flow gives the option is the English text of en.json."""
+    assert dict(SEARCH_AGAIN_TEXTS.values()) == _search_again_texts("en")
+
+
+def test_address_texts_name_the_placeholders_that_the_flow_sends():
+    """
+    The flow sends the page, the address, the counts and the query, and the group.
+
+    The group goes to the text of an error and to the text of the created entry.
+    """
+    config = _load("en")["config"]
+    assert _placeholders(config["step"]["address"]["description"]) == {"url"}
+    for level in ("city", "street"):
+        text = config["step"][f"pick_{level}"]["description"]
+        assert _placeholders(text) == {"place", "count", "query"}
+    assert _placeholders(config["step"]["house"]["description"]) == {"place", "count"}
+    assert _placeholders(config["error"]["address_group_not_listed"]) == {"group"}
+    assert _placeholders(config["create_entry"]["address"]) == {"address", "group"}

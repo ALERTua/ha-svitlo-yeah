@@ -2,18 +2,14 @@
   "title": "Svitlo Yeah!",
   "config": {
     "abort": {
-      "already_configured": "The integration already has an entry for this group of this provider, or for this E-Svitlo account.",
-      "reconfigure_successful": "The entry now uses the new group. To update the entity IDs, open the device and select Recreate entity IDs.",
-      "reconfigure_unchanged": "The entry already uses this group. Nothing changed.",
-      "reconfigure_e_svitlo": "E-Svitlo takes the group from your account. To select another account, delete this integration entry and add it again.",
-      "no_accounts_found": "No accounts found",
-      "e_svitlo_connection_error": "Failed to get the accounts from E-Svitlo.\nThe E-Svitlo server is unreachable, or it answered with an error.\nMake sure that Home Assistant can connect to the Internet, and try again later.",
+      "already_configured": "The integration already has an entry for this group of this provider, or for this address.",
+      "reconfigure_successful": "The entry now uses the new group or the new address. To update the entity IDs, open the device and select Recreate entity IDs.",
+      "reconfigure_unchanged": "The entry already uses this group and this address. Nothing changed.",
+      "provider_removed": "Version 0.11.0 of the integration removed the source {provider}, so Reconfigure cannot change this entry. The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. Delete this entry: go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete.",
+      "unknown_provider_type": "This entry has the unknown provider type «{provider_type}», so Reconfigure cannot change it. Delete the entry and add it again.",
       "yasno_connection_error": "Failed to get the Yasno groups.\nThe Yasno API is unreachable, or it has no groups for this provider now.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
       "dtek_json_unavailable": "No data source gave a schedule that the integration can read.\nThe source is unreachable, or its data has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{urls}",
-      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}",
-      "soe_unavailable": "Failed to get the sub-queues from the site of Sumyoblenergo.\nThe site is unreachable, or its answer has a format that the integration does not know.\nMake sure that Home Assistant can connect to the Internet, and try again later.\n{url}",
-      "reauth_successful": "The entry now uses the new login.",
-      "wrong_account": "This login has no access to the personal account of this entry. Sign in with the login that owns this personal account."
+      "dtek_json_empty_data": "The data source answered, but its schedule has no groups now.\nThis can happen when the provider publishes no outages.\nTry again later.\n{urls}"
     },
     "step": {
       "user": {
@@ -25,6 +21,59 @@
           "provider": "The region or the distribution system operator that supplies electricity to your address."
         }
       },
+      "yasno_method": {
+        "title": "How to find your schedule",
+        "menu_options": {
+          "address": "By address",
+          "group": "By group"
+        },
+        "menu_option_descriptions": {
+          "address": "The integration finds the group and keeps track of it",
+          "group": "You know the number of your group"
+        }
+      },
+      "address": {
+        "title": "Address",
+        "description": "Enter the address as on the Yasno site: {url}. Three letters of the street name are enough.",
+        "data": {
+          "city": "City",
+          "street": "Street"
+        },
+        "data_description": {
+          "city": "The name of your city, or a part of it.",
+          "street": "The name of your street or a part of it, at least three letters."
+        }
+      },
+      "pick_city": {
+        "title": "Select your city",
+        "description": "Region: {place}. Matches for «{query}»: {count}. Yasno shows at most 20.",
+        "data": {
+          "city": "City"
+        },
+        "data_description": {
+          "city": "The city of your address."
+        }
+      },
+      "pick_street": {
+        "title": "Select your street",
+        "description": "Address: {place}. Matches for «{query}»: {count}. Yasno shows at most 20.",
+        "data": {
+          "street": "Street"
+        },
+        "data_description": {
+          "street": "The street of your address."
+        }
+      },
+      "house": {
+        "title": "Select your house",
+        "description": "Address: {place}. Houses on this street: {count}. Select your house in the list, or start to type its number.",
+        "data": {
+          "house": "House"
+        },
+        "data_description": {
+          "house": "The number of your house."
+        }
+      },
       "group": {
         "title": "Settings",
         "data": {
@@ -32,28 +81,6 @@
         },
         "data_description": {
           "group": "Find your group at: {url}"
-        }
-      },
-      "esvitlo_auth": {
-        "title": "E-Svitlo Authentication",
-        "description": "Enter your E-Svitlo credentials",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        },
-        "data_description": {
-          "username": "Use login and password from E-Svitlo personal cabinet: {esvitlo_url}",
-          "password": "The password of your E-Svitlo personal cabinet."
-        }
-      },
-      "esvitlo_account": {
-        "title": "Select Account",
-        "description": "Select the account (address) to monitor",
-        "data": {
-          "account_id": "Account"
-        },
-        "data_description": {
-          "account_id": "The personal account (address) whose outage schedule the integration shows. For another address, add one more integration entry."
         }
       },
       "stale_confirm": {
@@ -65,24 +92,22 @@
         "data_description": {
           "acknowledge": "To continue with the outdated schedule, select this checkbox."
         }
-      },
-      "reauth_confirm": {
-        "title": "Sign in to E-Svitlo again",
-        "description": "E-Svitlo refused the login of this entry. Enter the current login and password of your E-Svitlo personal cabinet. Until then, the entities show the last schedule. If E-Svitlo has maintenance now, you can also wait: the integration tries the old login at each update.",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        },
-        "data_description": {
-          "username": "The login of your E-Svitlo personal cabinet: {esvitlo_url}",
-          "password": "The current password of your E-Svitlo personal cabinet."
-        }
       }
     },
     "error": {
-      "invalid_auth": "Invalid username or password",
-      "cannot_connect": "Failed to connect to E-Svitlo. Make sure that Home Assistant can connect to the Internet, and try again.",
-      "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it."
+      "acknowledge_required": "The checkbox is not selected. To continue with the outdated schedule, select it.",
+      "city_too_short": "Enter the name of your city, or a part of it.",
+      "street_too_short": "Enter at least 3 letters of the street name.",
+      "name_not_unique": "Yasno has several places with this name, so the integration cannot check the address later. Select «By group» in the menu.",
+      "city_not_found": "Yasno does not know this city.",
+      "street_not_found": "Yasno does not know this street.",
+      "street_without_houses": "Yasno knows no house on this street.",
+      "house_not_found": "Yasno does not know this house on this street.",
+      "yasno_no_answer": "Yasno does not answer. Try again in a few minutes.",
+      "address_group_not_listed": "Yasno gives this address the group {group}, but the Yasno schedule does not have this group yet. Try again later, or select the group by hand."
+    },
+    "create_entry": {
+      "address": "Found the address: {address}. Yasno group: {group}."
     }
   },
   "device": {
@@ -91,12 +116,6 @@
     },
     "device_name_dtek": {
       "name": "{provider_name} {group}"
-    },
-    "device_name_e_svitlo": {
-      "name": "{region_name} {provider_name} {group}"
-    },
-    "device_name_soe": {
-      "name": "{region_name} {provider_name} {group}"
     }
   },
   "selector": {
@@ -118,9 +137,22 @@
         "dtekjsonprovider_rivne": "DTEK — Rivne and Oblast — ROE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
-        "yasnoprovider_3_303": "Yasno — Dnipro — CEK",
-        "esvitloprovider_sumy": "E-Svitlo — Sumy and Oblast — SOE",
-        "soeprovider_sumy": "SOE — Sumy and Oblast — SOE"
+        "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
+      }
+    },
+    "city_match": {
+      "options": {
+        "search_again": "My city is not in the list, search again"
+      }
+    },
+    "street_match": {
+      "options": {
+        "search_again": "My street is not in the list, search again"
+      }
+    },
+    "house_match": {
+      "options": {
+        "search_again": "This is not my street, search again"
       }
     }
   },
@@ -128,6 +160,9 @@
     "button": {
       "refresh": {
         "name": "Force refresh now"
+      },
+      "check_group": {
+        "name": "Update group"
       }
     },
     "calendar": {
@@ -161,6 +196,9 @@
       },
       "next_connectivity": {
         "name": "Next Connectivity"
+      },
+      "group": {
+        "name": "Group"
       }
     }
   },
@@ -168,14 +206,28 @@
     "group_not_listed": {
       "title": "No outage schedule for group {group}",
       "description": "The source {provider} has no outage schedule for group {group}. Until the source has it, the Electricity sensor shows Unknown, and the calendars show no outages for this group.\n\nThe provider can renumber or remove groups. Find your group on the website of the provider. To change the group, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Reconfigure.\n\nThis message disappears when the source has group {group} again."
+    },
+    "address_not_found": {
+      "title": "Yasno does not find the address of {entry}",
+      "description": "Yasno does not know the address of the entry «{entry}» any more. The integration keeps the schedule of the group {group}. Look for the address on the Yasno site: {url}. To give the entry the address as Yasno writes it now, go to Settings > Devices & services > {integration}, open the menu of this entry, select Reconfigure, and then select By address.\n\nThis message disappears when Yasno finds the address again."
+    },
+    "provider_removed": {
+      "title": "Version 0.11.0 removed the source of {entry}",
+      "description": "Version 0.11.0 of the integration removed the source {provider}, so the integration cannot load the entry «{entry}». The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. To delete the entry, go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete.\n\nThis message disappears when you delete the entry."
     }
   },
   "exceptions": {
     "refresh_failed": {
       "message": "Failed to get a new outage schedule, because the source did not answer. The entities keep the last schedule. Make sure that Home Assistant can connect to the Internet, and try again later."
     },
-    "login_rejected": {
-      "message": "E-Svitlo refused the login. To enter the current password, go to Settings > Devices & services. If E-Svitlo has maintenance now, try again later."
+    "check_group_failed": {
+      "message": "Yasno gave no sure answer about the address, so the group stays. Try again in a few minutes."
+    },
+    "check_group_not_listed": {
+      "message": "Yasno gives the group {group} for the address, but its schedule does not list that group yet. The entry keeps its group."
+    },
+    "address_not_found": {
+      "message": "Yasno does not find the address of this entry. The entry keeps its group."
     },
     "unknown_provider_type": {
       "message": "This entry has the unknown provider type «{provider_type}». Delete the entry and add it again."
@@ -192,14 +244,16 @@
     "entry_without_group": {
       "message": "This entry has no group. Delete the entry and add it again."
     },
-    "entry_without_login": {
-      "message": "This E-Svitlo entry has no login or password. Delete the entry and add it again."
+    "provider_removed": {
+      "message": "Version 0.11.0 of the integration removed the source {provider}. The source stopped giving the outage schedule to other programs. The integration has no other source of this schedule. Delete this entry: go to Settings > Devices & services > {integration}, open the menu of this entry, and select Delete."
     }
   },
   "common": {
     "event_name_planned_outage": "Planned Outage",
     "event_name_scheduled_outage": "Scheduled Outage",
     "event_name_emergency_outage": "Emergency Outage",
+    "group_changed_title": "New Yasno group",
+    "group_changed_message": "The Yasno group of «{entry}» changed from {old_group} to {new_group}. The entry now shows the schedule of the new group.",
     "kyiv_region": "Kyiv Oblast",
     "dnipro": "Dnipro",
     "odesa": "Odesa",
@@ -212,7 +266,6 @@
     "zaporizhzhia": "Zaporizhzhia",
     "vinnytsia": "Vinnytsia",
     "zhytomyr": "Zhytomyr",
-    "sumy": "Sumy",
     "poltava": "Poltava",
     "rivne": "Rivne"
   }
