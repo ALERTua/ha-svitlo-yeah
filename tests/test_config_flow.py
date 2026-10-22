@@ -7,14 +7,10 @@ import probatio as vol
 import pytest
 from aiohttp import ClientError
 from homeassistant.config_entries import SOURCE_USER
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.svitlo_yeah.const import (
-    CONF_ACCOUNT_ID,
-    CONF_ADDRESS_STR,
     CONF_GROUP,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
@@ -22,21 +18,14 @@ from custom_components.svitlo_yeah.const import (
     DOMAIN,
     DTEK_PROVIDER_URLS,
     NAME,
-    PROVIDER_TYPE_E_SVITLO,
-    SOE_SCHEDULE_URL,
-    SOE_SITE_URL,
     YASNO_PLANNED_OUTAGES_ENDPOINT,
     YASNO_REGIONS_ENDPOINT,
 )
 from tests.helpers import (
     DTEK_KYIV_REGION_1_1,
-    E_SVITLO_ACCOUNT_101,
-    E_SVITLO_ACCOUNTS_URL,
-    E_SVITLO_LOGIN_URL,
-    SOE_SUMY_4_1,
+    REMOVED_PROVIDER_ENTRIES,
     YASNO_KYIV_1_1,
     YASNO_PLANNED_URL,
-    soe_group,
 )
 
 pytestmark = pytest.mark.usefixtures(
@@ -64,18 +53,6 @@ YASNO_REGIONS = [
         "id": YASNO_OTHER_REGION_ID,
         "value": "Дніпро",
     },
-]
-
-E_SVITLO_KEY = "esvitloprovider_sumy"
-# The login forms name the site of the personal cabinet
-E_SVITLO_SITE = "https://sm.e-svitlo.com.ua/"
-E_SVITLO_CREDENTIALS = {
-    key: E_SVITLO_ACCOUNT_101[key] for key in (CONF_USERNAME, CONF_PASSWORD)
-}
-E_SVITLO_NEW_LOGIN = {**E_SVITLO_CREDENTIALS, CONF_PASSWORD: "new secret"}
-E_SVITLO_ACCOUNTS = [
-    {"a": 101, "address": "Суми, вул. Перша, 1", "ls": "5001"},
-    {"a": 102, "address": "Суми, вул. Друга, 2", "ls": "5002"},
 ]
 
 
@@ -157,34 +134,11 @@ async def _configure(hass, result: dict, user_input: dict) -> dict:
     return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
 
 
-async def _start_e_svitlo_flow(hass, aioclient_mock) -> dict:
-    """Start a new flow at the E-Svitlo login form."""
-    result = await _start_flow(hass, aioclient_mock)
-    result = await _configure(hass, result, {CONF_PROVIDER: E_SVITLO_KEY})
-    assert result["step_id"] == "esvitlo_auth"
-    assert result["description_placeholders"]["esvitlo_url"] == E_SVITLO_SITE
-    return result
-
-
-def _calls(aioclient_mock, url: str) -> int:
-    """Return how many requests went to this URL."""
-    return sum(1 for call in aioclient_mock.mock_calls if str(call[1]) == url)
-
-
-def _count_sessions():
-    """Count the HTTP sessions that the E-Svitlo clients create."""
-    return patch(
-        "custom_components.svitlo_yeah.api.e_svitlo.async_create_clientsession",
-        wraps=async_create_clientsession,
-    )
-
-
-def _serve_e_svitlo(aioclient_mock) -> None:
-    """Accept the E-Svitlo login and list two accounts of the user."""
-    aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-    aioclient_mock.post(
-        E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": E_SVITLO_ACCOUNTS}}
-    )
+async def _choose_group_method(hass, result: dict) -> dict:
+    """Choose «By group» in the menu that a Yasno provider shows."""
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "yasno_method"
+    return await _configure(hass, result, {"next_step_id": "group"})
 
 
 async def test_provider_form_preselects_no_provider(hass, aioclient_mock):
@@ -363,6 +317,7 @@ class TestSetupWithRealProviderApis:
         assert YASNO_KEY in providers
 
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+        result = await _choose_group_method(hass, result)
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == ["1.1", "1.2"]
         assert result["description_placeholders"] == {
@@ -382,6 +337,7 @@ class TestSetupWithRealProviderApis:
 
         result = await _start_flow(hass, aioclient_mock)
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+        result = await _choose_group_method(hass, result)
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "yasno_connection_error"
@@ -412,6 +368,7 @@ class TestSetupWithRealProviderApis:
 
         result = await _start_flow(hass, aioclient_mock)
         result = await _configure(hass, result, {CONF_PROVIDER: YASNO_KEY})
+        result = await _choose_group_method(hass, result)
 
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "yasno_connection_error"
@@ -449,6 +406,7 @@ class TestReconfigureGroup:
         aioclient_mock.get(YASNO_PLANNED_URL, json={"1.1": {}, "3.1": {}})
 
         result = await entry.start_reconfigure_flow(hass)
+        result = await _choose_group_method(hass, result)
         assert result["step_id"] == "group"
         assert _select_options(result, CONF_GROUP) == ["1.1", "3.1"]
         assert _default(result, CONF_GROUP) is None
@@ -458,16 +416,49 @@ class TestReconfigureGroup:
         assert result["reason"] == "reconfigure_successful"
         assert entry.data[CONF_GROUP] == "3.1"
 
-    async def test_e_svitlo_stops_at_once(self, hass):
-        """E-Svitlo takes the group from the account, so reconfigure stops."""
-        data = {CONF_PROVIDER_TYPE: PROVIDER_TYPE_E_SVITLO, CONF_ACCOUNT_ID: "1"}
+    @pytest.mark.parametrize(
+        ("data", "provider"),
+        list(REMOVED_PROVIDER_ENTRIES.values()),
+        ids=list(REMOVED_PROVIDER_ENTRIES),
+    )
+    async def test_entry_of_a_removed_provider_stops_at_once(
+        self, hass, aioclient_mock, data, provider
+    ):
+        """
+        Reconfigure of an entry of a removed provider stops, and names the provider.
+
+        The entry keeps its data, and the flow asks no source.
+        """
         entry = _add_entry(hass, data)
 
         result = await entry.start_reconfigure_flow(hass)
 
         assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "reconfigure_e_svitlo"
+        assert result["reason"] == "provider_removed"
+        assert result["description_placeholders"] == {
+            "provider": provider,
+            "integration": "Svitlo Yeah!",
+        }
         assert entry.data == data
+        assert aioclient_mock.call_count == 0
+
+    @pytest.mark.parametrize("provider_type", ["other", None], ids=["other", "none"])
+    async def test_entry_of_an_unknown_provider_type_stops_at_once(
+        self, hass, aioclient_mock, provider_type
+    ):
+        """Reconfigure of an entry of an unknown provider type stops, and names it."""
+        data = {**YASNO_KYIV_1_1, CONF_PROVIDER_TYPE: provider_type}
+        entry = _add_entry(hass, data)
+
+        result = await entry.start_reconfigure_flow(hass)
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "unknown_provider_type"
+        assert result["description_placeholders"] == {
+            "provider_type": str(provider_type)
+        }
+        assert entry.data == data
+        assert aioclient_mock.call_count == 0
 
 
 class TestEntryTitle:
@@ -522,6 +513,7 @@ class TestEntryTitle:
         aioclient_mock.get(YASNO_PLANNED_URL, json={"1.1": {}, "3.1": {}})
 
         result = await entry.start_reconfigure_flow(hass)
+        result = await _choose_group_method(hass, result)
         result = await _configure(hass, result, {CONF_GROUP: "3.1"})
 
         assert result["reason"] == "reconfigure_successful"
@@ -590,6 +582,7 @@ class TestDuplicateGroup:
             result,
             {CONF_PROVIDER: f"yasnoprovider_{YASNO_OTHER_REGION_ID}_{YASNO_DSO_ID}"},
         )
+        result = await _choose_group_method(hass, result)
         result = await _configure(hass, result, {CONF_GROUP: "1.1"})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -617,355 +610,3 @@ class TestDuplicateGroup:
         assert result["type"] is FlowResultType.ABORT
         assert result["reason"] == "reconfigure_unchanged"
         assert entry.data == DTEK_KYIV_REGION_1_1
-
-
-class TestDuplicateESvitloAccount:
-    """The integration keeps one entry for each E-Svitlo account."""
-
-    @pytest.fixture(autouse=True)
-    def _e_svitlo_answers(self, aioclient_mock):
-        """Accept the login and list two accounts of the user."""
-        _serve_e_svitlo(aioclient_mock)
-
-    async def _add_account(self, hass, aioclient_mock, account_id: str) -> dict:
-        """Walk a new E-Svitlo flow to the given account."""
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-        assert result["step_id"] == "esvitlo_account"
-        return await _configure(hass, result, {CONF_ACCOUNT_ID: account_id})
-
-    async def test_same_account_aborts(self, hass, aioclient_mock):
-        """A second entry for the same account aborts."""
-        _add_entry(hass, E_SVITLO_ACCOUNT_101)
-
-        result = await self._add_account(hass, aioclient_mock, "101")
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "already_configured"
-        assert len(hass.config_entries.async_entries(DOMAIN)) == 1
-
-    async def test_other_account_creates_the_entry(self, hass, aioclient_mock):
-        """Another account of the same user is a new entry with its address."""
-        _add_entry(hass, E_SVITLO_ACCOUNT_101)
-
-        result = await self._add_account(hass, aioclient_mock, "102")
-
-        assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert result["data"] == {
-            **E_SVITLO_ACCOUNT_101,
-            CONF_ACCOUNT_ID: "102",
-            CONF_ADDRESS_STR: "Суми, вул. Друга, 2",
-        }
-        # The address is personal data, and the debug log shows the title
-        assert result["title"] == "Sumy E-Svitlo"
-
-    async def test_one_setup_logs_in_once_in_one_session(self, hass, aioclient_mock):
-        """The steps of one flow share the client, its session and its login."""
-        with _count_sessions() as create_session:
-            result = await self._add_account(hass, aioclient_mock, "101")
-
-        assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert create_session.call_count == 1
-        assert _calls(aioclient_mock, E_SVITLO_LOGIN_URL) == 1
-        assert _calls(aioclient_mock, E_SVITLO_ACCOUNTS_URL) == 1
-
-    async def test_preselected_account_creates_the_entry(self, hass, aioclient_mock):
-        """A submit without a choice sends the default, which the select accepts."""
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-        marker = next(iter(result["data_schema"].schema))
-
-        result = await _configure(hass, result, {CONF_ACCOUNT_ID: marker.default()})
-
-        assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert result["data"] == E_SVITLO_ACCOUNT_101
-
-
-class TestESvitloLoginForm:
-    """The E-Svitlo login form helps the browser and a password manager."""
-
-    async def test_fields_have_their_types_and_autocomplete(self, hass, aioclient_mock):
-        """The password field is masked, and both fields name their autocomplete."""
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-
-        schema = result["data_schema"].schema
-        username, password = (
-            schema[field].config for field in ("username", "password")
-        )
-        assert (username["type"], username["autocomplete"]) == ("text", "username")
-        assert (password["type"], password["autocomplete"]) == (
-            "password",
-            "current-password",
-        )
-
-    @pytest.mark.parametrize(
-        "answer",
-        [{"json": {"data": {"login": False}}}, {"exc": ClientError()}],
-        ids=["invalid_auth", "cannot_connect"],
-    )
-    async def test_error_keeps_the_username(self, hass, aioclient_mock, answer):
-        """After an error, the form keeps the typed username, but not the password."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, **answer)
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        assert _suggested(result, "username") is None
-
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-
-        assert result["step_id"] == "esvitlo_auth"
-        assert result["errors"]
-        assert _suggested(result, "username") == E_SVITLO_CREDENTIALS["username"]
-        assert _suggested(result, "password") is None
-
-
-class TestESvitloConnection:
-    """The E-Svitlo steps tell refused credentials from an unreachable server."""
-
-    async def test_refused_login_shows_invalid_auth(self, hass, aioclient_mock):
-        """Credentials that the server refuses keep the form with invalid_auth."""
-        aioclient_mock.post(
-            E_SVITLO_LOGIN_URL, json={"data": {"login": False}, "error": "refused"}
-        )
-
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-
-        assert result["type"] is FlowResultType.FORM
-        assert result["step_id"] == "esvitlo_auth"
-        assert result["errors"] == {"base": "invalid_auth"}
-
-    @pytest.mark.parametrize(
-        "answer",
-        [{"exc": ClientError()}, {"exc": TimeoutError()}, {"status": 500}],
-        ids=["client_error", "timeout", "http_500"],
-    )
-    async def test_unreachable_server_shows_cannot_connect(
-        self, hass, aioclient_mock, answer
-    ):
-        """No answer of the server to the login keeps the form with cannot_connect."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, **answer)
-
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-
-        assert result["type"] is FlowResultType.FORM
-        assert result["step_id"] == "esvitlo_auth"
-        assert result["errors"] == {"base": "cannot_connect"}
-
-    async def test_retry_after_a_network_error_reaches_the_account_step(
-        self, hass, aioclient_mock
-    ):
-        """After a network error, the same form logs in on the next try."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-        assert result["errors"] == {"base": "cannot_connect"}
-
-        aioclient_mock.clear_requests()
-        _serve_e_svitlo(aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-
-        assert result["type"] is FlowResultType.FORM
-        assert result["step_id"] == "esvitlo_account"
-
-    async def test_failed_accounts_request_aborts(self, hass, aioclient_mock):
-        """A failed request for the accounts is a connection error, not no accounts."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-        aioclient_mock.post(E_SVITLO_ACCOUNTS_URL, exc=ClientError())
-
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "e_svitlo_connection_error"
-
-    async def test_user_without_accounts_aborts(self, hass, aioclient_mock):
-        """A user whose list of accounts is empty gets no_accounts_found."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-        aioclient_mock.post(E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": []}})
-
-        result = await _start_e_svitlo_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, E_SVITLO_CREDENTIALS)
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "no_accounts_found"
-
-
-class TestESvitloReauth:
-    """After E-Svitlo refuses the login, the user enters the current one."""
-
-    async def _start(self, hass) -> tuple[MockConfigEntry, dict]:
-        """Add an E-Svitlo entry, and start its reauthentication."""
-        entry = _add_entry(hass, E_SVITLO_ACCOUNT_101)
-        result = await entry.start_reauth_flow(hass)
-        assert result["step_id"] == "reauth_confirm"
-        assert result["description_placeholders"]["esvitlo_url"] == E_SVITLO_SITE
-        return entry, result
-
-    async def test_form_suggests_the_username_of_the_entry(self, hass):
-        """The form shows the username of the entry, and never its password."""
-        _, result = await self._start(hass)
-
-        assert _suggested(result, "username") == E_SVITLO_ACCOUNT_101["username"]
-        assert _suggested(result, "password") is None
-
-    async def test_current_login_updates_the_entry(self, hass, aioclient_mock):
-        """A login that opens the account of the entry goes into the entry."""
-        _serve_e_svitlo(aioclient_mock)
-        entry, result = await self._start(hass)
-
-        result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "reauth_successful"
-        assert entry.data == {**E_SVITLO_ACCOUNT_101, **E_SVITLO_NEW_LOGIN}
-
-    async def test_refused_login_shows_invalid_auth(self, hass, aioclient_mock):
-        """A refused login keeps the form with invalid_auth and the typed username."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": False}})
-        entry, result = await self._start(hass)
-
-        result = await _configure(
-            hass, result, {**E_SVITLO_NEW_LOGIN, "username": "u2"}
-        )
-
-        assert result["step_id"] == "reauth_confirm"
-        assert result["errors"] == {"base": "invalid_auth"}
-        assert _suggested(result, "username") == "u2"
-        assert _suggested(result, "password") is None
-        assert entry.data == E_SVITLO_ACCOUNT_101
-
-    async def test_attempts_share_one_session(self, hass, aioclient_mock):
-        """Each attempt logs in again, in the one session of the flow."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": False}})
-        _, result = await self._start(hass)
-
-        with _count_sessions() as create_session:
-            result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
-            result = await _configure(
-                hass, result, {**E_SVITLO_NEW_LOGIN, "username": "u2"}
-            )
-
-        assert result["errors"] == {"base": "invalid_auth"}
-        assert create_session.call_count == 1
-        logins = [
-            c for c in aioclient_mock.mock_calls if str(c[1]) == E_SVITLO_LOGIN_URL
-        ]
-        assert [c[2]["login_name"] for c in logins] == ["user", "u2"]
-
-    @pytest.mark.parametrize(
-        "accounts_answer",
-        [None, {"exc": ClientError()}],
-        ids=["login_unreachable", "accounts_unreachable"],
-    )
-    async def test_unreachable_server_shows_cannot_connect(
-        self, hass, aioclient_mock, accounts_answer
-    ):
-        """No answer of the server at the login or the accounts gives cannot_connect."""
-        if accounts_answer is None:
-            aioclient_mock.post(E_SVITLO_LOGIN_URL, exc=ClientError())
-        else:
-            aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-            aioclient_mock.post(E_SVITLO_ACCOUNTS_URL, **accounts_answer)
-        entry, result = await self._start(hass)
-
-        result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
-
-        assert result["errors"] == {"base": "cannot_connect"}
-        assert entry.data == E_SVITLO_ACCOUNT_101
-
-    async def test_login_without_the_account_aborts(self, hass, aioclient_mock):
-        """A login that does not open the account of the entry changes nothing."""
-        aioclient_mock.post(E_SVITLO_LOGIN_URL, json={"data": {"login": True}})
-        aioclient_mock.post(
-            E_SVITLO_ACCOUNTS_URL, json={"data": {"lst_ls": [{"a": 202}]}}
-        )
-        entry, result = await self._start(hass)
-
-        result = await _configure(hass, result, E_SVITLO_NEW_LOGIN)
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "wrong_account"
-        assert entry.data == E_SVITLO_ACCOUNT_101
-
-
-SOE_KEY = "soeprovider_sumy"
-SOE_GROUPS = [f"{queue}.{half}" for queue in range(1, 7) for half in (1, 2)]
-SOE_ANSWER = {"data": [soe_group(g, [], "11.10.2026 18:48") for g in SOE_GROUPS]}
-
-
-class TestSoe:
-    """The SOE option needs no login: the user picks a sub-queue that the site lists."""
-
-    async def test_new_entry_with_the_sub_queue(self, hass, aioclient_mock):
-        """The group form lists the sub-queues of the site, and no login is needed."""
-        hass.config.language = "uk"
-        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
-
-        result = await _start_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
-        assert result["step_id"] == "group"
-        assert _select_options(result, CONF_GROUP) == SOE_GROUPS
-        assert result["description_placeholders"] == {"url": SOE_SITE_URL}
-
-        result = await _configure(hass, result, {CONF_GROUP: "4.1"})
-
-        assert result["type"] is FlowResultType.CREATE_ENTRY
-        assert result["data"] == SOE_SUMY_4_1
-        assert result["title"] == "Суми SOE 4.1"
-
-    @pytest.mark.parametrize(
-        "reply",
-        [{"exc": ClientError()}, {"json": {"data": []}}],
-        ids=["no_answer", "no_sub_queues"],
-    )
-    async def test_site_without_sub_queues_aborts(self, hass, aioclient_mock, reply):
-        """Without the sub-queues the flow stops, and names the page of the site."""
-        aioclient_mock.get(SOE_SCHEDULE_URL, **reply)
-
-        result = await _start_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "soe_unavailable"
-        assert result["description_placeholders"] == {"url": SOE_SITE_URL}
-
-    async def test_same_sub_queue_aborts(self, hass, aioclient_mock):
-        """A second entry for the same sub-queue aborts."""
-        _add_entry(hass, SOE_SUMY_4_1)
-        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
-
-        result = await _start_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
-        result = await _configure(hass, result, {CONF_GROUP: "4.1"})
-
-        assert result["type"] is FlowResultType.ABORT
-        assert result["reason"] == "already_configured"
-
-    async def test_same_group_as_an_e_svitlo_entry_creates_the_entry(
-        self, hass, aioclient_mock
-    ):
-        """An E-Svitlo entry of the same sub-queue is another provider."""
-        _add_entry(hass, {**E_SVITLO_ACCOUNT_101, CONF_GROUP: "4.1"})
-        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
-
-        result = await _start_flow(hass, aioclient_mock)
-        result = await _configure(hass, result, {CONF_PROVIDER: SOE_KEY})
-        result = await _configure(hass, result, {CONF_GROUP: "4.1"})
-
-        assert result["type"] is FlowResultType.CREATE_ENTRY
-
-    async def test_reconfigure_picks_another_sub_queue(self, hass, aioclient_mock):
-        """Reconfigure preselects the current sub-queue and saves the new one."""
-        entry = MockConfigEntry(domain=DOMAIN, data=SOE_SUMY_4_1, title="Sumy SOE 4.1")
-        entry.add_to_hass(hass)
-        aioclient_mock.get(SOE_SCHEDULE_URL, json=SOE_ANSWER)
-
-        result = await entry.start_reconfigure_flow(hass)
-        assert result["step_id"] == "group"
-        assert _default(result, CONF_GROUP) == "4.1"
-
-        result = await _configure(hass, result, {CONF_GROUP: "5.2"})
-
-        assert result["reason"] == "reconfigure_successful"
-        assert entry.data == {**SOE_SUMY_4_1, CONF_GROUP: "5.2"}
-        assert entry.title == "Sumy SOE 5.2"

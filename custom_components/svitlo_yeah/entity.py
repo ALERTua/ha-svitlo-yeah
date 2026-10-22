@@ -18,11 +18,21 @@ from .const import (
     UPDATE_INTERVAL,
 )
 from .coordinator.coordinator import IntegrationCoordinator
+from .models import YasnoAddress
 
 if TYPE_CHECKING:
     from homeassistant.components.calendar import CalendarEvent
+    from homeassistant.const import Platform
+    from homeassistant.helpers import entity_registry as er
 
 LOGGER = logging.getLogger(__name__)
+
+
+def registry_entity_id(
+    registry: er.EntityRegistry, platform: Platform, entry_id: str, key: str
+) -> str | None:
+    """Return the entity id of an entity of the entry, by the key of its description."""
+    return registry.async_get_entity_id(platform, DOMAIN, f"{entry_id}_{key}")
 
 
 class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
@@ -39,7 +49,19 @@ class IntegrationEntity(CoordinatorEntity[IntegrationCoordinator]):
     @property
     @override
     def device_info(self) -> DeviceInfo:
-        """Return device information about this entity."""
+        """
+        Return device information about this entity.
+
+        A device of an address has the address as its name, so its entity ids come
+        from the address: the group of an address can change, and the address stays.
+        """
+        if address := YasnoAddress.from_entry_data(self.coordinator.config_entry.data):
+            return DeviceInfo(
+                name=address.text,
+                identifiers={(DOMAIN, self.coordinator.config_entry.entry_id)},
+                manufacturer=DEVICE_MANUFACTURER,
+                entry_type=DeviceEntryType.SERVICE,
+            )
         provider_type = self.coordinator.config_entry.data[CONF_PROVIDER_TYPE]
         translation_key = PROVIDER_TO_DEVICE_NAME_MAP[provider_type]
 

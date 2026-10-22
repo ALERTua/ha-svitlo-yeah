@@ -3,11 +3,11 @@
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.util import dt as dt_utils
 
-from .const import CONF_ACCOUNT_ID, CONF_ADDRESS_STR
+from .const import ADDRESS_KEYS
 from .coordinator.coordinator import TIMEFRAME_TO_CHECK
+from .coordinator.yasno import YasnoCoordinator
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -17,8 +17,15 @@ if TYPE_CHECKING:
 
     from .coordinator.coordinator import SvitloYeahConfigEntry
 
-# The E-Svitlo login, the personal account and its address identify a person
-TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCOUNT_ID, CONF_ADDRESS_STR}
+TO_REDACT = {
+    # The address of a Yasno entry identifies a person
+    *ADDRESS_KEYS,
+    # The data of an entry of the removed E-Svitlo provider still holds a login
+    "username",
+    "password",
+    "account_id",
+    "address_str",
+}
 
 
 def _iso(value: dt.datetime | dt.date | None) -> str | None:
@@ -43,27 +50,37 @@ async def async_get_config_entry_diagnostics(
     Return the entry settings without personal data, and what the coordinator knows.
 
     The events are those of the next-outage sensors: the next TIMEFRAME_TO_CHECK.
+    An entry that never loaded, for example of a removed provider, has no
+    coordinator, so its diagnostics have the entry settings only.
     """
-    coordinator = entry.runtime_data
+    settings = {
+        "data": async_redact_data(dict(entry.data), TO_REDACT),
+        "options": async_redact_data(dict(entry.options), TO_REDACT),
+    }
+    coordinator = getattr(entry, "runtime_data", None)
+    if coordinator is None:
+        return {"entry": settings}
     now = dt_utils.now()
+    state: dict[str, Any] = {
+        "group": coordinator.group,
+        "group_listed": coordinator.group_listed,
+        "current_state": coordinator.current_state,
+        "last_update_success": coordinator.last_update_success,
+        "last_exception": (
+            repr(coordinator.last_exception) if coordinator.last_exception else None
+        ),
+        "last_fetch_failed": coordinator.last_fetch_failed,
+        "schedule_updated_on": _iso(coordinator.schedule_updated_on),
+        "outage_data_last_changed": _iso(coordinator.outage_data_last_changed),
+    }
+    # Only a Yasno entry with an address checks its group. The state has no address.
+    if isinstance(coordinator, YasnoCoordinator) and (
+        check := coordinator.address_check_diagnostics()
+    ):
+        state["address_check"] = check
     return {
-        "entry": {
-            "data": async_redact_data(dict(entry.data), TO_REDACT),
-            "options": async_redact_data(dict(entry.options), TO_REDACT),
-        },
-        "coordinator": {
-            "group": coordinator.group,
-            "group_listed": coordinator.group_listed,
-            "current_state": coordinator.current_state,
-            "last_update_success": coordinator.last_update_success,
-            "last_exception": (
-                repr(coordinator.last_exception) if coordinator.last_exception else None
-            ),
-            "last_fetch_failed": coordinator.last_fetch_failed,
-            "login_rejected": coordinator.login_rejected,
-            "schedule_updated_on": _iso(coordinator.schedule_updated_on),
-            "outage_data_last_changed": _iso(coordinator.outage_data_last_changed),
-        },
+        "entry": settings,
+        "coordinator": state,
         "events": [
             _event(e)
             for e in coordinator.get_events_between(now, now + TIMEFRAME_TO_CHECK)

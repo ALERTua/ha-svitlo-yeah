@@ -22,8 +22,6 @@ ignore = [
 # The rules that a test has no reason to follow
 "tests/**" = [
     "S101",    # pytest checks each result with assert, and nobody runs the tests with python -O
-    "S105",    # the tests use made-up passwords
-    "S106",    # the tests use made-up passwords
     "SLF001",  # a test reads the private state to check what the code keeps
     "PLR2004", # the expected value in an assert is the test itself
     "ANN001",  # ty checks only custom_components ([tool.ty.src] in pyproject.toml), so no tool reads these annotations

@@ -10,7 +10,7 @@ custom integration (HACS) that tracks electricity-outage schedules from Ukrainia
 energy providers. It exposes outage calendars, an `Electricity` status sensor,
 "next outage / next connectivity" timestamp sensors, a force-refresh button, and
 a `svitlo_yeah_data_changed` event. It supports many regions/providers (DTEK,
-Yasno, E-Svitlo, and community JSON feeds) with per-group configuration, all set
+Yasno, and community JSON feeds) with per-group configuration, all set
 up through the Home Assistant UI. See `README.md` for the full region list and
 entity reference.
 
@@ -21,7 +21,7 @@ require a running Home Assistant instance (`hass`).
 
 - `custom_components/svitlo_yeah/` — the integration package (domain: `svitlo_yeah`).
   - `api/` — provider clients that fetch and parse raw outage data
-    (`yasno.py`, `e_svitlo.py`, `soe.py`, `dtek/`), plus `common_tools.py`.
+    (`yasno.py`, `dtek/`), plus `common_tools.py`.
   - `coordinator/` — `DataUpdateCoordinator` subclasses per provider that own
     fetch/refresh scheduling and expose events to the entities.
   - `entity.py`, `sensor.py`, `calendar.py`, `button.py` — HA entity platforms.
@@ -29,6 +29,7 @@ require a running Home Assistant instance (`hass`).
   - `models/`, `const.py`, `manifest.json`, `translations/`, `icons.json`.
   - `quality_scale.yaml` — the status of each rule of the [integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/), in the format of Home Assistant core. hassfest skips this file for a custom integration, so no tool checks it. When a change makes a rule done, or breaks a done rule, change its status in the same commit.
   - `brand/` — the icon and the logo that Home Assistant and HACS show. They are copies of `icons/*.png`, which the README uses. If you change an image, change both copies: `tests/test_icons.py` makes sure that they are equal.
+- `blueprints/automation/svitlo_yeah/yasno_group_changed.yaml`: the blueprint that pushes the `svitlo_yeah_group_changed` event to a phone. The README has its import button, and `tests/test_blueprint.py` checks it.
 - `tests/` — pytest suite (`pytest-asyncio`, `freezegun`, `pytest-homeassistant-custom-component`).
   - `tests/e2e/` — e2e tests with real network access (see "Testing").
 - `conftest.py` — loads the Home Assistant test plugin, also on Windows (see "Testing").
@@ -102,7 +103,7 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
   (usually via `homeassistant.util.dt`), and treat provider-local times as
   Europe/Kyiv. `DTZ*` ruff rules enforce this.
 - **`# fmt: skip  # remove in 2027` on multi-line `except (...)` tuples**: these
-  exist in `api/common_tools.py` and `api/e_svitlo.py` to stop the formatter from
+  exist in `api/common_tools.py` and `api/dtek/base.py` to stop the formatter from
   reflowing the exception tuple onto one line. Keep the comment intact when you
   touch those lines; the marker signals it can be revisited in 2027.
 
@@ -124,7 +125,9 @@ Keep `--headless` for the checks. A browser with a window draws no frames while 
 
 ### Providers & data sources
 
-Outage data comes from several providers, each with its own `api/` client and `coordinator/`: Yasno, E-Svitlo, SOE (the public schedule of the site of Sumyoblenergo), and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the session helpers of Home Assistant, and there is no bespoke HTTP stack. The DTEK, Yasno and SOE clients use the shared session of `async_get_clientsession(hass)`. Each E-Svitlo client creates its own session with `async_create_clientsession(hass)`, because the server knows the login from the cookies, and the shared session keeps the cookies of all integrations (rule `inject-websession`). See `README.md` for the authoritative region → provider → source table.
+Outage data comes from two providers, each with its own `api/` client and `coordinator/`: Yasno and DTEK. DTEK and several oblasts are served by **JSON feeds** (community GitHub raw files) via `api/dtek/json.py`. All HTTP uses `aiohttp` through the shared session of `async_get_clientsession(hass)` (rule `inject-websession`), and there is no bespoke HTTP stack. See `README.md` for the authoritative region → provider → source table.
+
+Release 0.11.0 removed E-Svitlo and SOE, the two sources of Sumy and Oblast. `REMOVED_PROVIDERS` in `const.py` maps each removed provider type to the name that the texts show. An entry of such a type does not load: `async_setup_entry` creates the repair issue `provider_removed` for the entry and raises a translated `ConfigEntryError`. The issue asks the user to delete the entry, and `async_remove_entry` deletes the issue. The integration never deletes an entry itself. Reconfigure of such an entry aborts with `provider_removed`.
 
 ### Old states until new data
 
@@ -132,9 +135,35 @@ The entities must not become unavailable without need. Until a coordinator gets 
 
 After each fetch, each coordinator calls `_set_last_fetch_failed`, which keeps `last_fetch_failed`. An outdated DTEK schedule is an answer, not a failure. The method writes one `info` line when the source stops answering, and one when it answers again (Silver rule `log-when-unavailable`). Thus the API clients log a failed request only at the debug level. The refresh button reads this flag and then raises a translated `HomeAssistantError`, so that the user sees the failure (Silver rule `action-exceptions`). The button never sets `last_update_success` to `False`, because that makes each entity of the entry unavailable.
 
-When E-Svitlo refuses the login, the coordinator calls `config_entry.async_start_reauth` and logs one warning. It never raises `ConfigEntryAuthFailed`, because that makes each entity unavailable and stops the polls. The polls go on with the old login, so that a refusal for a while, for example during maintenance, heals without the user. When the login works again, the coordinator aborts the open reauthentication flow of its entry. The refresh button raises the `login_rejected` error when the server refused the login of that press, and `refresh_failed` when the server did not answer, also while an earlier refusal waits for the new login.
+The old states also stay across a restart. `IntegrationCoordinator` keeps the last data of the source in a `Store` with the key `svitlo_yeah.<entry_id>`. `_async_setup` loads it before the first fetch, `_async_store_last_data` saves it when it changed, and `async_remove_entry` in `__init__.py` deletes it. Each provider coordinator implements `_source_data` and `_restore_source_data`. DTEK keeps `fact` and `preset`, and Yasno keeps the planned outages and the region of the entry. A Yasno entry with an address also keeps the state of the check of its address (see «Yasno address»). A kept Yasno region only names the device: the client still asks the source for the regions, so that a change at the source comes through. The kept answer about the group (`group_listed`) counts only when the kept group is the configured group, because a Reconfigure changes the group.
 
-The old states also stay across a restart. `IntegrationCoordinator` keeps the last data of the source in a `Store` with the key `svitlo_yeah.<entry_id>`. `_async_setup` loads it before the first fetch, `_async_store_last_data` saves it when it changed, and `async_remove_entry` in `__init__.py` deletes it. Each provider coordinator implements `_source_data` and `_restore_source_data`. DTEK keeps `fact` and `preset`, Yasno keeps the planned outages and the region of the entry, E-Svitlo keeps the raw answer of the disconnections request, its update time and the group, and SOE keeps the raw answer with the day in Kyiv of its fetch. The SOE answer has no date, so an answer of an earlier day gives no outages today, also after a restart. A kept Yasno region and a kept E-Svitlo group only name the device: the clients still ask the source for them, so that a change at the source comes through. The kept answer about the group (`group_listed`) counts only when the kept group is the configured group, because a Reconfigure changes the group.
+### Yasno address
+
+A Yasno entry has an address when its data has `street` and `house`, and `city` in a region with cities. `YasnoAddress.from_entry_data` reads them, and `YasnoAddress.text` is the name of the entry and of its device. An address entry and a group entry are two kinds of entry. Thus `_async_abort_if_repeated` compares addresses with addresses and groups with groups. The keys `city`, `street` and `house` are optional, so they need no new `VERSION` (see the comment above `VERSION` in `config_flow.py`).
+
+The entry keeps the names of the address as Yasno writes them, and the group. It never keeps the ids of Yasno, because Yasno changes its ids every few days. `YasnoApi.resolve_address` searches the city, the street and the house by their names, level by level, and then asks for the group of the house. `_one_match` takes the one item that has the name. The search has three results (`AddressResult`):
+
+- `FOUND`: Yasno gives a group.
+- `NOT_FOUND`: a 404 whose body is a JSON object with `"code": "EntryNotFound"`, or a list of fewer than 20 items (`YASNO_ADDRESS_MATCHES_CAP`) without an exact match.
+- `UNKNOWN`: no connection, a 5xx, another 404, an answer of another shape, or two exact matches. Another 404 can come from an endpoint that Yasno moved, so it says nothing about the address. A list of 20 items without an exact match is `UNKNOWN` too, because the cap cut the list and the name can be missing. When the direct query of the stored house is cut at 20 without the house, the result stays `UNKNOWN`, because each other query that can find the house gives a longer list.
+
+`YasnoCoordinator._async_after_update` runs the check once a week (`ADDRESS_CHECK_INTERVAL`), after the fetch of the schedule. When that fetch failed (`last_fetch_failed`), a due check waits for the next poll, because Yasno does not answer. A forced check runs anyway. The check never runs in the first refresh, where the entry state is `SETUP_IN_PROGRESS`. The update listener that reloads the entry with a new group comes only after the first refresh. Also the first refresh holds up the start of Home Assistant. An entry without a state starts the clock and runs no check, so a restart and a new address start no check at once. `AddressCheck` is the state: the address, `next_check`, `pending_group` and `not_found_count`. It lives under the key `address_check` in the `source` data of the store of the entry. A kept state of another address counts as no state, because a Reconfigure can change the address.
+
+What a result does:
+
+- `FOUND` with the group of the entry: the next check is in a week, and the repair issue goes away.
+- `FOUND` with another group that the planned outages list: the first check sets `pending_group`, sets `not_found_count` to 0 and plans the next check in one hour (`ADDRESS_RETRY_INTERVAL`). The entry switches when a check finds the same group again, or at once when the check is forced by the button.
+- `NOT_FOUND`: the result sets `pending_group` to None, because two checks with no `NOT_FOUND` between them must find a new group. The first result plans a retry in one hour. After `NOT_FOUND_IN_A_ROW` (2) results with no `FOUND` result between them, the coordinator writes one warning and creates the repair issue `address_not_found`. The group stays, and the next check is in a week.
+- `UNKNOWN`, or `FOUND` with a group that the planned outages lack: the next try is in one hour. Only these results keep `not_found_count` and `pending_group` as they are. Thus an `UNKNOWN` between two `NOT_FOUND` results does not reset the count.
+- An exception of the Yasno requests of a check (`resolve_address`) becomes `UNKNOWN`. The code after the answer catches no exception. A check never fails the poll, makes no entity unavailable and changes no schedule.
+
+A check waits for Yasno, so the entry can change meanwhile. `_async_check_address` drops its answer in three cases. The coordinator shut down, the entry has another address, or `_address_check` is not the state that the check started with. The last case is a Reconfigure that found the address meanwhile. That Reconfigure wins through `async_address_found`, which starts the clock again, deletes the repair issue and saves the store. `_async_create_address_issue` waits for the texts and then reads the state again. The issue shows only while the state counts `NOT_FOUND_IN_A_ROW` results.
+
+`_async_switch_group` saves the store first, with the clock restarted, because the coordinator of the reloaded entry reads the store. Then it updates the entry, and the update listener reloads it. Then `_notify_group_changed` fires the event `svitlo_yeah_group_changed` (`config_entry_id`, `old_group`, `new_group`) and creates the notification `svitlo_yeah_group_changed_<entry_id>`. No await comes between the check of the entry and `async_update_entry`. `async_remove_entry` dismisses the notification, and an unload keeps it, because the new group itself reloads the entry.
+
+The address never goes into a log line of the integration, the diagnostics or the event. The title of an address entry is the address, and the repr of an entry holds its title. Thus a log line names `entry.entry_id`, never the entry, and an error gives its type only. Home Assistant core still logs the title of an entry when its setup or its unload fails (`config_entries.py`), and the integration cannot change that. The diagnostics redact `city`, `street` and `house`, and the state of the check in them has no address.
+
+The button `check_group` exists only on an address entry: `async_check_address_now` forces one check inside a poll, and the button platform removes the button when the entry has no address. The sensor `group` exists on each Yasno entry. Home Assistant reads `entity_registry_enabled_default` only when the registry adds the entity the first time. Thus `_enable_group_sensor` enables a sensor that the integration disabled, when a Reconfigure gives the entry an address. Home Assistant then reloads the entry once more, 30 seconds later. A sensor that the user disabled stays disabled. When the system option «Enable newly added entities» of the entry is off (`pref_disable_new_entities`), `_enable_group_sensor` does nothing.
 
 ### DTEK JSON freshness
 

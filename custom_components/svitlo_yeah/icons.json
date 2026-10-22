@@ -3,6 +3,9 @@
     "button": {
       "refresh": {
         "default": "mdi:refresh"
+      },
+      "check_group": {
+        "default": "mdi:map-marker-radius"
       }
     },
     "sensor": {
@@ -27,6 +30,9 @@
       },
       "next_connectivity": {
         "default": "mdi:calendar-check"
+      },
+      "group": {
+        "default": "mdi:format-list-numbered"
       }
     }
   }

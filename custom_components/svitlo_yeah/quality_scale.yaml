@@ -24,7 +24,8 @@ rules:
     status: exempt
     comment: |
       The integration has no triggers. The README describes the
-      svitlo_yeah_data_changed event, which an event trigger can use.
+      svitlo_yeah_data_changed and svitlo_yeah_group_changed events, which an event
+      trigger can use.
   entity-event-setup: done
   entity-unique-id: done
   has-entity-name: done
@@ -54,7 +55,9 @@ rules:
   integration-owner: done
   log-when-unavailable: done
   parallel-updates: done
-  reauthentication-flow: done
+  reauthentication-flow:
+    status: exempt
+    comment: The integration has no authentication.
   test-coverage: done
 
   # Gold
@@ -79,8 +82,11 @@ rules:
   entity-category: done
   entity-device-class: done
   entity-disabled-by-default:
-    status: exempt
-    comment: Each entity is a part of the main use of the integration.
+    status: done
+    comment: |
+      The Group sensor of a Yasno entry with a group only is disabled by default,
+      because only an address can give the entry a new group. Each other entity is
+      a part of the main use of the integration.
   entity-translations: done
   exception-translations: done
   icon-translations: done

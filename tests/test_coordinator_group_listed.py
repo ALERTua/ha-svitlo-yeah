@@ -357,7 +357,8 @@ class TestGroupNotListedIssue:
 
         assert await async_unload_entry(hass, _entry({}))
 
-        delete_issue.assert_called_once_with(hass, DOMAIN, ISSUE_ID)
+        # The issue about an address that Yasno does not find goes too
+        delete_issue.assert_any_call(hass, DOMAIN, ISSUE_ID)
 
     async def test_failed_unload_keeps_the_issue(self, delete_issue):
         """An entry that fails to unload keeps its issue."""

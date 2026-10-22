@@ -23,6 +23,7 @@ from custom_components.svitlo_yeah.const import (
     DOMAIN,
     EVENT_DATA_CHANGED,
     ISSUE_GROUP_NOT_LISTED,
+    ISSUE_PROVIDER_REMOVED,
     NAME,
     TRANSLATION_KEY_EVENT_SCHEDULED_OUTAGE,
     TZ_UA,
@@ -53,6 +54,21 @@ def group_not_listed_issue_id(entry_id: str) -> str:
     return f"{ISSUE_GROUP_NOT_LISTED}_{entry_id}"
 
 
+def provider_removed_issue_id(entry_id: str) -> str:
+    """Return the id of the repair issue about an entry of a removed provider."""
+    return f"{ISSUE_PROVIDER_REMOVED}_{entry_id}"
+
+
+async def async_integration_title(hass: HomeAssistant) -> str:
+    """
+    Return the integration name that the list of integrations shows.
+
+    A repair issue names it, because the way to an entry goes through that list.
+    """
+    titles = await async_get_translations(hass, hass.config.language, "title", [DOMAIN])
+    return titles.get(f"component.{DOMAIN}.title", NAME)
+
+
 def _ends_after(event: PlannedOutageEvent, now: dt.datetime) -> bool:
     """Return whether the event ends after now (an all-day one at its end date)."""
     if isinstance(event.end, dt.datetime):
@@ -70,7 +86,7 @@ def store_key(entry_id: str) -> str:
 type SvitloYeahConfigEntry = ConfigEntry[IntegrationCoordinator]
 
 
-class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
+class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int](
     DataUpdateCoordinator[None]
 ):
     """
@@ -84,7 +100,7 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
 
     config_entry: SvitloYeahConfigEntry
     api: ApiT
-    # The DTEK source key, the Yasno dso id or the SOE provider id; E-Svitlo has none
+    # The DTEK source key or the Yasno dso id
     provider_id: ProviderIdT
 
     def __init__(
@@ -106,8 +122,6 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
         self.group_listed: bool | None = None
         # Whether the last fetch got no answer, for the refresh button and the log
         self.last_fetch_failed = False
-        # Whether the server refused the login; only E-Svitlo has a login
-        self.login_rejected = False
         self._store: Store[dict] | None = None
         self._stored: dict | None = None
 
@@ -180,6 +194,15 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
             self.api.get_events(now, now + CHANGE_CHECK_WINDOW), now
         )
         await self._async_store_last_data()
+        await self._async_after_update()
+
+    async def _async_after_update(self) -> None:
+        """
+        Do more work at the end of a poll. Nothing by default.
+
+        An unload or a removal can come while the last data saves, so a hook that
+        writes checks _shutdown_requested first.
+        """
 
     async def _async_fetch(self) -> Any:
         """Ask the source, and return its answer for _async_use_answer."""
@@ -197,11 +220,11 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
         """Give the kept data of the source back to the API client."""
         raise NotImplementedError
 
-    async def _async_store_last_data(self) -> None:
-        """Keep the last data of the source, when it changed after the last save."""
-        if self._store is None or (source := self._source_data()) is None:
-            return
-        data = {
+    def _last_data(self) -> dict | None:
+        """Return the data to keep across a restart, or None without data to keep."""
+        if (source := self._source_data()) is None:
+            return None
+        return {
             "source": source,
             "group": self.group,
             "group_listed": self.group_listed,
@@ -211,7 +234,18 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
                 else None
             ),
         }
-        if data != self._stored:
+
+    async def _async_store_last_data(self, data: dict | None = None) -> None:
+        """
+        Keep the data, when it changed after the last save.
+
+        Without data, the coordinator keeps its last data, as _last_data gives it.
+        """
+        if self._store is None:
+            return
+        if data is None:
+            data = self._last_data()
+        if data is not None and data != self._stored:
             await self._store.async_save(data)
             self._stored = data
 
@@ -224,19 +258,17 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
         """
         if failed == self.last_fetch_failed:
             return
-        # An E-Svitlo entry has no provider_id, and its address is personal data
-        source = self.provider_id or getattr(self.provider, "region_name", None)
         if failed:
             LOGGER.info(
                 "The source of provider %s does not answer for group %s, "
                 "so the entities keep the last schedule",
-                source,
+                self.provider_id,
                 self.group,
             )
         else:
             LOGGER.info(
                 "The source of provider %s answers again for group %s",
-                source,
+                self.provider_id,
                 self.group,
             )
         self.last_fetch_failed = failed
@@ -274,7 +306,7 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
                         filter(None, (self.region_name, self.provider_name))
                     ),
                     # The way to Reconfigure goes through the list of integrations
-                    "integration": await self._async_integration_title(),
+                    "integration": await async_integration_title(self.hass),
                 },
             )
         elif self.group_listed is False:
@@ -283,16 +315,6 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
             )
             ir.async_delete_issue(self.hass, DOMAIN, issue_id)
         self.group_listed = listed
-
-    async def _async_integration_title(self) -> str:
-        """Return the integration name that the list of integrations shows."""
-        titles = await async_get_translations(
-            self.hass,
-            self.hass.config.language,
-            "title",
-            [DOMAIN],
-        )
-        return titles.get(f"component.{DOMAIN}.title", NAME)
 
     async def async_fetch_translations(self) -> None:
         """Fetch translations."""
@@ -449,11 +471,11 @@ class IntegrationCoordinator[ApiT: OutageApi, ProviderIdT: str | int | None](
 
     def get_scheduled_events_between(
         self,
-        start_date: dt.datetime,  # noqa: ARG002  # a provider with a schedule reads it
-        end_date: dt.datetime,  # noqa: ARG002  # a provider with a schedule reads it
+        start_date: dt.datetime,
+        end_date: dt.datetime,
     ) -> list[CalendarEvent]:
-        """Get scheduled outage events: none for a provider without such a schedule."""
-        return []
+        """Get the scheduled outage events that overlap the range."""
+        raise NotImplementedError
 
     def _get_calendar_event(
         self, event: PlannedOutageEvent | None
