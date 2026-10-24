@@ -31,7 +31,8 @@ def update_version(
 
     data["version"] = version
 
-    with manifest_path.open("w", encoding="utf-8") as f:
+    # The repository keeps LF, and Windows writes CRLF by default
+    with manifest_path.open("w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
         f.write("\n")
 
