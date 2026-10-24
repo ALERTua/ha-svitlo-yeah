@@ -115,49 +115,52 @@ TRANSLATION_KEY_GROUP_CHANGED_MESSAGE: Final = common_translation_key(
     "group_changed_message"
 )
 
+# The files come from raw.githubusercontent.com directly. A github.com/.../raw/ link
+# redirects there with a Content-Security-Policy header longer than 8190 bytes, and
+# aiohttp refuses such a header (issue #71).
 DTEK_PROVIDER_URLS: dict[str, list[str]] = {
     "kyiv_region": [
-        "https://github.com/Baskerville42/outage-data-ua/raw/main/data/kyiv-region.json",
+        "https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/kyiv-region.json",
     ],
     "dnipro": [
-        "https://github.com/Baskerville42/outage-data-ua/raw/main/data/dnipro.json",
+        "https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/dnipro.json",
     ],
     "odesa": [
-        "https://github.com/Baskerville42/outage-data-ua/raw/main/data/odesa.json",
+        "https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/odesa.json",
     ],
     "khmelnytskyi": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Khmelnytskoblenerho.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Khmelnytskoblenerho.json",
     ],
     "ivano_frankivsk": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Prykarpattiaoblenerho.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Prykarpattiaoblenerho.json",
     ],
     "uzhhorod": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zakarpattiaoblenerho.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Zakarpattiaoblenerho.json",
     ],
     "lviv": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Lvivoblenerho.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Lvivoblenerho.json",
     ],
     "ternopil": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Ternopiloblenerho.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Ternopiloblenerho.json",
     ],
     "chernihiv": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Chernihivoblenergo.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Chernihivoblenergo.json",
     ],
     "zaporizhzhia": [
-        "https://github.com/milkmann/gpv-zoe-zaporizhzhia/raw/main/data/Zaporizhzhiaoblenergo.json",
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zaporizhzhiaoblenergo.json",
+        "https://raw.githubusercontent.com/milkmann/gpv-zoe-zaporizhzhia/main/data/Zaporizhzhiaoblenergo.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Zaporizhzhiaoblenergo.json",
     ],
     "vinnytsia": [
-        "https://github.com/olnet93/gpv-voe-vinnytsia/raw/main/data/Vinnytsiaoblenerho.json",
-        "https://github.com/vn-progr/gpv-voe-vinnytsia/raw/main/data/Vinnytsiaoblenerho.json",
+        "https://raw.githubusercontent.com/olnet93/gpv-voe-vinnytsia/main/data/Vinnytsiaoblenerho.json",
+        "https://raw.githubusercontent.com/vn-progr/gpv-voe-vinnytsia/main/data/Vinnytsiaoblenerho.json",
     ],
     "zhytomyr": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Zhytomyroblenergo.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Zhytomyroblenergo.json",
     ],
     "poltava": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Poltavaoblenergo.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Poltavaoblenergo.json",
     ],
     "rivne": [
-        "https://github.com/yaroslav2901/OE_OUTAGE_DATA/raw/main/data/Rivneoblenergo.json",
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Rivneoblenergo.json",
     ],
 }

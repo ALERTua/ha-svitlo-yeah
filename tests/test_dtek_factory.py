@@ -1,6 +1,7 @@
 """Tests for DTEK API factory function and region selection."""
 
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlsplit
 
 from custom_components.svitlo_yeah.api.dtek.json import DtekAPIJson
 from custom_components.svitlo_yeah.const import DTEK_PROVIDER_URLS
@@ -34,3 +35,15 @@ class TestCreateDtekApi:
             api = _make_api(DTEK_PROVIDER_URLS[provider_key], TEST_GROUP)
             assert isinstance(api, DtekAPIJson)
             assert api.urls == DTEK_PROVIDER_URLS[provider_key]
+
+
+def test_no_url_redirects_through_github_com():
+    """
+    Each URL names the raw host, not the github.com redirect to it.
+
+    The redirect has a header that is too long for aiohttp (issue #71).
+    """
+    hosts = {
+        urlsplit(url).hostname for urls in DTEK_PROVIDER_URLS.values() for url in urls
+    }
+    assert "github.com" not in hosts
