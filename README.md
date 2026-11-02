@@ -126,6 +126,8 @@ When a check finds a new group, the integration waits. A second check at least o
 - It creates the notification «New Yasno group», for example «The Yasno group of «вул. Хрещатик, 36» changed from 19.1 to 20.1. The entry now shows the schedule of the new group.» A Ukrainian Home Assistant shows the text in Ukrainian.
 - It fires the `svitlo_yeah_group_changed` event (see [Events](#events)).
 
+![New Yasno group notification](/media/group_changed.png)
+
 A later change replaces the notification of the entry. When you delete the entry, the notification goes away. The **Update group** button skips the wait of one hour: it checks the group at once, and it switches to a new group at once. If the Yasno schedule does not list the new group yet, the press fails with a message that names the group, and the entry keeps its group.
 
 If Yasno does not find the address in two checks, with no **Found** result between them, the group stays. The log gets one warning, and **Settings** → **Repairs** shows «Yasno does not find the address of …». See [Troubleshooting](#troubleshooting). A **Not found** or **Unknown** result makes no entity unavailable, and it changes no schedule.
