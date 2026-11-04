@@ -321,7 +321,7 @@ def test_each_ukrainian_abbreviation_spells_the_english_one():
         for key, parts in _option_parts("uk").items()
         if key.startswith(REGION_OPTIONS) and len(parts) == 3
     }
-    assert len(ukrainian) == 11  # the options of the oblenergos
+    assert len(ukrainian) == 12  # the options of the oblenergos
 
     assert {
         key: "".join(LATIN[letter] for letter in abbreviation)
