@@ -135,6 +135,7 @@
         "dtekjsonprovider_zhytomyr": "DTEK — Zhytomyr and Oblast — ZhOE",
         "dtekjsonprovider_poltava": "DTEK — Poltava and Oblast — POE",
         "dtekjsonprovider_rivne": "DTEK — Rivne and Oblast — ROE",
+        "dtekjsonprovider_kharkiv": "DTEK — Kharkiv and Oblast — KhOE",
         "yasnoprovider_25_902": "Yasno — Kyiv — DTEK",
         "yasnoprovider_3_301": "Yasno — Dnipro — DnEM",
         "yasnoprovider_3_303": "Yasno — Dnipro — CEK"
@@ -267,6 +268,7 @@
     "vinnytsia": "Vinnytsia",
     "zhytomyr": "Zhytomyr",
     "poltava": "Poltava",
-    "rivne": "Rivne"
+    "rivne": "Rivne",
+    "kharkiv": "Kharkiv"
   }
 }
