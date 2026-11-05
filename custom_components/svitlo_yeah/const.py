@@ -163,4 +163,7 @@ DTEK_PROVIDER_URLS: dict[str, list[str]] = {
     "rivne": [
         "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Rivneoblenergo.json",
     ],
+    "kharkiv": [
+        "https://raw.githubusercontent.com/yaroslav2901/OE_OUTAGE_DATA/main/data/Kharkivoblenerho.json",
+    ],
 }
