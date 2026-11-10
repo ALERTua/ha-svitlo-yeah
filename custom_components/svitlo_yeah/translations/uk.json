@@ -136,6 +136,7 @@
         "dtekjsonprovider_poltava": "ДТЕК — Полтава та Область — ПОЕ",
         "dtekjsonprovider_rivne": "ДТЕК — Рівне та Область — РОЕ",
         "dtekjsonprovider_kharkiv": "ДТЕК — Харків та Область — ХОЕ",
+        "dtekjsonprovider_cherkasy": "ДТЕК — Черкаси та Область — ЧОЕ",
         "yasnoprovider_25_902": "Yasno — Київ — ДТЕК",
         "yasnoprovider_3_301": "Yasno — Дніпро — ДнЕМ",
         "yasnoprovider_3_303": "Yasno — Дніпро — ЦЕК"
@@ -269,6 +270,7 @@
     "zhytomyr": "Житомир",
     "poltava": "Полтава",
     "rivne": "Рівне",
-    "kharkiv": "Харків"
+    "kharkiv": "Харків",
+    "cherkasy": "Черкаси"
   }
 }
